@@ -303,6 +303,17 @@ final class AppEnvironment {
         menuBarStore.start()
     }
 
+    /// Notification "Aç": the library shows the task's own list with the task selected and the inspector
+    /// open. `LibraryStore` drops a selection that is not visible under the current sidebar filter or
+    /// search, so both are pointed at the task first.
+    func revealTask(_ taskID: UUID) async {
+        guard let task = try? await services.tasks.task(id: taskID) else { return }
+        if !libraryStore.searchText.isEmpty { libraryStore.searchText = "" }
+        libraryStore.selection = task.projectID.map { .project($0) } ?? .inbox
+        libraryStore.selectedTaskIDs = [taskID]
+        libraryStore.isInspectorPresented = true
+    }
+
     /// Spec/research 01 §8: never cache the login item state, read it every time Settings opens.
     func refreshLoginItemStatus() {
         status.loginItemStatusText = LoginItemManager.statusText

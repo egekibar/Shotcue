@@ -93,13 +93,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         await notifier.requestAuthorization()
     }
 
-    // MARK: - UNUserNotificationCenterDelegate (actions wired in Task 6)
+    // MARK: - UNUserNotificationCenterDelegate
 
+    /// RUN_DONE: Aç / Terminalde devam et; RUN_FAILED: Aç / Yeniden çalıştır (spec §6.7). The identifiers
+    /// are Plan 04's constants, never copied string literals.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        AppLog.app.notice("notification action \(response.actionIdentifier, privacy: .public) (not wired yet)")
+        let environment = AppBootstrap.environment
+        let userInfo = response.notification.request.content.userInfo
+        let taskID = Self.uuid(userInfo[UserNotificationNotifier.taskIDKey])
+        let runID = Self.uuid(userInfo[UserNotificationNotifier.runIDKey])
+        AppLog.app.notice("notification action \(response.actionIdentifier, privacy: .public)")
+
+        switch response.actionIdentifier {
+        case UserNotificationNotifier.openAction, UNNotificationDefaultActionIdentifier:
+            environment.windowOpener.openLibrary()
+            if let taskID {
+                await environment.revealTask(taskID)
+            }
+
+        case UserNotificationNotifier.terminalAction:
+            // `Run.id` doubles as the Claude session id (Plan 00 Task 1), so the session to resume is
+            // either the run the notification came from or the task's newest run.
+            guard let sessionID = await Self.sessionID(runID: runID, taskID: taskID, environment: environment)
+            else {
+                environment.status.lastError = "Devam edilecek oturum bulunamadı."
+                return
+            }
+            do {
+                try environment.services.handoff.openInTerminal(sessionID: sessionID)
+            } catch {
+                environment.status.lastError = "Terminal açılamadı: \(error.localizedDescription)"
+            }
+
+        case UserNotificationNotifier.retryAction:
+            // A capture failure is also posted as RUN_FAILED but carries no task: nothing to rerun.
+            guard let taskID else { return }
+            do {
+                try await environment.services.dispatcher.enqueue(taskID: taskID)
+            } catch {
+                environment.status.lastError = "Yeniden çalıştırılamadı: \(error.localizedDescription)"
+            }
+
+        default:
+            break
+        }
+    }
+
+    private static func uuid(_ value: Any?) -> UUID? {
+        guard let string = value as? String else { return nil }
+        return UUID(uuidString: string)
+    }
+
+    private static func sessionID(
+        runID: UUID?, taskID: UUID?, environment: AppEnvironment
+    ) async -> String? {
+        if let runID { return runID.uuidString }
+        guard let taskID else { return nil }
+        let runs = (try? await environment.services.runs.runs(taskID: taskID)) ?? []
+        return runs.max(by: { $0.startedAt < $1.startedAt })?.id.uuidString
     }
 
     /// Banners while Shotcue is frontmost, too — a finished run is the whole point of the app.
