@@ -34,8 +34,6 @@ public final class LibraryStore {
     public var viewMode: ViewMode = .grid
     public var isInspectorPresented = true
     public var isSchedulePresented = false
-    /// "Proje ekle…" sheet'i için; `LibraryView` bağlar, Plan 06 dokunmaz.
-    public var isProjectCreatorPresented = false
     public var scheduleDate: Date
     public var lastError: String?
 
@@ -438,6 +436,87 @@ public final class LibraryStore {
             if storedSelection == .project(id) { selection = .inbox }
         } catch {
             report(error)
+        }
+    }
+
+    // MARK: - Project editor (Task 14)
+
+    /// Non-nil while the create/edit sheet is visible (`LibraryView` binds it with `.sheet(item:)`).
+    public var projectDraft: ProjectDraft?
+    public var isProjectFolderPickerPresented = false
+    /// The daily-queue arming rule is calendar-dependent; tests inject a fixed one.
+    public var calendar: Calendar = .current
+
+    /// "Proje ekle…" sets this; true opens a fresh create draft, false closes it.
+    public var isProjectCreatorPresented: Bool {
+        get { projectDraft?.isNew == true }
+        set {
+            if newValue {
+                beginCreateProject()
+            } else if projectDraft?.isNew == true {
+                cancelProjectEditor()
+            }
+        }
+    }
+
+    public func beginCreateProject() {
+        projectDraft = .new()
+    }
+
+    public func beginEditProject(id: UUID) async {
+        do {
+            guard let project = try await services.projects.project(id: id) else { return }
+            projectDraft = ProjectDraft(project: project)
+        } catch {
+            report(error)
+        }
+    }
+
+    public func cancelProjectEditor() {
+        projectDraft = nil
+        isProjectFolderPickerPresented = false
+    }
+
+    /// Folder chosen in the editor's picker; fills an empty name with the folder's name.
+    public func projectFolderPicked(_ url: URL) {
+        guard var draft = projectDraft else { return }
+        draft.path = url.path
+        if draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            draft.name = url.lastPathComponent
+        }
+        projectDraft = draft
+    }
+
+    /// Validates and saves the draft. Returns true and closes the editor on success.
+    @discardableResult
+    public func saveProjectDraft() async -> Bool {
+        guard let draft = projectDraft else { return false }
+        if let message = draft.validationMessage() {
+            lastError = message
+            return false
+        }
+        let now = services.clock.now
+        do {
+            if draft.isNew {
+                let existing = try await services.projects.allProjects()
+                let base = Project(
+                    id: draft.id, name: "", path: "",
+                    sortIndex: SortIndex.between(existing.last?.sortIndex, nil),
+                    createdAt: now)
+                try await services.projects.save(draft.apply(to: base, now: now, calendar: calendar))
+                selection = .project(draft.id)
+            } else {
+                guard let base = try await services.projects.project(id: draft.id) else {
+                    lastError = "Proje bulunamadı."
+                    return false
+                }
+                try await services.projects.save(draft.apply(to: base, now: now, calendar: calendar))
+            }
+            projectDraft = nil
+            return true
+        } catch {
+            report(error)
+            return false
         }
     }
 

@@ -287,3 +287,15 @@ struct OnboardingViewTests {
         bundle.cleanUp()
     }
 }
+
+@Suite("ProjectEditorView")
+struct ProjectEditorViewTests {
+    @MainActor
+    @Test func editorHoldsTheLibraryStore() {
+        let f = makeFakeServices()
+        let store = LibraryStore(services: f.services)
+        store.beginCreateProject()
+        let view = ProjectEditorView(store: store)
+        #expect(view.store === store)
+    }
+}

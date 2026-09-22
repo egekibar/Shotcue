@@ -49,6 +49,9 @@ public struct LibraryView: View {
         } message: {
             Text(store.lastError ?? "")
         }
+        .sheet(item: $bindable.projectDraft) { _ in
+            ProjectEditorView(store: store)
+        }
     }
 
     // MARK: - Sidebar
@@ -101,10 +104,12 @@ public struct LibraryView: View {
     }
 
     private func projectRow(_ project: Project) -> some View {
-        Label(project.name, systemImage: project.dailyEnabled ? "folder.badge.gearshape" : "folder")
+        let folderMissing = !ProjectDraft.folderExists(project.path)
+        return Label(project.name, systemImage: project.dailyEnabled ? "folder.badge.gearshape" : "folder")
+            .foregroundStyle(folderMissing ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
             .badge(store.counts[.project(project.id)] ?? 0)
             .tag(SidebarSelection.project(project.id))
-            .help(project.path)
+            .help(folderMissing ? "Klasör bulunamadı: \(project.path)" : project.path)
             .dropDestination(for: TaskDragItem.self) { items, _ in
                 let ids = Set(items.flatMap(\.taskIDs))
                 guard !ids.isEmpty else { return false }
@@ -112,6 +117,9 @@ public struct LibraryView: View {
                 return true
             }
             .contextMenu {
+                Button("Proje ayarları…", systemImage: "gearshape") {
+                    Task { await store.beginEditProject(id: project.id) }
+                }
                 Button("Projeyi sil", systemImage: "trash", role: .destructive) {
                     Task { await store.deleteProject(id: project.id) }
                 }
