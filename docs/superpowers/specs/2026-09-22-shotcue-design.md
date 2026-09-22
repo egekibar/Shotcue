@@ -129,7 +129,7 @@ Görüntüler (büyük önizleme, `⌘C`, Finder'da göster), başlık (otomatik
   - Gerekçe: `SpeechTranscriber` Türkçe desteklemiyor; Apple'ın Türkçe dikte modeli İngilizce teknik terimleri bozuyor (rapor 03'te ölçüldü). `SFSpeechRecognizer` kullanılmaz.
   - Çıktı: `Transcript { text, language, engine, segments[{start,end,text,confidence?}] }`; DB'de `voice_note.transcript` + `transcript_json`.
 - **v1.1 seçenekleri:** kayıt sırasında canlı taslak (`DictationTranscriber` tr-TR / `SpeechTranscriber` en-US), bulut fallback (AssemblyAI). Runtime'da `SpeechTranscriber.supportedLocales` kontrol edilir; Türkçe gelirse ayarlarda motor seçeneği olarak açılır (`supportedLocale(equivalentTo:)` kullanılmaz, yanıltıcı).
-- **Foundation Models (opsiyonel ayar, varsayılan kapalı):** `SystemLanguageModel.default.availability == .available` ise `@Generable TaskDraft { title, summary, tags }` ile başlık ve temiz görev metni **önerisi** (kullanıcı onaylar; transkript sessizce değiştirilmez). Türkçe destekleniyor (`tr-Latn-TR`); Apple Intelligence kapalıysa özellik gizlenir.
+- **Foundation Models:** v1'de **yalnızca durum gösterimi** (`FoundationModelsStatus`: kullanılabilirlik + Türkçe desteği, Ayarlar > İzinler satırı). Başlık/özet önerisi (`@Generable TaskDraft`) **ertelendi**: `@Generable`/`@Guide` makroları CLT'de derlenmiyor (`FoundationModelsMacros` eklentisi yok; `#Preview` ile aynı hata sınıfı, 2026-09-22'de ölçüldü). Xcode kurulursa veya CLT eklentiyi getirirse v1.1'de açılır; o zaman da öneri kullanıcı onayıyla uygulanır, transkript sessizce değiştirilmez.
 
 ### 6.3 Persistence (`ShotcuePersistence`)
 GRDB `DatabasePool` (WAL), `DatabaseMigrator` ile numaralı migration'lar. Dosya kökü `~/Library/Application Support/Shotcue/`; DB'de **göreli yol** tutulur.

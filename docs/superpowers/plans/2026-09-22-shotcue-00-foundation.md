@@ -502,6 +502,7 @@ Spec: docs/superpowers/specs/2026-09-22-shotcue-design.md · Plans: docs/superpo
   `plugin for module 'TestingMacros' not found`; the Makefile loads the macro plugin explicitly. If you still see it, run again.
 - `make build` / `make run` (bundle → ~/Applications → open) / `make shot` (screenshot app windows to /tmp/shotcue-shots).
 - Never use `xcodebuild`, `actool`, `.xcassets`, Xcode projects, or `#Preview` (CLT has no PreviewsMacros; it breaks the build).
+- Same failure class: FoundationModels `@Generable` / `@Guide` macros (CLT has no FoundationModelsMacros). Non-macro FoundationModels APIs compile.
 - Never add a dependency without first compiling it in a scratch package with `swift build`; deps that use `#Preview` cannot be used.
 - Only allowed dependencies: GRDB.swift 7.11.x, argmax-oss-swift 1.1.x (WhisperKit).
 

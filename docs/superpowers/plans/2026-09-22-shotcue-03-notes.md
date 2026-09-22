@@ -480,7 +480,7 @@ struct LevelMeterTests {
 
 - [ ] **Step 3: Testin derlenmediğini gör**
 
-Run: `swift test --filter LevelMeter 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=LevelMeter 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'LevelMeter' in scope`.
 
 - [ ] **Step 4: LevelMeter'ı yaz**
@@ -514,7 +514,7 @@ public enum LevelMeter {
 
 - [ ] **Step 5: LevelMeter testlerinin geçtiğini gör**
 
-Run: `swift test --filter LevelMeter 2>&1 | tail -3`
+Run: `make test FILTER=LevelMeter 2>&1 | tail -3`
 Expected: `Test run with 4 tests in 1 suite passed`.
 
 - [ ] **Step 6: Başarısız AACWriter testini yaz**
@@ -580,7 +580,7 @@ struct AACWriterTests {
 
 - [ ] **Step 7: Testin derlenmediğini gör**
 
-Run: `swift test --filter AACWriter 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=AACWriter 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'AACWriter' in scope`.
 
 - [ ] **Step 8: AACWriter'ı yaz**
@@ -725,7 +725,7 @@ public struct AACWriter: Sendable {
 rm -f Sources/ShotcueNotes/ShotcueNotes.swift Tests/ShotcueNotesTests/SmokeTests.swift
 ```
 
-Run: `swift test --filter 'LevelMeter|AACWriter' 2>&1 | tail -3`
+Run: `make test FILTER='LevelMeter|AACWriter' 2>&1 | tail -3`
 Expected: `Test run with 8 tests in 2 suites passed`. (Bu makinede ölçülen değerler: sinüs RMS `0.70710677`, 44.1 kHz stereo 1 sn → 48 000 frame / 1.0 sn / 65 644 bayt.)
 
 - [ ] **Step 10: Commit**
@@ -835,7 +835,7 @@ struct EngineAudioRecorderTests {
 
 - [ ] **Step 2: Testin derlenmediğini gör**
 
-Run: `swift test --filter EngineAudioRecorder 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=EngineAudioRecorder 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'EngineAudioRecorder' in scope`.
 
 - [ ] **Step 3: EngineAudioRecorder'ı yaz**
@@ -967,7 +967,7 @@ public actor EngineAudioRecorder: AudioRecorder {
 
 - [ ] **Step 4: Testlerin geçtiğini gör**
 
-Run: `swift test --filter EngineAudioRecorder 2>&1 | tail -3`
+Run: `make test FILTER=EngineAudioRecorder 2>&1 | tail -3`
 Expected: `Test run with 4 tests in 1 suite passed`.
 
 - [ ] **Step 5: Commit**
@@ -1091,7 +1091,7 @@ struct AudioDeviceCatalogTests {
 
 - [ ] **Step 2: Testin derlenmediğini gör**
 
-Run: `swift test --filter AudioDeviceCatalog 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=AudioDeviceCatalog 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'AudioDeviceCatalog' in scope`.
 
 - [ ] **Step 3: AudioDeviceCatalog'u yaz**
@@ -1136,7 +1136,7 @@ public enum AudioDeviceCatalog {
 
 - [ ] **Step 4: Testlerin geçtiğini gör**
 
-Run: `swift test --filter AudioDeviceCatalog 2>&1 | tail -3`
+Run: `make test FILTER=AudioDeviceCatalog 2>&1 | tail -3`
 Expected: `Test run with 3 tests in 1 suite passed`. (Bu makinede `inputDevices()` 2 cihaz döndü: `BuiltInMicrophoneDevice` ve bir iPhone mikrofonu; ikisinin de UID çevirisi başarılı, uydurma UID `nil`.)
 
 - [ ] **Step 5: Commit**
@@ -1355,7 +1355,7 @@ struct WhisperKitTranscriberTests {
 
 - [ ] **Step 2: Testin derlenmediğini gör**
 
-Run: `swift test --filter WhisperKitTranscriber 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=WhisperKitTranscriber 2>&1 | grep -m1 "error:"`
 Expected: `cannot find type 'WhisperEngine' in scope`.
 
 - [ ] **Step 3: WhisperEngine seam'ini ve gerçek adaptörü yaz**
@@ -1601,14 +1601,14 @@ public actor WhisperKitTranscriber: Transcriber {
 
 - [ ] **Step 5: Testlerin geçtiğini gör**
 
-Run: `swift test --filter WhisperKitTranscriber 2>&1 | tail -3`
+Run: `make test FILTER=WhisperKitTranscriber 2>&1 | tail -3`
 Expected: `Test run with 7 tests in 1 suite passed`.
 
 - [ ] **Step 6: Task 1'in kararını uygula**
 
-`docs/superpowers/plans/spike-results.md` içindeki S4 KARAR satırını oku. Karar `openai_whisper-large-v3-v20240930_turbo_632MB` ise `WhisperKitTranscriber.defaultModelName` ve `compactModelName` değerlerini **yer değiştir** (isimler aynı kalır, değerler değişir) ve `swift test --filter WhisperKitTranscriber`'ı tekrar çalıştır: `engineNameCarriesTheModelName`, `modelFolderFollowsTheHubCacheLayout`, `passesLanguageThroughAndMapsSegments`, `englishLanguageIsPassedThroughUnchanged` testlerindeki beklenen string'leri de güncelle. Karar `turbo` ise (öntanımlı) hiçbir şey değişmez.
+`docs/superpowers/plans/spike-results.md` içindeki S4 KARAR satırını oku. Karar `openai_whisper-large-v3-v20240930_turbo_632MB` ise `WhisperKitTranscriber.defaultModelName` ve `compactModelName` değerlerini **yer değiştir** (isimler aynı kalır, değerler değişir) ve `make test FILTER=WhisperKitTranscriber`'ı tekrar çalıştır: `engineNameCarriesTheModelName`, `modelFolderFollowsTheHubCacheLayout`, `passesLanguageThroughAndMapsSegments`, `englishLanguageIsPassedThroughUnchanged` testlerindeki beklenen string'leri de güncelle. Karar `turbo` ise (öntanımlı) hiçbir şey değişmez.
 
-Run: `swift test --filter WhisperKitTranscriber 2>&1 | tail -3`
+Run: `make test FILTER=WhisperKitTranscriber 2>&1 | tail -3`
 Expected: `Test run with 7 tests in 1 suite passed`.
 
 - [ ] **Step 7: Commit**
@@ -1906,7 +1906,7 @@ struct TranscriptionCoordinatorTests {
 
 - [ ] **Step 2: Testin derlenmediğini gör**
 
-Run: `swift test --filter TranscriptionCoordinator 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=TranscriptionCoordinator 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'TranscriptionCoordinator' in scope`.
 
 - [ ] **Step 3: TranscriptionCoordinator'ı yaz**
@@ -2031,12 +2031,12 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
 
 - [ ] **Step 4: Testlerin geçtiğini gör**
 
-Run: `swift test --filter TranscriptionCoordinator 2>&1 | tail -3`
+Run: `make test FILTER=TranscriptionCoordinator 2>&1 | tail -3`
 Expected: `Test run with 11 tests in 1 suite passed`.
 
 - [ ] **Step 5: Tüm Notes testlerini çalıştır**
 
-Run: `swift test --filter ShotcueNotesTests 2>&1 | tail -3`
+Run: `make test FILTER=ShotcueNotesTests 2>&1 | tail -3`
 Expected: `Test run with 33 tests in 6 suites passed` (LevelMeter 4 + AACWriter 4 + EngineAudioRecorder 4 + AudioDeviceCatalog 3 + WhisperKitTranscriber 7 + TranscriptionCoordinator 11).
 
 - [ ] **Step 6: Commit**
@@ -2134,7 +2134,7 @@ struct FoundationModelsStatusTests {
 
 - [ ] **Step 2: Testin derlenmediğini gör**
 
-Run: `swift test --filter FoundationModelsStatus 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=FoundationModelsStatus 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'FoundationModelsStatus' in scope`.
 
 - [ ] **Step 3: FoundationModelsStatus'u yaz**
@@ -2204,7 +2204,7 @@ public enum FoundationModelsStatus: String, Sendable, CaseIterable {
 
 - [ ] **Step 4: Testlerin geçtiğini gör**
 
-Run: `swift test --filter FoundationModelsStatus 2>&1 | tail -3`
+Run: `make test FILTER=FoundationModelsStatus 2>&1 | tail -3`
 Expected: `Test run with 3 tests in 1 suite passed`. (Bu makinede `current == .appleIntelligenceNotEnabled`, `supportsTurkish == true`.)
 
 - [ ] **Step 5: Erteleme kararını CLAUDE.md'ye ekle**
@@ -2231,7 +2231,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ## Plan 03 tamamlanma ölçütü
 
-- `swift test --filter ShotcueNotesTests` → **36 test, 7 suite, hepsi yeşil**: `LevelMeter` 4, `AACWriter` 4, `EngineAudioRecorder` 4, `AudioDeviceCatalog` 3, `WhisperKitTranscriber` 7, `TranscriptionCoordinator` 11, `FoundationModelsStatus` 3.
+- `make test FILTER=ShotcueNotesTests` → **36 test, 7 suite, hepsi yeşil**: `LevelMeter` 4, `AACWriter` 4, `EngineAudioRecorder` 4, `AudioDeviceCatalog` 3, `WhisperKitTranscriber` 7, `TranscriptionCoordinator` 11, `FoundationModelsStatus` 3. (`plugin for module 'TestingMacros' not found` çıkarsa tuzak #1: kaynağı değiştirmeden tekrar çalıştır.)
 - `make test` → tüm paket yeşil; `Sources/ShotcueNotes/ShotcueNotes.swift` ve `Tests/ShotcueNotesTests/SmokeTests.swift` yer tutucuları silinmiş.
 - `swift build 2>&1 | grep -c warning:` → `ShotcueNotes` kaynaklı uyarı yok (yalnızca `ld: warning: search path … not found` kabul edilir).
 - `docs/superpowers/plans/spike-results.md` → `## S4 — WhisperKit Türkçe` bölümü doldurulmuş, iki modelin hız/kalite tablosu ve tek satır "Varsayılan model: …" kararı yazılı; `WhisperKitTranscriber.defaultModelName` bu karara eşit.
