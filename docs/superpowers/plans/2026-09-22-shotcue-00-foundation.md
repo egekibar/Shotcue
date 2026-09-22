@@ -400,8 +400,8 @@ run: install ; open "$(INSTALL_DIR)/$(APP_NAME).app"
 shot: ; ./scripts/shot.sh "$(APP_NAME)"
 cert: ; ./scripts/make-cert.sh "$(SIGN_IDENTITY)"
 reset-tcc: ; tccutil reset ScreenCapture $(BUNDLE_ID); tccutil reset Microphone $(BUNDLE_ID)
-format: ; swift-format format --in-place --recursive Sources Tests
-lint: ; swift-format lint --strict --recursive Sources Tests
+format: ; xcrun swift-format format --in-place --recursive Sources Tests
+lint: ; xcrun swift-format lint --strict --recursive Sources Tests
 clean: ; rm -rf .build dist
 ```
 
@@ -503,6 +503,10 @@ Spec: docs/superpowers/specs/2026-09-22-shotcue-design.md · Plans: docs/superpo
 - `make build` / `make run` (bundle → ~/Applications → open) / `make shot` (screenshot app windows to /tmp/shotcue-shots).
 - Never use `xcodebuild`, `actool`, `.xcassets`, Xcode projects, or `#Preview` (CLT has no PreviewsMacros; it breaks the build).
 - Same failure class: FoundationModels `@Generable` / `@Guide` macros (CLT has no FoundationModelsMacros). Non-macro FoundationModels APIs compile.
+- Same failure class: SwiftUI `@State` (macOS 27 SDK declares it as a macro; CLT has no SwiftUIMacros). Use `@UIState`
+  (`public typealias UIState<Value> = SwiftUI.State<Value>` in ShotcueUI). `@FocusState`, `@Binding`, `@Environment`,
+  `@Bindable`, `@AppStorage`, `@Observable` are fine.
+- `swift-format` is not on PATH; always call it as `xcrun swift-format` (the Makefile does).
 - Never add a dependency without first compiling it in a scratch package with `swift build`; deps that use `#Preview` cannot be used.
 - Only allowed dependencies: GRDB.swift 7.11.x, argmax-oss-swift 1.1.x (WhisperKit).
 

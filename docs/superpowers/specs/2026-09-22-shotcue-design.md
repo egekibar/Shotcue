@@ -234,7 +234,7 @@ Kurallar: `running` task düzenlenemez (iptal edilebilir); bir task'ın birden �
 `Tests/Fixtures/fake-claude.sh`: argümanları bir dosyaya yazar, `sample-stream.jsonl`'i stdout'a basar (senaryo: başarı / max_turns / hata / yavaş). `fake-screencapture.sh`: `sample.png`'i hedef yola kopyalar veya `exit 1` ile iptal simüle eder. Runner ve capture testleri bu betikleri `executableURL` olarak alır.
 
 ### 10.4 `CLAUDE.md` (proje kökü, ajanlar için)
-Kurallar: Xcode yok, `make test` birincil döngü; mantık Core'a, UI ince; yasak API'ler (`#Preview` makrosu ve `#Preview` içeren bağımlılıklar, `CGWindowListCreateImage`, `CGDisplayCreateImage`, `SFSpeechRecognizer`, `SpeechTranscriber.supportedLocale(equivalentTo:)`, `NSApp.activate` panelde, ad-hoc imza, `AVAudioSession`, `Timer` yerine `DispatchSourceTimer`, `--bare`); yeni bağımlılık eklemeden önce scratchpad'de `swift build` denemesi; Swift Testing; `swift-format`; commit mesajları İngilizce; her task için testler önce; UI değişikliğinde `make shot` ile görsel doğrulama.
+Kurallar: Xcode yok, `make test` birincil döngü; mantık Core'a, UI ince; yasak API'ler (CLT'de makro eklentisi bulunmayan `#Preview`, FoundationModels `@Generable`/`@Guide` ve SwiftUI `@State` — yerine `@UIState` typealias'ı; bunları içeren bağımlılıklar; `CGWindowListCreateImage`, `CGDisplayCreateImage`, `SFSpeechRecognizer`, `SpeechTranscriber.supportedLocale(equivalentTo:)`, `NSApp.activate` panelde, ad-hoc imza, `AVAudioSession`, `Timer` yerine `DispatchSourceTimer`, `--bare`); yeni bağımlılık eklemeden önce scratchpad'de `swift build` denemesi; Swift Testing; `swift-format`; commit mesajları İngilizce; her task için testler önce; UI değişikliğinde `make shot` ile görsel doğrulama.
 
 ## 11. Test stratejisi
 

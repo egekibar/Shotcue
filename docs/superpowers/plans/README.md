@@ -39,6 +39,19 @@ Plan 00 (tek ajan, sıralı; Task 11 spike'ları kullanıcıyla)
 4. Plan 06 tek ajan; her task `make build` + `make run` + `make shot` ile görsel kanıt üretir (`verification/` altına PNG).
 5. `superpowers:finishing-a-development-branch` ile kapanış.
 
+## Toolchain kısıtları (bu makinede ölçüldü, 2026-09-22)
+
+Command Line Tools 27.0 + SwiftPM, Xcode yok. Xcode'un getirdiği makro eklentileri CLT'de olmadığı için şunlar **derlenmez** ve hiçbir planda kullanılmaz:
+
+| Yapı | Eksik eklenti | Yerine |
+|---|---|---|
+| `#Preview` | `PreviewsMacros` | önizleme yok; `make run` + `make shot` |
+| SwiftUI `@State` (macOS 27 SDK'da makro) | `SwiftUIMacros` | `@UIState` (`typealias UIState<Value> = SwiftUI.State<Value>`, `ShotcueUI` içinde) |
+| FoundationModels `@Generable` / `@Guide` | `FoundationModelsMacros` | v1'de yalnızca `FoundationModelsStatus`; öneri özelliği ertelendi |
+| `sindresorhus/KeyboardShortcuts` bağımlılığı | (`#Preview` içeriyor) | `CarbonHotKeyService` (Plan 02) |
+
+Ayrıca: Swift Testing'in `TestingMacros` eklentisi ilk derlemede ara sıra bulunamıyor → `make test` eklentiyi `-Xswiftc -load-plugin-library` ile açıkça yükler; `swift-format` PATH'te değil → `xcrun swift-format`; `.xcassets` derlenemez → ikon `iconutil` ile.
+
 ## Kullanıcı adımları (ajanlar yapamaz)
 
 - `make cert` sonrası Keychain Access'te "Shotcue Dev" sertifikasına Code Signing için "Always Trust" (bir kez).
