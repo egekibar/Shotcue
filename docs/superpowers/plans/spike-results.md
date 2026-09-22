@@ -112,11 +112,12 @@ Result: pending. Until it is measured, Plan 04 keeps the default `code/new`.
 
 Not measured yet. The Plan 03 agent wrote the spike CLI exactly as Plan 03 Task 1 Steps 2–3 give it, in its session
 scratchpad (outside the repo), and compiled it: `swift build` → `Build complete!` (2026-09-22, 230 s, Apple M2 16 GB,
-macOS 26.6.2, Swift 6.4 / Command Line Tools 27.0, WhisperKit 1.1.0). By controller ruling it did not download any
-model (~1.6 GB + ~632 MB need the user's explicit permission) and recorded no audio: the samples must be the user's own
-voice, because synthetic `say` audio skews this measurement (research 03). Until S4 is measured, the default model
-stays `openai_whisper-large-v3-v20240930_turbo` (spec §6.2); see "KARAR" at the end of this section, which Plan 03
-Task 5 reads.
+macOS 26.6.2, Swift 6.4 / Command Line Tools 27.0, WhisperKit 1.1.0); it compiled again with the required `modelFolder`
+fix described in Step 2. By controller ruling it did not download any model (~1.6 GB + ~632 MB need the user's
+explicit permission) and recorded no audio: the samples must be the user's own voice, because synthetic `say` audio
+skews this measurement (research 03). Until S4 is measured, the default model stays
+`openai_whisper-large-v3-v20240930_turbo` (spec §6.2); see "KARAR" at the end of this section, which Plan 03 Task 5
+reads.
 
 Step 1 (user) — record the samples. QuickTime Player → Dosya → Yeni Ses Kaydı (or Voice Memos): 5 separate
 recordings, 20–30 s each, normal speaking pace, at your own desk (realistic background noise), each with at least
@@ -142,9 +143,24 @@ outside the repo with at least ~3 GB free for the two models (this Mac had 12 Gi
 export SCRATCH=~/shotcue-s4-spike
 mkdir -p "$SCRATCH/spike-s4/Sources/SpikeCLI"
 # Create $SCRATCH/spike-s4/Package.swift and $SCRATCH/spike-s4/Sources/SpikeCLI/main.swift with the exact contents
-# given in docs/superpowers/plans/2026-09-22-shotcue-03-notes.md, Task 1 Steps 2–3.
+# given in docs/superpowers/plans/2026-09-22-shotcue-03-notes.md, Task 1 Steps 2–3, plus the one-line fix below.
 cd "$SCRATCH/spike-s4" && swift build 2>&1 | tail -3
 ```
+
+Required fix in the plan's `main.swift`: add the `modelFolder:` line to the `WhisperKitConfig(...)` call:
+
+```swift
+    let config = WhisperKitConfig(model: variant, downloadBase: modelsDirectory, modelRepo: repo,
+                                  modelFolder: modelFolder(variant).path,
+                                  verbose: false, logLevel: .error, prewarm: false, load: true,
+                                  download: false)
+```
+
+Without it, WhisperKit 1.1.0's `setupModels` never sets a model folder when `download: false`, so every load fails with
+`WhisperError.modelsUnavailable("Model folder is not set.")`, right after the downloads. Reproduced offline on 2026-09-22
+by running the plan's CLI against empty model folders (no download); with the fix the same run fails with
+`Model file not found at …/openai_whisper-large-v3-v20240930_turbo/…`, i.e. it now reads the right folder. Plan 03's
+`WhisperKitEngine.load()` carries the same fix.
 
 Expected: `Build complete!` (the first build resolves and compiles WhisperKit: 230 s on this Mac while another build
 was running; `ld: warning: search path … not found` warnings are harmless).
