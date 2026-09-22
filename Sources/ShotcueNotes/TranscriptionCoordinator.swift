@@ -10,6 +10,8 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
     private let titleMaker: Bool
     private var language: String
     private var processing = false
+    /// Set when `processPending()` is called during a run (a note saved mid-run), so the run rescans before ending.
+    private var rescanRequested = false
 
     public init(
         transcriber: any Transcriber, taskRepository: any TaskRepository, fileStore: FileStore,
@@ -37,15 +39,25 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
 
     /// Transcribes every `pending` voice note, oldest task first. Errors mark that one note
     /// `.failed` (audio is kept, spec §8) and never stop the queue.
+    ///
+    /// The run is claimed before the first `await`, so a second call arriving while this one waits for
+    /// the transcriber cannot start a parallel run over the same notes; that call only asks the running
+    /// one to rescan, which picks up notes saved mid-run instead of leaving them `pending`.
     public func processPending() async {
-        guard !processing else { return }
-        guard await transcriber.modelState() == .ready else { return }
+        guard !processing else {
+            rescanRequested = true
+            return
+        }
         processing = true
         defer { processing = false }
 
-        for pending in await pendingNotes() {
-            await transcribe(note: pending.note, in: pending.task)
-        }
+        repeat {
+            rescanRequested = false
+            guard await transcriber.modelState() == .ready else { return }
+            for pending in await pendingNotes() {
+                await transcribe(note: pending.note, in: pending.task)
+            }
+        } while rescanRequested
     }
 
     // MARK: - Internals

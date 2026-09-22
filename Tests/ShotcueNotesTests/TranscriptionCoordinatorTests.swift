@@ -35,6 +35,68 @@ struct CoordinatorFixture {
     }
 }
 
+/// Parks `modelState()` and/or `transcribe` until the test opens the gate, so a test can act while the
+/// coordinator is suspended at exactly that point. Being an actor, every call is a real suspension point —
+/// like the production `WhisperKitTranscriber`, and unlike `FakeTranscriber`, which never suspends.
+actor GatedTranscriber: Transcriber {
+    nonisolated let engineName = "gated"
+    private(set) var transcribedFiles: [String] = []
+    private(set) var modelStateCalls = 0
+    private var holdsModelState: Bool
+    private var holdsTranscription = true
+    private var parkedModelStates: [CheckedContinuation<Void, Never>] = []
+    private var parkedTranscriptions: [CheckedContinuation<Void, Never>] = []
+    private var watchers: [CheckedContinuation<Void, Never>] = []
+
+    init(holdsModelState: Bool = false) {
+        self.holdsModelState = holdsModelState
+    }
+
+    func modelState() async -> TranscriberModelState {
+        modelStateCalls += 1
+        wakeWatchers()
+        if holdsModelState { await withCheckedContinuation { parkedModelStates.append($0) } }
+        return .ready
+    }
+
+    func downloadModel() async throws {}
+
+    func transcribe(fileURL: URL, language: String) async throws -> Transcript {
+        transcribedFiles.append(fileURL.lastPathComponent)
+        wakeWatchers()
+        if holdsTranscription { await withCheckedContinuation { parkedTranscriptions.append($0) } }
+        return Transcript(text: "not metni", language: language, engine: engineName)
+    }
+
+    /// Releases the parked `modelState()` calls; transcriptions stay parked until `open()`.
+    func openModelState() {
+        holdsModelState = false
+        parkedModelStates.forEach { $0.resume() }
+        parkedModelStates.removeAll()
+    }
+
+    /// Releases everything parked and lets all later calls through.
+    func open() {
+        openModelState()
+        holdsTranscription = false
+        parkedTranscriptions.forEach { $0.resume() }
+        parkedTranscriptions.removeAll()
+    }
+
+    func waitForTranscriptions(_ count: Int) async {
+        while transcribedFiles.count < count { await withCheckedContinuation { watchers.append($0) } }
+    }
+
+    func waitForModelStateCalls(_ count: Int) async {
+        while modelStateCalls < count { await withCheckedContinuation { watchers.append($0) } }
+    }
+
+    private func wakeWatchers() {
+        watchers.forEach { $0.resume() }
+        watchers.removeAll()
+    }
+}
+
 @Suite("TranscriptionCoordinator")
 struct TranscriptionCoordinatorTests {
     // Async repository reads are hoisted into a `let` before `#expect` so a failing expectation
@@ -234,5 +296,61 @@ struct TranscriptionCoordinatorTests {
         await coordinator.setLanguage("en")
         await coordinator.processPending()
         #expect(transcriber.calls.current.first?.language == "en")
+    }
+
+    @Test func noteSavedWhileAnotherIsTranscribingIsNotLeftPending() async throws {
+        // A second recording is saved while the first note is still being transcribed: its `enqueue`
+        // finds a run in progress, so that run must pick the new note up before it ends.
+        let fixture = try await CoordinatorFixture.make()
+        let transcriber = GatedTranscriber()
+        let coordinator = TranscriptionCoordinator(
+            transcriber: transcriber, taskRepository: fixture.repo,
+            fileStore: fixture.temporaryStore(), language: "tr")
+        let firstRun = Task { await coordinator.enqueue(voiceNoteID: fixture.note.id) }
+        await transcriber.waitForTranscriptions(1)
+
+        let second = VoiceNote(
+            taskID: fixture.task.id, relPath: "audio/two.m4a", durationSec: 8, transcriptState: .pending)
+        try await fixture.repo.save(second)
+        await coordinator.enqueue(voiceNoteID: second.id)
+        await transcriber.open()
+        await firstRun.value
+
+        let states = try await fixture.repo.voiceNotes(taskID: fixture.task.id).map { $0.transcriptState }
+        #expect(states == [.done, .done])
+        let files = await transcriber.transcribedFiles
+        #expect(files == ["one.m4a", "two.m4a"])
+    }
+
+    @Test func overlappingRunsTranscribeEachNoteOnce() async throws {
+        // App launch and "model ready" can both call `processPending()`. The second call arrives while the
+        // first one is still waiting for `modelState()`; it must not start a parallel run over the same notes.
+        let fixture = try await CoordinatorFixture.make()
+        let transcriber = GatedTranscriber(holdsModelState: true)
+        let coordinator = TranscriptionCoordinator(
+            transcriber: transcriber, taskRepository: fixture.repo,
+            fileStore: fixture.temporaryStore(), language: "tr")
+        let firstRun = Task { await coordinator.processPending() }
+        await transcriber.waitForModelStateCalls(1)
+
+        let secondRunReturned = Locked(false)
+        let secondRun = Task {
+            await coordinator.processPending()
+            secondRunReturned.set(true)
+        }
+        // Either the second run parks in `modelState()` too (a parallel run) or it returns right away.
+        while await transcriber.modelStateCalls < 2, !secondRunReturned.current { await Task.yield() }
+        // Let the runs past `modelState()` while transcriptions stay parked, so the first run cannot store its
+        // result before a parallel run scans; then wait until that run transcribes too, or has returned.
+        await transcriber.openModelState()
+        while await transcriber.transcribedFiles.count < 2, !secondRunReturned.current { await Task.yield() }
+        await transcriber.open()
+        await firstRun.value
+        await secondRun.value
+
+        let files = await transcriber.transcribedFiles
+        #expect(files == ["one.m4a"])
+        let notes = try await fixture.repo.voiceNotes(taskID: fixture.task.id)
+        #expect(notes.first?.transcriptState == .done)
     }
 }
