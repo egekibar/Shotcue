@@ -54,3 +54,15 @@ public struct ShellGitInspector: GitInspector {
             environment: environment)
     }
 }
+
+extension ShellGitInspector: DiffProvider {
+    /// `git diff <since|HEAD>` of the working tree plus untracked files (spec §6.4 "Diff'i göster").
+    public func diff(at path: String, since: String?, maxBytes: Int) async throws -> String {
+        let tracked = try await require(["diff", "--no-color", "--no-ext-diff", since ?? "HEAD"], at: path)
+        let status = try await require(["status", "--porcelain", "--untracked-files=all"], at: path)
+        return DiffText.compose(
+            diff: tracked.stdout,
+            untracked: DiffText.untrackedPaths(fromPorcelain: status.stdout),
+            since: since, maxBytes: maxBytes)
+    }
+}
