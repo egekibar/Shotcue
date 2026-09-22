@@ -64,6 +64,24 @@ final class GatedGitInspector: GitInspector, @unchecked Sendable {
     func stashAll(at path: String) async throws { try await base.stashAll(at: path) }
 }
 
+/// The in-memory project repository, except that `project(id:)` parks on a gate.
+final class GatedProjectRepository: ProjectRepository, @unchecked Sendable {
+    let base: InMemoryProjectRepository
+    let gate: Gate
+    init(base: InMemoryProjectRepository, gate: Gate) {
+        self.base = base
+        self.gate = gate
+    }
+    func allProjects() async throws -> [Project] { try await base.allProjects() }
+    func project(id: UUID) async throws -> Project? {
+        await gate.wait()
+        return try await base.project(id: id)
+    }
+    func save(_ project: Project) async throws { try await base.save(project) }
+    func deleteProject(id: UUID) async throws { try await base.deleteProject(id: id) }
+    func observeProjects() -> AsyncStream<[Project]> { base.observeProjects() }
+}
+
 struct Harness {
     static let head = "c42049d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7"
 
@@ -86,10 +104,10 @@ struct Harness {
     let coordinator: RunCoordinator
     let root: URL
 
-    /// `snapshotGate` parks every git snapshot of the coordinator on that gate.
+    /// `snapshotGate` / `projectGate` park the coordinator's git snapshots / project lookups on that gate.
     init(
         projects: [Project], tasks: [ShotTask], runs: [Run] = [], runner: any ClaudeRunner,
-        settings: RunSettings = RunSettings(keepAwake: false), snapshotGate: Gate? = nil
+        settings: RunSettings = RunSettings(keepAwake: false), snapshotGate: Gate? = nil, projectGate: Gate? = nil
     ) {
         clock = MutableClock()
         projectRepository = InMemoryProjectRepository(projects)
@@ -106,9 +124,11 @@ struct Harness {
         fileStore = FileStore(rootURL: root)
         var coordinatorGit: any GitInspector = gitInspector
         if let snapshotGate { coordinatorGit = GatedGitInspector(base: gitInspector, gate: snapshotGate) }
+        var coordinatorProjects: any ProjectRepository = projectRepository
+        if let projectGate { coordinatorProjects = GatedProjectRepository(base: projectRepository, gate: projectGate) }
         coordinator = RunCoordinator(
             runner: runner, taskRepository: taskRepository,
-            projectRepository: projectRepository, runRepository: runRepository,
+            projectRepository: coordinatorProjects, runRepository: runRepository,
             gitInspector: coordinatorGit, fileStore: fileStore,
             notifier: notifier, clock: clock, settings: settings)
     }
@@ -119,7 +139,8 @@ struct Harness {
     func status(of taskID: UUID) async -> TaskStatus? { try? await taskRepository.task(id: taskID)?.status }
 }
 
-@Suite("RunCoordinator")
+/// Time-limited: a live stream that never finishes would otherwise hang the whole run.
+@Suite("RunCoordinator", .timeLimit(.minutes(1)))
 struct RunCoordinatorTests {
     func successRunner(delay: Duration = .zero) -> FakeClaudeRunner {
         FakeClaudeRunner(
@@ -475,6 +496,43 @@ struct RunCoordinatorTests {
         var afterwards: [RunEvent] = []
         for await event in h.coordinator.liveEvents(runID: runID) { afterwards.append(event) }
         #expect(afterwards.isEmpty)
+    }
+
+    @Test func liveEventsOfAnUnknownRunFinishAtOnce() async {
+        let h = Harness(projects: [], tasks: [], runner: successRunner())
+        defer { h.cleanUp() }
+        // Unknown ids include every run of an earlier launch.
+        var received: [RunEvent] = []
+        for await event in h.coordinator.liveEvents(runID: UUID()) { received.append(event) }
+        #expect(received.isEmpty)
+    }
+
+    @Test func liveEventsOfARunThatNeverStartsFinish() async throws {
+        // Never saved in the repository, so the run fails before claude is started.
+        let ghost = Project(name: "silinmiş", path: Harness.makeProjectDirectory("ghost"))
+        let task = ShotTask(projectID: ghost.id, title: "Sahipsiz", status: .ready)
+        let gate = Gate()
+        let h = Harness(projects: [], tasks: [task], runner: successRunner(), projectGate: gate)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run parked on its project lookup") { gate.arrivals.current > 0 }
+        let runID = try #require(await h.runs(of: task.id).first?.id)
+        let stream = h.coordinator.liveEvents(runID: runID)  // subscribed while the run is in flight
+        gate.open()
+
+        var received: [RunEvent] = []
+        for await event in stream { received.append(event) }
+        #expect(received.isEmpty)
+        #expect(await h.runs(of: task.id).first?.state == .failed)
+    }
+
+    @Test func aStreamOpenedAfterTheBroadcasterFinishedEndsAtOnce() async {
+        let broadcaster = RunEventBroadcaster()
+        broadcaster.finish()
+        var received: [RunEvent] = []
+        for await event in broadcaster.stream() { received.append(event) }
+        #expect(received.isEmpty)
     }
 
     @Test func recoverInterruptedRunsFailsLeftoverRuns() async throws {

@@ -24,10 +24,10 @@ public actor RunCoordinator: TaskDispatcher {
     private let clock: any Clock
     private let logWriter: RunLogWriter
 
+    /// One broadcaster per run in flight: registered in `start(_:)`, removed when the run ends.
     /// Outside actor isolation so the nonisolated `liveEvents` and the runner's @Sendable
-    /// event callback can reach them.
+    /// event callback can reach it.
     private let broadcasters = LockBox<[UUID: RunEventBroadcaster]>([:])
-    private let finishedRunIDs = LockBox<Set<UUID>>([])
 
     private var settings: RunSettings
     private var paused = false
@@ -94,10 +94,11 @@ public actor RunCoordinator: TaskDispatcher {
     public func isPaused() async -> Bool { paused }
 
     public nonisolated func liveEvents(runID: UUID) -> AsyncStream<RunEvent> {
-        if finishedRunIDs.current.contains(runID) {
+        // Unknown, already finished, or from an earlier launch: an empty, already-finished stream.
+        guard let broadcaster = broadcasters.withLock({ $0[runID] }) else {
             return AsyncStream { $0.finish() }
         }
-        return broadcaster(for: runID).stream()
+        return broadcaster.stream()
     }
 
     // MARK: - App-facing extras
@@ -138,6 +139,8 @@ public actor RunCoordinator: TaskDispatcher {
         guard let projectID = task.projectID else { return false }
         let runID = UUID()
         inFlight[task.id] = InFlight(runID: runID, projectID: projectID)
+        // Registered before anything can learn the run id; `perform` removes it on every exit.
+        broadcasters.withLock { $0[runID] = RunEventBroadcaster() }
         Task { await self.execute(taskID: task.id, runID: runID) }
         return true
     }
@@ -157,6 +160,8 @@ public actor RunCoordinator: TaskDispatcher {
     }
 
     private func perform(taskID: UUID, runID: UUID) async {
+        // Every exit ends the live stream, the paths that never reach claude included.
+        defer { closeLiveEvents(runID) }
         // The row is gone, or it lost its project (never runnable, so the queue cannot pick it again):
         // there is nothing to run and nothing to report.
         guard let loaded = try? await taskRepository.task(id: taskID), let projectID = loaded.projectID else {
@@ -228,10 +233,10 @@ public actor RunCoordinator: TaskDispatcher {
         await apply(.running, to: &task)
 
         let writer = logWriter
-        let broadcaster = broadcaster(for: runID)
+        let broadcaster = broadcasters.withLock { $0[runID] }
         let onEvent: @Sendable (RunEvent) -> Void = { event in
             try? writer.append(event, runID: runID)
-            broadcaster.send(event)
+            broadcaster?.send(event)
         }
         if settings.keepAwake {
             activities[runID] = ProcessInfo.processInfo.beginActivity(
@@ -249,9 +254,6 @@ public actor RunCoordinator: TaskDispatcher {
         if let activity = activities.removeValue(forKey: runID) {
             ProcessInfo.processInfo.endActivity(activity)
         }
-        broadcasters.withLock { $0[runID] = nil }
-        finishedRunIDs.withLock { _ = $0.insert(runID) }
-        broadcaster.finish()
 
         run.finishedAt = clock.now
         run.gitHeadAfter = await gitInspector.snapshot(at: project.path)?.head
@@ -371,13 +373,11 @@ public actor RunCoordinator: TaskDispatcher {
         }
     }
 
-    private nonisolated func broadcaster(for runID: UUID) -> RunEventBroadcaster {
-        broadcasters.withLock { registry in
-            if let existing = registry[runID] { return existing }
-            let created = RunEventBroadcaster()
-            registry[runID] = created
-            return created
-        }
+    /// Unregisters first, then finishes: a later `liveEvents` finds nothing and gets a finished stream,
+    /// and a subscriber that raced in is finished by the broadcaster itself.
+    private nonisolated func closeLiveEvents(_ runID: UUID) {
+        let broadcaster = broadcasters.withLock { $0.removeValue(forKey: runID) }
+        broadcaster?.finish()
     }
 
     // MARK: - Messages (user-visible, Turkish)
