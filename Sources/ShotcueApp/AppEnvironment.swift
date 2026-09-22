@@ -149,6 +149,8 @@ final class AppEnvironment {
 
         // 9. App-level state and AppKit controllers.
         let status = AppStatusModel()
+        // Until `claude --version` answers, a located binary reads "kontrol ediliyor…", not "bulunamadı".
+        status.claudeFound = claudeExecutable != nil
         self.status = status
         self.settingsObserver = SettingsObserver()
         self.windowOpener = WindowOpener()
@@ -274,7 +276,7 @@ final class AppEnvironment {
 
     // MARK: - Status
 
-    /// `claude --version`, transcriber model state, project list and login item status.
+    /// `claude --version`, transcriber model state, project list, input devices and login item status.
     func refreshStatus() {
         let transcriber = services.transcriber
         let projectRepository = services.projects
@@ -285,7 +287,14 @@ final class AppEnvironment {
             status.transcriberState = await transcriber.modelState()
             status.projects = (try? await projectRepository.allProjects()) ?? []
         }
+        status.inputDevices = AudioDeviceCatalog.inputDevices()
         refreshLoginItemStatus()
+    }
+
+    /// The menu bar store streams tasks continuously but reads the pause flag only when it starts.
+    func refreshMenuBar() {
+        menuBarStore.stop()
+        menuBarStore.start()
     }
 
     /// Spec/research 01 §8: never cache the login item state, read it every time Settings opens.
@@ -328,11 +337,14 @@ final class AppEnvironment {
     /// or the microphone has never been asked for. A microphone the user denied on purpose does not
     /// bring onboarding back on every launch: text notes work without it (spec §8).
     /// The refresh also primes `permissionsStore`, whose `isBlocking` gates the hotkey.
-    func showOnboardingIfNeeded() async {
+    /// Returns whether onboarding was shown (it carries its own notification row).
+    @discardableResult
+    func showOnboardingIfNeeded() async -> Bool {
         await permissionsStore.refresh()
         let microphoneNeverAsked = permissionsStore.state(of: .microphone) == .notDetermined
-        guard permissionsStore.isBlocking || microphoneNeverAsked else { return }
+        guard permissionsStore.isBlocking || microphoneNeverAsked else { return false }
         onboarding.show()
+        return true
     }
 
     // MARK: - Bootstrap

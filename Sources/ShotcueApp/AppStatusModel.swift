@@ -10,6 +10,8 @@ final class AppStatusModel {
     var claudeFound: Bool = false
     var transcriberState: TranscriberModelState = .notDownloaded
     var projects: [Project] = []
+    /// Microphones for Ayarlar > Ses (`AudioDeviceCatalog`), re-read whenever Settings opens.
+    var inputDevices: [(uid: String, name: String)] = []
     var loginItemStatusText: String = "bilinmiyor"
     var hotKeyError: String?
     var diagnosticsRunning: Bool = false
