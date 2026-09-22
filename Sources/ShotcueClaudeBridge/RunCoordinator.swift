@@ -8,6 +8,10 @@ public actor RunCoordinator: TaskDispatcher {
     private struct InFlight: Sendable {
         var runID: UUID
         var projectID: UUID
+        /// Set after the last coordinator-side cancel check, when the run is committed to `runner.run`.
+        /// Before that a cancel is handled here (`pendingCancels`); after it the runner's own pre-launch
+        /// check makes sure a cancelled run never starts claude.
+        var launched = false
     }
 
     private let runner: any ClaudeRunner
@@ -28,6 +32,8 @@ public actor RunCoordinator: TaskDispatcher {
     private var settings: RunSettings
     private var paused = false
     private var inFlight: [UUID: InFlight] = [:]
+    /// Run ids cancelled while in flight but not launched yet (the git phase, for instance).
+    private var pendingCancels: Set<UUID> = []
     private var activities: [UUID: any NSObjectProtocol] = [:]
 
     public init(
@@ -59,7 +65,11 @@ public actor RunCoordinator: TaskDispatcher {
 
     public func cancel(taskID: UUID) async {
         if let flight = inFlight[taskID] {
-            await runner.cancel(runID: flight.runID)
+            if flight.launched {
+                await runner.cancel(runID: flight.runID)
+            } else {
+                pendingCancels.insert(flight.runID)
+            }
             return
         }
         guard var task = try? await taskRepository.task(id: taskID),
@@ -142,6 +152,7 @@ public actor RunCoordinator: TaskDispatcher {
     /// One attempt at a queued task. Whatever `perform` does, the slot is released and the queue pumped.
     private func execute(taskID: UUID, runID: UUID) async {
         await perform(taskID: taskID, runID: runID)
+        pendingCancels.remove(runID)
         await finishInFlight(taskID)
     }
 
@@ -180,6 +191,10 @@ public actor RunCoordinator: TaskDispatcher {
             return
         }
 
+        if pendingCancels.contains(runID) {
+            await cancelBeforeLaunch(&run, task: &task)
+            return
+        }
         if project.runInBranch {
             do {
                 try await gitInspector.createBranch(GitOutputParser.branchName(for: taskID), at: project.path)
@@ -198,6 +213,14 @@ public actor RunCoordinator: TaskDispatcher {
         run.gitHeadBefore = before?.head
         run.gitDirtyBefore = before?.isDirty
         run.gitBranch = before?.branch
+
+        // Last coordinator-side check (the git phase can take a while); no suspension between it and
+        // `launched`, so a cancel lands either here or with the runner.
+        if pendingCancels.contains(runID) {
+            await cancelBeforeLaunch(&run, task: &task)
+            return
+        }
+        inFlight[taskID]?.launched = true
 
         let spec = await makeSpec(task: task, project: project, runID: runID)
         run.state = .running
@@ -247,6 +270,16 @@ public actor RunCoordinator: TaskDispatcher {
         try? await runRepository.save(run)
         await notifier.notify(
             AppNotification(kind: .runFailed, title: task.title, body: message, taskID: task.id, runID: run.id))
+    }
+
+    /// Cancelled before claude was started: the Run row is cancelled, the task (never `running`) goes back
+    /// to `ready`, and nobody is notified — the user asked for it.
+    private func cancelBeforeLaunch(_ run: inout Run, task: inout ShotTask) async {
+        run.state = .cancelled
+        run.finishedAt = clock.now
+        run.error = "cancelled"
+        await apply(.ready, to: &task)
+        try? await runRepository.save(run)
     }
 
     /// Maps the runner outcome onto the Run row, the task status and the notification (spec §6.4).

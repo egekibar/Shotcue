@@ -19,6 +19,51 @@ final class ErrorClaudeRunner: ClaudeRunner, @unchecked Sendable {
     func version() async throws -> String { "2.1.278 (Claude Code)" }
 }
 
+/// A latch: `wait()` suspends until `open()`. `arrivals` counts the callers that reached it, so a test
+/// knows a run is parked there before it acts.
+final class Gate: @unchecked Sendable {
+    private let state = Locked<(isOpen: Bool, waiting: [CheckedContinuation<Void, Never>])>((false, []))
+    let arrivals = Locked(0)
+
+    func wait() async {
+        arrivals.withLock { $0 += 1 }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resumeNow = state.withLock { state -> Bool in
+                if state.isOpen { return true }
+                state.waiting.append(continuation)
+                return false
+            }
+            if resumeNow { continuation.resume() }
+        }
+    }
+
+    func open() {
+        let waiting = state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            state.isOpen = true
+            let all = state.waiting
+            state.waiting.removeAll()
+            return all
+        }
+        for continuation in waiting { continuation.resume() }
+    }
+}
+
+/// The git fake, except that `snapshot` parks on a gate: the run is held in its git phase.
+final class GatedGitInspector: GitInspector, @unchecked Sendable {
+    let base: FakeGitInspector
+    let gate: Gate
+    init(base: FakeGitInspector, gate: Gate) {
+        self.base = base
+        self.gate = gate
+    }
+    func snapshot(at path: String) async -> GitSnapshot? {
+        await gate.wait()
+        return await base.snapshot(at: path)
+    }
+    func createBranch(_ name: String, at path: String) async throws { try await base.createBranch(name, at: path) }
+    func stashAll(at path: String) async throws { try await base.stashAll(at: path) }
+}
+
 struct Harness {
     static let head = "c42049d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7"
 
@@ -41,9 +86,10 @@ struct Harness {
     let coordinator: RunCoordinator
     let root: URL
 
+    /// `snapshotGate` parks every git snapshot of the coordinator on that gate.
     init(
         projects: [Project], tasks: [ShotTask], runs: [Run] = [], runner: any ClaudeRunner,
-        settings: RunSettings = RunSettings(keepAwake: false)
+        settings: RunSettings = RunSettings(keepAwake: false), snapshotGate: Gate? = nil
     ) {
         clock = MutableClock()
         projectRepository = InMemoryProjectRepository(projects)
@@ -58,10 +104,12 @@ struct Harness {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("shotcue-coord-\(UUID().uuidString)", isDirectory: true)
         fileStore = FileStore(rootURL: root)
+        var coordinatorGit: any GitInspector = gitInspector
+        if let snapshotGate { coordinatorGit = GatedGitInspector(base: gitInspector, gate: snapshotGate) }
         coordinator = RunCoordinator(
             runner: runner, taskRepository: taskRepository,
             projectRepository: projectRepository, runRepository: runRepository,
-            gitInspector: gitInspector, fileStore: fileStore,
+            gitInspector: coordinatorGit, fileStore: fileStore,
             notifier: notifier, clock: clock, settings: settings)
     }
 
@@ -197,6 +245,27 @@ struct RunCoordinatorTests {
         #expect(await h.status(of: queued.id) == .queued)
         await h.coordinator.cancel(taskID: queued.id)
         #expect(await h.status(of: queued.id) == .ready)
+    }
+
+    @Test func cancelDuringTheGitPhaseNeverStartsClaude() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Erken iptal", status: .ready)
+        let runner = successRunner()
+        let gate = Gate()
+        let h = Harness(projects: [project], tasks: [task], runner: runner, snapshotGate: gate)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run parked in its git snapshot") { gate.arrivals.current > 0 }
+        await h.coordinator.cancel(taskID: task.id)
+        gate.open()
+        await waitUntil("run cancelled") { await h.runs(of: task.id).first?.state == .cancelled }
+
+        #expect(runner.specs.current.isEmpty)
+        #expect(runner.cancelled.current.isEmpty)
+        // It never ran, so it is ready to be sent again.
+        #expect(await h.status(of: task.id) == .ready)
+        #expect(h.notifier.sent.current.isEmpty)
     }
 
     @Test func oneRunPerProjectAndTheGlobalLimitAreRespected() async throws {
