@@ -5,14 +5,21 @@ import Testing
 
 @Suite("DiffText")
 struct DiffTextTests {
-    @Test func composesTrackedDiffAndUntrackedFiles() {
+    @Test func composesUntrackedFilesFirstThenTheTrackedDiff() {
         let text = DiffText.compose(
             diff: "diff --git a/a.swift b/a.swift\n+yeni satır\n",
             untracked: ["new.txt", "docs/x.md"],
             since: "c42049d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7", maxBytes: 10_000)
-        #expect(text.hasPrefix("# git diff c42049d\n"))
-        #expect(text.contains("+yeni satır"))
-        #expect(text.contains("# İzlenmeyen dosyalar\n?? new.txt\n?? docs/x.md"))
+        #expect(
+            text == "# İzlenmeyen dosyalar\n?? new.txt\n?? docs/x.md\n\n"
+                + "# git diff c42049d\ndiff --git a/a.swift b/a.swift\n+yeni satır")
+    }
+
+    @Test func aDiffLargerThanTheCapKeepsTheUntrackedList() {
+        let long = String(repeating: "x", count: 500)
+        let text = DiffText.compose(diff: long, untracked: ["new.txt", "docs/x.md"], since: nil, maxBytes: 100)
+        #expect(text.hasPrefix("# İzlenmeyen dosyalar\n?? new.txt\n?? docs/x.md\n\n# git diff HEAD\n"))
+        #expect(text.hasSuffix("… (çıktı 100 bayttan sonra kesildi)"))
     }
 
     @Test func emptyDiffSaysSoAndHeadIsTheDefaultBase() {
@@ -33,6 +40,14 @@ struct DiffTextTests {
     @Test func parsesUntrackedPathsFromPorcelain() {
         let porcelain = " M a.swift\n?? new.txt\nA  b.swift\n?? dir/c.md\n"
         #expect(DiffText.untrackedPaths(fromPorcelain: porcelain) == ["new.txt", "dir/c.md"])
+    }
+
+    @Test func untrackedPathsKeepGitsQuotingOfSpecialNames() {
+        let porcelain = "?? \"a b.txt\"\n?? \"say \\\"hi\\\".md\"\n?? özet.md\n"
+        #expect(
+            DiffText.untrackedPaths(fromPorcelain: porcelain) == [
+                "\"a b.txt\"", "\"say \\\"hi\\\".md\"", "özet.md",
+            ])
     }
 
     @Test func fakeProviderRecordsCallsAndReturnsItsResult() async throws {

@@ -10,19 +10,24 @@ public protocol DiffProvider: Sendable {
 public enum DiffText {
     public static let defaultMaxBytes = 1_000_000
 
+    /// Untracked files first, then the tracked diff, so cutting a long diff at `maxBytes` never drops
+    /// the list of files the run created.
     public static func compose(diff: String, untracked: [String], since: String?, maxBytes: Int) -> String {
-        let base = since.map { String($0.prefix(7)) } ?? "HEAD"
-        var lines = ["# git diff \(base)"]
-        let trimmed = diff.trimmingCharacters(in: .whitespacesAndNewlines)
-        lines.append(trimmed.isEmpty ? "(izlenen dosyalarda değişiklik yok)" : diff.trimmingCharacters(in: .newlines))
+        var lines: [String] = []
         if !untracked.isEmpty {
-            lines.append("")
             lines.append("# İzlenmeyen dosyalar")
             lines.append(contentsOf: untracked.map { "?? \($0)" })
+            lines.append("")
         }
+        let base = since.map { String($0.prefix(7)) } ?? "HEAD"
+        lines.append("# git diff \(base)")
+        let trimmed = diff.trimmingCharacters(in: .whitespacesAndNewlines)
+        lines.append(trimmed.isEmpty ? "(izlenen dosyalarda değişiklik yok)" : diff.trimmingCharacters(in: .newlines))
         return truncated(lines.joined(separator: "\n"), maxBytes: maxBytes)
     }
 
+    /// The paths of the `??` (untracked) lines of `git status --porcelain`, as git's display strings:
+    /// names git quotes (spaces, quotes, control characters) stay C-quoted, e.g. `"a b.txt"`.
     public static func untrackedPaths(fromPorcelain porcelain: String) -> [String] {
         porcelain.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
             line.hasPrefix("?? ") ? String(line.dropFirst(3)) : nil

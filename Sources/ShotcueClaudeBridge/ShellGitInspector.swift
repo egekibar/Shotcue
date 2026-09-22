@@ -57,9 +57,13 @@ public struct ShellGitInspector: GitInspector {
 
 extension ShellGitInspector: DiffProvider {
     /// `git diff <since|HEAD>` of the working tree plus untracked files (spec §6.4 "Diff'i göster").
+    /// `core.quotePath=false` shows non-ASCII names (`özet.md`) as they are instead of octal escapes;
+    /// `--` keeps a file named like the revision from making it ambiguous.
     public func diff(at path: String, since: String?, maxBytes: Int) async throws -> String {
-        let tracked = try await require(["diff", "--no-color", "--no-ext-diff", since ?? "HEAD"], at: path)
-        let status = try await require(["status", "--porcelain", "--untracked-files=all"], at: path)
+        let tracked = try await require(
+            ["-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", since ?? "HEAD", "--"], at: path)
+        let status = try await require(
+            ["-c", "core.quotePath=false", "status", "--porcelain", "--untracked-files=all"], at: path)
         return DiffText.compose(
             diff: tracked.stdout,
             untracked: DiffText.untrackedPaths(fromPorcelain: status.stdout),
