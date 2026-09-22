@@ -24,8 +24,9 @@ enum ProjectAssignment {
 
     /// Store-side flow shared by the library and the inspector: a queued task first leaves the queue
     /// through the dispatcher (which owns the queue and moves it to `ready`); the row is then re-read,
-    /// detached and saved. Returns the saved task, or nil when it is missing or running.
-    static func detach(taskID: UUID, services: AppServices, now: Date) async throws -> ShotTask? {
+    /// detached and saved. The write is stamped only after that, so it is never older than the
+    /// dispatcher's own. Returns the saved task, or nil when it is missing or running.
+    static func detach(taskID: UUID, services: AppServices) async throws -> ShotTask? {
         guard var task = try await services.tasks.task(id: taskID), task.status.isEditable else { return nil }
         if task.status == .queued {
             await services.dispatcher.cancel(taskID: taskID)
@@ -33,7 +34,7 @@ enum ProjectAssignment {
             else { return nil }
             task = current
         }
-        let detached = try withoutProject(task, now: now)
+        let detached = try withoutProject(task, now: services.clock.now)
         try await services.tasks.save(detached)
         return detached
     }
