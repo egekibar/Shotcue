@@ -1,48 +1,97 @@
 import Foundation
 import ShotcueCore
 
-/// Appends one JSON object per `RunEvent` to `runs/<runID>.jsonl` (spec §6.4).
+/// Appends one line per `RunEvent` to `runs/<runID>.jsonl` (spec §6.4), in claude's own stream-json
+/// shapes: `StreamJSONParser.parse(line:)` reads every line back as the identical event, so the UI
+/// replays a finished run exactly like a live one (and `jq` works on the file).
 /// A value type so the runner's `@Sendable` event callback can capture it.
 public struct RunLogWriter: Sendable {
     public let fileStore: FileStore
 
     public init(fileStore: FileStore) { self.fileStore = fileStore }
 
-    /// Flat shape so the UI (and a human with `jq`) can read the log without the Core enum.
-    struct Record: Encodable {
-        var t: String
-        var attempt: Int?
+    /// The part of claude's stream-json that `StreamJSONParser` reads; nil keys are left out.
+    struct StreamLine: Encodable {
+        var type: String
+        var subtype: String?
+        var sessionID: String?
         var model: String?
-        var name: String?
-        var result: ClaudeRunResult?
-        var session: String?
-        var summary: String?
-        var text: String?
-        var type: String?
+        var attempt: Int?
+        var message: Message?
+        var isError: Bool?
+        var result: String?
+        var totalCostUSD: Double?
+        var numTurns: Int?
+        var durationMs: Int?
+        var permissionDenials: [Denial]?
+
+        enum CodingKeys: String, CodingKey {
+            case type, subtype, model, attempt, message, result
+            case sessionID = "session_id"
+            case isError = "is_error"
+            case totalCostUSD = "total_cost_usd"
+            case numTurns = "num_turns"
+            case durationMs = "duration_ms"
+            case permissionDenials = "permission_denials"
+        }
     }
 
-    static func record(for event: RunEvent) -> Record {
+    struct Message: Encodable {
+        var role = "assistant"
+        var content: [Block]
+    }
+
+    struct Block: Encodable {
+        var type: String
+        var text: String?
+        var name: String?
+        var input: [String: String]?
+    }
+
+    struct Denial: Encodable {
+        var toolName: String
+        enum CodingKeys: String, CodingKey { case toolName = "tool_name" }
+    }
+
+    static func streamLine(for event: RunEvent) -> StreamLine {
         switch event {
         case .initialized(let sessionID, let model):
-            return Record(t: "init", model: model, session: sessionID)
+            return StreamLine(type: "system", subtype: "init", sessionID: sessionID, model: model)
         case .assistantText(let text):
-            return Record(t: "assistantText", text: text)
+            return StreamLine(type: "assistant", message: Message(content: [Block(type: "text", text: text)]))
         case .toolUse(let name, let summary):
-            return Record(t: "toolUse", name: name, summary: summary)
+            let block = Block(type: "tool_use", name: name, input: toolInput(name: name, summary: summary))
+            return StreamLine(type: "assistant", message: Message(content: [block]))
         case .apiRetry(let attempt):
-            return Record(t: "apiRetry", attempt: attempt)
+            return StreamLine(type: "system", subtype: "api_retry", attempt: attempt)
         case .result(let result):
-            return Record(t: "result", result: result)
+            return StreamLine(
+                type: "result", subtype: result.subtype, sessionID: result.sessionID, isError: result.isError,
+                result: result.result, totalCostUSD: result.totalCostUSD, numTurns: result.numTurns,
+                durationMs: result.durationMs, permissionDenials: result.permissionDenials.map { Denial(toolName: $0) })
         case .other(let type):
-            return Record(t: "other", type: type)
+            // The parser names unknown system lines "system/<subtype>".
+            let systemPrefix = "system/"
+            if type.hasPrefix(systemPrefix) {
+                return StreamLine(type: "system", subtype: String(type.dropFirst(systemPrefix.count)))
+            }
+            return StreamLine(type: type)
         }
+    }
+
+    /// `StreamJSONParser.toolSummary` renders an empty input as the bare tool name and otherwise
+    /// "name value" for the first recognised key, so the text after "name " goes under `command`.
+    static func toolInput(name: String, summary: String) -> [String: String] {
+        guard summary != name else { return [:] }
+        let prefix = name + " "
+        return ["command": summary.hasPrefix(prefix) ? String(summary.dropFirst(prefix.count)) : summary]
     }
 
     /// One line of NDJSON, keys sorted so the output is byte-stable.
     public static func line(for event: RunEvent) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        guard let data = try? encoder.encode(record(for: event)) else { return #"{"t":"unencodable"}"# }
+        guard let data = try? encoder.encode(streamLine(for: event)) else { return #"{"type":"unencodable"}"# }
         return String(decoding: data, as: UTF8.self)
     }
 

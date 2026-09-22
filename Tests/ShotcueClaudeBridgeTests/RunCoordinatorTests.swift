@@ -208,10 +208,12 @@ struct RunCoordinatorTests {
         #expect(notification.taskID == task.id)
         #expect(notification.runID == run.id)
 
-        // One log line per forwarded event (the final result is the return value, not an event).
+        // One log line per forwarded event (the final result is the return value, not an event), in
+        // claude's stream-json shape: the UI replays it with StreamJSONParser.
         let log = try String(contentsOf: h.fileStore.absoluteURL(for: run.logRelPath), encoding: .utf8)
-        #expect(log.split(separator: "\n", omittingEmptySubsequences: true).count == 2)
-        #expect(log.contains("\"t\":\"toolUse\""))
+        let replayed = log.split(separator: "\n", omittingEmptySubsequences: true)
+            .compactMap { StreamJSONParser.parse(line: String($0)) }
+        #expect(replayed == [.assistantText("bakıyorum"), .toolUse(name: "Read", summary: "Read a.png")])
     }
 
     @Test func limitResultFailsTheTaskAndNotifies() async throws {
