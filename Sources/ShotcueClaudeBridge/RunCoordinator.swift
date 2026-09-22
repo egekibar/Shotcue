@@ -72,10 +72,10 @@ public actor RunCoordinator: TaskDispatcher {
             }
             return
         }
-        guard var task = try? await taskRepository.task(id: taskID),
+        guard let task = try? await taskRepository.task(id: taskID),
             task.status == .queued || task.status == .scheduled
         else { return }
-        await apply(.ready, to: &task)
+        await apply(.ready, toTask: task.id)
     }
 
     public func runQueueNow() async {
@@ -110,8 +110,8 @@ public actor RunCoordinator: TaskDispatcher {
         let stale = try await runRepository.activeRuns()
         let count = try await runRepository.markInterruptedRuns(at: clock.now)
         for run in stale {
-            guard var task = try await taskRepository.task(id: run.taskID), task.status == .running else { continue }
-            await apply(.failed, to: &task)
+            guard let task = try await taskRepository.task(id: run.taskID), task.status == .running else { continue }
+            await apply(.failed, toTask: task.id)
         }
         return count
     }
@@ -164,10 +164,9 @@ public actor RunCoordinator: TaskDispatcher {
         defer { closeLiveEvents(runID) }
         // The row is gone, or it lost its project (never runnable, so the queue cannot pick it again):
         // there is nothing to run and nothing to report.
-        guard let loaded = try? await taskRepository.task(id: taskID), let projectID = loaded.projectID else {
+        guard let queued = try? await taskRepository.task(id: taskID), let projectID = queued.projectID else {
             return
         }
-        var task = loaded
         var run = Run(
             id: runID, taskID: taskID, state: .starting, startedAt: clock.now,
             logRelPath: fileStore.runLogRelPath(id: runID))
@@ -178,12 +177,12 @@ public actor RunCoordinator: TaskDispatcher {
         let project: Project
         do {
             guard let found = try await projectRepository.project(id: projectID) else {
-                await failBeforeLaunch(&run, task: &task, message: Self.missingProjectRecordMessage)
+                await failBeforeLaunch(&run, title: queued.title, message: Self.missingProjectRecordMessage)
                 return
             }
             project = found
         } catch {
-            await failBeforeLaunch(&run, task: &task, message: Self.unreadableProjectMessage(error))
+            await failBeforeLaunch(&run, title: queued.title, message: Self.unreadableProjectMessage(error))
             return
         }
 
@@ -192,12 +191,12 @@ public actor RunCoordinator: TaskDispatcher {
         guard FileManager.default.fileExists(atPath: project.path, isDirectory: &isDirectory),
             isDirectory.boolValue
         else {
-            await failBeforeLaunch(&run, task: &task, message: Self.missingProjectMessage(path: project.path))
+            await failBeforeLaunch(&run, title: queued.title, message: Self.missingProjectMessage(path: project.path))
             return
         }
 
         if pendingCancels.contains(runID) {
-            await cancelBeforeLaunch(&run, task: &task)
+            await cancelBeforeLaunch(&run)
             return
         }
         if project.runInBranch {
@@ -222,15 +221,23 @@ public actor RunCoordinator: TaskDispatcher {
         // Last coordinator-side check (the git phase can take a while); no suspension between it and
         // `launched`, so a cancel lands either here or with the runner.
         if pendingCancels.contains(runID) {
-            await cancelBeforeLaunch(&run, task: &task)
+            await cancelBeforeLaunch(&run)
             return
         }
         inFlight[taskID]?.launched = true
 
-        let spec = await makeSpec(task: task, project: project, runID: runID)
+        // `running` goes onto a fresh copy of the row. If the row refuses it (deleted, or moved on
+        // meanwhile), claude is not started. The spec is built from that same fresh row.
+        guard let running = await apply(.running, toTask: taskID) else {
+            run.state = .cancelled
+            run.finishedAt = clock.now
+            run.error = Self.taskChangedBeforeLaunchMessage
+            try? await runRepository.save(run)
+            return
+        }
+        let spec = await makeSpec(task: running, project: project, runID: runID)
         run.state = .running
         try? await runRepository.save(run)
-        await apply(.running, to: &task)
 
         let writer = logWriter
         let broadcaster = broadcasters.withLock { $0[runID] }
@@ -257,37 +264,38 @@ public actor RunCoordinator: TaskDispatcher {
 
         run.finishedAt = clock.now
         run.gitHeadAfter = await gitInspector.snapshot(at: project.path)?.head
-        let notification = await record(outcome: outcome, into: &run, task: &task)
+        let notification = await record(outcome: outcome, into: &run, title: running.title)
         try? await runRepository.save(run)
         if let notification { await notifier.notify(notification) }
     }
 
     /// The run never started (spec §8): the Run row says why, the task goes back to `ready` (the task
     /// never entered `running`; fix the cause and resend) and the user is told.
-    private func failBeforeLaunch(_ run: inout Run, task: inout ShotTask, message: String) async {
+    private func failBeforeLaunch(_ run: inout Run, title: String, message: String) async {
         run.state = .failed
         run.finishedAt = clock.now
         run.error = message
-        await apply(.ready, to: &task)
+        let task = await apply(.ready, toTask: run.taskID)
         try? await runRepository.save(run)
         await notifier.notify(
-            AppNotification(kind: .runFailed, title: task.title, body: message, taskID: task.id, runID: run.id))
+            AppNotification(
+                kind: .runFailed, title: task?.title ?? title, body: message, taskID: run.taskID, runID: run.id))
     }
 
     /// Cancelled before claude was started: the Run row is cancelled, the task (never `running`) goes back
     /// to `ready`, and nobody is notified — the user asked for it.
-    private func cancelBeforeLaunch(_ run: inout Run, task: inout ShotTask) async {
+    private func cancelBeforeLaunch(_ run: inout Run) async {
         run.state = .cancelled
         run.finishedAt = clock.now
         run.error = "cancelled"
-        await apply(.ready, to: &task)
+        await apply(.ready, toTask: run.taskID)
         try? await runRepository.save(run)
     }
 
     /// Maps the runner outcome onto the Run row, the task status and the notification (spec §6.4).
+    /// Only the status of the task changes (on a fresh copy); `title` is the fallback when the row is gone.
     private func record(
-        outcome: Result<ClaudeRunResult, any Error>, into run: inout Run,
-        task: inout ShotTask
+        outcome: Result<ClaudeRunResult, any Error>, into run: inout Run, title: String
     ) async -> AppNotification? {
         switch outcome {
         case .success(let result):
@@ -298,34 +306,34 @@ public actor RunCoordinator: TaskDispatcher {
             run.exitCode = 0
             if result.isSuccess {
                 run.state = .succeeded
-                await apply(.done, to: &task)
+                let task = await apply(.done, toTask: run.taskID)
                 return AppNotification(
-                    kind: .runDone, title: task.title,
+                    kind: .runDone, title: task?.title ?? title,
                     body: Self.firstLine(result.result) ?? "Tamamlandı",
-                    taskID: task.id, runID: run.id)
+                    taskID: run.taskID, runID: run.id)
             }
             run.state = .failed
             run.error = result.subtype
-            await apply(.failed, to: &task)
+            let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
-                kind: .runFailed, title: task.title,
-                body: Self.message(for: result), taskID: task.id, runID: run.id)
+                kind: .runFailed, title: task?.title ?? title,
+                body: Self.message(for: result), taskID: run.taskID, runID: run.id)
 
         case .failure(let error):
             let claudeError = error as? ClaudeRunError
             if claudeError == .cancelled {
                 run.state = .cancelled
                 run.error = "cancelled"
-                await apply(.cancelled, to: &task)
+                await apply(.cancelled, toTask: run.taskID)
                 return nil
             }
             run.state = .failed
             run.error = Self.message(for: error)
             if case .processFailed(let exitCode, _) = claudeError { run.exitCode = exitCode }
-            await apply(.failed, to: &task)
+            let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
-                kind: .runFailed, title: task.title,
-                body: Self.message(for: error), taskID: task.id, runID: run.id)
+                kind: .runFailed, title: task?.title ?? title,
+                body: Self.message(for: error), taskID: run.taskID, runID: run.id)
         }
     }
 
@@ -361,15 +369,20 @@ public actor RunCoordinator: TaskDispatcher {
             systemPromptAppend: PromptBuilder.systemPromptAppend + (extra.isEmpty ? "" : "\n\n" + extra))
     }
 
-    /// Every status change goes through `ShotTask.transition` (Plan 00 Task 2); direct assignment
-    /// is forbidden. A rejected transition means the row changed underneath us — the Run row still
-    /// carries the outcome, so we keep going.
-    private func apply(_ status: TaskStatus, to task: inout ShotTask) async {
+    /// Every status change goes through `ShotTask.transition` (Plan 00 Task 2) — direct assignment is
+    /// forbidden — applied to a FRESH copy of the row, so edits made meanwhile (title, order, mode) are
+    /// never overwritten with an old copy. Returns the saved row, or nil when the row is gone or refuses
+    /// the transition (it changed underneath us); the Run row still carries the outcome.
+    @discardableResult
+    private func apply(_ status: TaskStatus, toTask taskID: UUID) async -> ShotTask? {
         do {
+            guard var task = try await taskRepository.task(id: taskID) else { return nil }
             try task.transition(to: status, at: clock.now)
             try await taskRepository.save(task)
+            return task
         } catch {
-            return
+            NSLog("%@", "Shotcue: task \(taskID.uuidString) could not move to \(status.rawValue): \(error)")
+            return nil
         }
     }
 
@@ -410,6 +423,9 @@ public actor RunCoordinator: TaskDispatcher {
     static func unreadableProjectMessage(_ error: any Error) -> String {
         "Proje okunamadı: \(error)"
     }
+
+    static let taskChangedBeforeLaunchMessage =
+        "Görev, claude başlatılmadan önce değişti ya da silindi; çalıştırılmadı."
 
     static func message(for error: any Error) -> String {
         guard let error = error as? ClaudeRunError else { return String(describing: error) }

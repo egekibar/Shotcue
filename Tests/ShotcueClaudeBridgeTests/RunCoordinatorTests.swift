@@ -289,6 +289,71 @@ struct RunCoordinatorTests {
         #expect(h.notifier.sent.current.isEmpty)
     }
 
+    @Test func editsMadeDuringARunSurviveItsEnd() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Eski başlık", status: .ready, sortIndex: 1)
+        let runner = successRunner(delay: .milliseconds(150))
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("claude started") { !runner.specs.current.isEmpty }
+        // The UI saves edits straight to the repository while claude works.
+        var edited = try #require(try await h.taskRepository.task(id: task.id))
+        edited.title = "Yeni başlık"
+        edited.mode = .analyze
+        edited.sortIndex = 7
+        try await h.taskRepository.save(edited)
+        await waitUntil("run finished") { await h.runs(of: task.id).first?.state == .succeeded }
+
+        let final = try #require(try await h.taskRepository.task(id: task.id))
+        #expect(final.status == .done)
+        #expect(final.title == "Yeni başlık")
+        #expect(final.mode == .analyze)
+        #expect(final.sortIndex == 7)
+        #expect(h.notifier.sent.current.first?.title == "Yeni başlık")
+    }
+
+    @Test func theSpecIsBuiltFromTheRowAsItIsAtLaunch() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Eski başlık", status: .ready)
+        let runner = successRunner()
+        let gate = Gate()
+        let h = Harness(projects: [project], tasks: [task], runner: runner, snapshotGate: gate)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run parked in its git snapshot") { gate.arrivals.current > 0 }
+        var edited = try #require(try await h.taskRepository.task(id: task.id))
+        edited.title = "Yeni başlık"
+        try await h.taskRepository.save(edited)
+        gate.open()
+        await waitUntil("spec captured") { !runner.specs.current.isEmpty }
+
+        let prompt = try #require(runner.specs.current.first?.prompt)
+        #expect(prompt.contains("TITLE: Yeni başlık"))
+    }
+
+    @Test func aRowDeletedBeforeLaunchNeverStartsClaude() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Silinecek", status: .ready)
+        let runner = successRunner()
+        let gate = Gate()
+        let h = Harness(projects: [project], tasks: [task], runner: runner, snapshotGate: gate)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run parked in its git snapshot") { gate.arrivals.current > 0 }
+        try await h.taskRepository.deleteTask(id: task.id)
+        gate.open()
+        await waitUntil("run cancelled") { await h.runs(of: task.id).first?.state == .cancelled }
+
+        #expect(runner.specs.current.isEmpty)
+        // `.running` could not be applied: the deleted row is not brought back.
+        #expect(try await h.taskRepository.task(id: task.id) == nil)
+        #expect(h.notifier.sent.current.isEmpty)
+    }
+
     @Test func oneRunPerProjectAndTheGlobalLimitAreRespected() async throws {
         let first = Project(name: "a", path: Harness.makeProjectDirectory("a"))
         let second = Project(name: "b", path: Harness.makeProjectDirectory("b"))
