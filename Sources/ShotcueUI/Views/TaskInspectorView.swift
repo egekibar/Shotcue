@@ -353,8 +353,8 @@ public struct TaskInspectorView: View {
                     runRow(run)
                 }
             }
-            if !store.displayedEvents.isEmpty || store.activeRun != nil {
-                RunLogView(events: store.displayedEvents, isLive: store.activeRun != nil)
+            if !store.displayedEvents.isEmpty || store.isDisplayingLiveRun {
+                RunLogView(events: store.displayedEvents, isLive: store.isDisplayingLiveRun)
                     .frame(minHeight: 140, maxHeight: 280)
             }
         }

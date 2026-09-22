@@ -28,12 +28,15 @@ public final class TaskDetailStore {
     @ObservationIgnored private let services: AppServices
     @ObservationIgnored private var streams: [Task<Void, Never>] = []
     @ObservationIgnored private var liveTask: Task<Void, Never>?
-    @ObservationIgnored private var liveRunID: UUID?
+    /// The run whose live events stream into `liveEvents`. Observed: `displayedEvents` depends on it.
+    private var liveRunID: UUID?
     /// Bumped by every `start()` and `stop()`. A `start()` whose reload outlived a `stop()` (or a newer
     /// `start()`) sees a different value and does not subscribe, so no stream outlives the store's use.
     @ObservationIgnored private var generation = 0
     /// Between `start()` and `stop()`. The live-event subscription is only opened while started.
     @ObservationIgnored private var isStarted = false
+    /// Bumped whenever the displayed run changes; a replay that finishes under an older token is dropped.
+    @ObservationIgnored private var selectionToken = 0
 
     public init(services: AppServices, taskID: UUID) {
         self.services = services
@@ -123,9 +126,16 @@ public final class TaskDetailStore {
     /// The claude session id to resume: `run.id` doubles as `--session-id` (spec §6.3).
     public var sessionID: String? { latestRun?.id.uuidString }
 
-    /// What `RunLogView` renders: the live stream while a run is in flight, the replay otherwise.
+    /// What `RunLogView` renders: the live stream while the selected run is the live one, otherwise the
+    /// selected run's replay (which keeps an ended live run's events on screen).
     public var displayedEvents: [RunEvent] {
-        activeRun != nil ? liveEvents : selectedRunEvents
+        isDisplayingLiveRun ? liveEvents : selectedRunEvents
+    }
+
+    /// True while the selected run is the one streaming live events (the log then auto-scrolls).
+    public var isDisplayingLiveRun: Bool {
+        guard let liveRunID else { return false }
+        return selectedRunID == liveRunID
     }
 
     public var isEditable: Bool { task?.status.isEditable ?? false }
@@ -426,42 +436,48 @@ public final class TaskDetailStore {
 
     // MARK: - Run log
 
-    /// Shows a run's log: live events while it runs, otherwise the parsed `runs/<id>.jsonl`.
+    /// Shows a run's log: the live events for the live run, otherwise the parsed `runs/<id>.jsonl`.
+    /// A replay that finishes after the selection moved on is discarded.
     public func selectRun(_ runID: UUID?) async {
+        selectionToken += 1
+        let token = selectionToken
         selectedRunID = runID
         guard let runID, let run = runs.first(where: { $0.id == runID }) else {
             selectedRunEvents = []
             return
         }
-        if run.state == .starting || run.state == .running {
-            selectedRunEvents = liveEvents
-            return
-        }
-        selectedRunEvents = await replay(logRelPath: run.logRelPath)
+        guard runID != liveRunID else { return }
+        let events = await replay(logRelPath: run.logRelPath)
+        guard token == selectionToken else { return }
+        selectedRunEvents = events
     }
 
-    /// Reads and parses the NDJSON log off the main actor. Unparsable lines are skipped (spec §6.4).
-    private func replay(logRelPath: String) async -> [RunEvent] {
-        let url = services.fileStore.absoluteURL(for: logRelPath)
-        let lines = await Task.detached(priority: .utility) { () -> [String] in
+    /// Reads a run log's lines off the main actor. Internal seam: tests substitute a slow reader to prove a
+    /// stale replay cannot overwrite a newer selection.
+    @ObservationIgnored var logLineReader: @Sendable (URL) async -> [String] = { url in
+        await Task.detached(priority: .utility) { () -> [String] in
             guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
             return text.components(separatedBy: "\n")
         }.value
+    }
+
+    /// Reads and parses the NDJSON log. Unparsable lines are skipped (spec §6.4).
+    private func replay(logRelPath: String) async -> [RunEvent] {
+        let lines = await logLineReader(services.fileStore.absoluteURL(for: logRelPath))
         return lines.compactMap { StreamJSONParser.parse(line: $0) }
     }
 
     /// Subscribes to `liveEvents(runID:)` when a run starts and tears the subscription down when it ends.
     private func syncLiveSubscription() {
         guard isStarted, let active = activeRun else {
-            liveTask?.cancel()
-            liveTask = nil
-            liveRunID = nil
+            endLiveSubscription()
             return
         }
         guard liveRunID != active.id else { return }
         liveTask?.cancel()
         liveRunID = active.id
         liveEvents = []
+        selectionToken += 1
         selectedRunID = active.id
         let events = services.dispatcher.liveEvents(runID: active.id)
         liveTask = Task { [weak self] in
@@ -469,6 +485,27 @@ public final class TaskDetailStore {
                 guard let self else { return }
                 self.liveEvents.append(event)
             }
+        }
+    }
+
+    /// The live run ended (or the store stopped). If it was on screen, its streamed events stay there, and
+    /// the complete log file then replaces them unless the selection moved on meanwhile (the stream may
+    /// have missed events from before the subscription, or the final result line).
+    private func endLiveSubscription() {
+        liveTask?.cancel()
+        liveTask = nil
+        guard let ended = liveRunID else { return }
+        liveRunID = nil
+        guard selectedRunID == ended else { return }
+        selectionToken += 1
+        let token = selectionToken
+        selectedRunEvents = liveEvents
+        guard isStarted, let logRelPath = runs.first(where: { $0.id == ended })?.logRelPath else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            let replayed = await self.replay(logRelPath: logRelPath)
+            guard token == self.selectionToken, !replayed.isEmpty else { return }
+            self.selectedRunEvents = replayed
         }
     }
 
