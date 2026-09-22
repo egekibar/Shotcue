@@ -115,6 +115,11 @@ public struct TaskInspectorView: View {
             }
             .frame(maxWidth: .infinity)
             .clipShape(.rect(cornerRadius: 8))
+            // ⌘C copies the image only while this preview has focus, through the standard Copy command, so
+            // the text fields and the run log keep their own ⌘C (no global key equivalent on a button).
+            .focusable()
+            .onCopyCommand { copyProviders(for: capture) }
+            .help("Görseli seçip ⌘C ile kopyalayabilirsin.")
 
             HStack(spacing: 8) {
                 Text("\(capture.width)×\(capture.height) @\(Int(capture.scale))x")
@@ -124,7 +129,6 @@ public struct TaskInspectorView: View {
                 Button("Kopyala", systemImage: "doc.on.doc") {
                     store.copyImage(captureID: capture.id)
                 }
-                .keyboardShortcut("c", modifiers: .command)
                 Button("Finder'da göster", systemImage: "folder") {
                     store.revealInFinder(captureID: capture.id)
                 }
@@ -133,6 +137,12 @@ public struct TaskInspectorView: View {
             .font(.caption)
             .foregroundStyle(.tint)
         }
+    }
+
+    /// What Copy puts on the pasteboard for a focused capture: the PNG file itself.
+    private func copyProviders(for capture: Capture) -> [NSItemProvider] {
+        guard let provider = NSItemProvider(contentsOf: store.absoluteURL(for: capture.relPath)) else { return [] }
+        return [provider]
     }
 
     // MARK: - Title and note
