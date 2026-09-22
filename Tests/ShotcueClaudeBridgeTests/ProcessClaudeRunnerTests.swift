@@ -25,6 +25,14 @@ struct ProcessClaudeRunnerTests {
             systemPromptAppend: "SYS")
     }
 
+    /// Writes an executable bash stand-in for `claude` into `directory`.
+    func makeScript(_ body: String, in directory: URL, named name: String = "fake-claude") throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        try Data(("#!/bin/bash\n" + body + "\n").utf8).write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        return url
+    }
+
     func runner(scenario: String, argsFile: URL? = nil, killGrace: Duration = .seconds(1)) -> ProcessClaudeRunner {
         var overrides = ["FAKE_CLAUDE_SCENARIO": scenario]
         if let argsFile { overrides["FAKE_CLAUDE_ARGS_FILE"] = argsFile.path }
@@ -184,6 +192,52 @@ struct ProcessClaudeRunnerTests {
         // The pending cancel was consumed by that attempt: the registry keeps nothing behind.
         let result = try await subject.run(spec) { _ in }
         #expect(result.isSuccess)
+    }
+
+    /// claude 2.1.278 handles SIGINT by exiting 0 (SIGTERM → 143): a cancel we signalled must still
+    /// come back as `.cancelled`, not as `.noResult`.
+    @Test func cancelIsReportedWhenTheCLIExitsCleanlyOnSIGINT() async throws {
+        let project = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: project) }
+        let script = try makeScript(
+            """
+            trap 'exit 0' INT
+            echo '{"type":"system","subtype":"init","session_id":"s","model":"m"}'
+            while :; do sleep 0.1; done
+            """, in: project)
+        // A long grace period, so the child ends through its own trap (exit 0), never through SIGKILL.
+        let subject = ProcessClaudeRunner(executableURL: script, environmentOverrides: [:], killGrace: .seconds(5))
+        let spec = spec(projectPath: project.path, timeout: 60)
+        let seen = Locked(0)
+        let run = Task {
+            try await subject.run(spec) { _ in seen.withLock { $0 += 1 } }
+        }
+        while seen.current == 0 { try await Task.sleep(for: .milliseconds(20)) }
+        await subject.cancel(runID: spec.runID)
+        do {
+            _ = try await run.value
+            Issue.record("expected a throw")
+        } catch let error as ClaudeRunError {
+            #expect(error == .cancelled)
+        }
+    }
+
+    /// `claude -p` exits non-zero when --max-turns is hit, yet its result line carries the subtype, cost
+    /// and turns the coordinator needs.
+    @Test func resultLineWinsOverANonZeroExit() async throws {
+        let project = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: project) }
+        let script = try makeScript(
+            """
+            echo '{"type":"result","subtype":"error_max_turns","is_error":true,"num_turns":30,"total_cost_usd":0.25,"session_id":"s","permission_denials":[]}'
+            exit 1
+            """, in: project)
+        let subject = ProcessClaudeRunner(executableURL: script, environmentOverrides: [:], killGrace: .seconds(1))
+        let result = try await subject.run(spec(projectPath: project.path)) { _ in }
+        #expect(result.hitLimit)
+        #expect(result.subtype == ClaudeRunResult.maxTurnsSubtype)
+        #expect(result.numTurns == 30)
+        #expect(result.totalCostUSD == 0.25)
     }
 
     @Test func versionReadsTheCLIVersion() async throws {

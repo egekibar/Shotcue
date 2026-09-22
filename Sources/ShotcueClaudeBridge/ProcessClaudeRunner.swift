@@ -23,10 +23,13 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
     private struct Registry {
         var active: [UUID: Process] = [:]
         var cancelRequested: Set<UUID> = []
+        /// Runs whose live process we signalled because of a cancel.
+        var cancelSignalled: Set<UUID> = []
 
         mutating func forget(_ runID: UUID) {
             active[runID] = nil
             cancelRequested.remove(runID)
+            cancelSignalled.remove(runID)
         }
     }
 
@@ -120,7 +123,7 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
             registry.active[runID] = process
             return registry.cancelRequested.contains(runID)
         }
-        if cancelPending { stop(process) }
+        if cancelPending { stop(process, cancelling: runID) }
 
         // Race the child against the timeout. Never wait for stdout EOF: a grandchild of the
         // child can keep the write end open long after the child itself is gone.
@@ -151,22 +154,30 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         stdoutHandle.readabilityHandler = nil
         stderrHandle.readabilityHandler = nil
         if let leftover = stdoutTail.withLock({ LineSplitter.flush(&$0) }) { consume(leftover) }
-        let wasCancelled = registry.withLock { $0.cancelRequested.contains(runID) }
+        let cancelledByUs = registry.withLock { $0.cancelSignalled.contains(runID) }
         try? stdoutHandle.close()
         try? stderrHandle.close()
 
+        // Outcome precedence, top to bottom.
+        // 1. We signalled a cancel: whatever the exit looks like (claude exits 0 on SIGINT), it was cancelled.
+        if cancelledByUs { throw ClaudeRunError.cancelled }
+        // 2. The timeout stopped it.
         guard let status = exitStatus else { throw ClaudeRunError.timedOut }
-        // A signal-killed child reports the SIGNAL NUMBER in terminationStatus (2 for SIGINT),
-        // not 128+signal; `claude` itself exits 130/143 when it handles the signal.
+        // 3. A result line is the run's answer even with a non-zero exit (a --max-turns stop exits with an error).
+        if let result = lastResult.current { return result }
+        // 4. Stopped from outside: `claude` exits 130/143 when it handles SIGINT/SIGTERM itself; a child killed
+        //    by the signal reports the SIGNAL NUMBER in terminationStatus (2, 15), not 128+signal.
         if status == 130 || status == 143 { throw ClaudeRunError.cancelled }
-        if wasCancelled, process.terminationReason == .uncaughtSignal { throw ClaudeRunError.cancelled }
+        if process.terminationReason == .uncaughtSignal, status == SIGINT || status == SIGTERM {
+            throw ClaudeRunError.cancelled
+        }
+        // 5. Anything else.
         if status != 0 {
             throw ClaudeRunError.processFailed(
                 exitCode: status,
                 stderr: String(decoding: stderrBuffer.current, as: UTF8.self))
         }
-        guard let result = lastResult.current else { throw ClaudeRunError.noResult }
-        return result
+        throw ClaudeRunError.noResult
     }
 
     public func cancel(runID: UUID) async {
@@ -174,7 +185,7 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
             registry.cancelRequested.insert(runID)
             return registry.active[runID]
         }
-        if let process { stop(process) }
+        if let process { stop(process, cancelling: runID) }
     }
 
     public func version() async throws -> String {
@@ -189,8 +200,11 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
     }
 
     /// SIGINT for a graceful stop (Claude saves the turn), SIGKILL after `killGrace`.
-    private func stop(_ process: Process) {
+    /// A cancel marks its run BEFORE the signal goes out, so any termination that follows reads as
+    /// `.cancelled`; the timeout's stop passes no run id.
+    private func stop(_ process: Process, cancelling runID: UUID? = nil) {
         guard process.isRunning else { return }
+        if let runID { registry.withLock { _ = $0.cancelSignalled.insert(runID) } }
         process.interrupt()
         let pid = process.processIdentifier
         let grace = killGrace
