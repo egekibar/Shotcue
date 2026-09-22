@@ -37,12 +37,14 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
         await processPending()
     }
 
-    /// Transcribes every `pending` voice note, oldest task first. Errors mark that one note
-    /// `.failed` (audio is kept, spec §8) and never stop the queue.
+    /// Transcribes every `pending` voice note, oldest task first. A per-file error marks that one note
+    /// `.failed` (audio is kept, spec §8) and the queue goes on. A model that is not ready, or stops being
+    /// ready mid-run (it cannot be loaded), ends the run and leaves the remaining notes `pending`.
     ///
     /// The run is claimed before the first `await`, so a second call arriving while this one waits for
     /// the transcriber cannot start a parallel run over the same notes; that call only asks the running
-    /// one to rescan, which picks up notes saved mid-run instead of leaving them `pending`.
+    /// one to rescan, which picks up notes saved mid-run instead of leaving them `pending`. The rescan is
+    /// honoured even when this pass stopped on a "not ready" answer that the call has made stale.
     public func processPending() async {
         guard !processing else {
             rescanRequested = true
@@ -53,8 +55,8 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
 
         repeat {
             rescanRequested = false
-            guard await transcriber.modelState() == .ready else { return }
             for pending in await pendingNotes() {
+                guard await transcriber.modelState() == .ready else { break }
                 await transcribe(note: pending.note, in: pending.task)
             }
         } while rescanRequested
@@ -83,26 +85,34 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
 
     private func transcribe(note: VoiceNote, in task: ShotTask) async {
         // Re-read: the user may have edited the transcript while an earlier note was running.
-        let current =
-            (try? await taskRepository.voiceNotes(taskID: task.id))?
-            .first { $0.id == note.id } ?? note
+        let current = await storedNote(note.id, taskID: task.id) ?? note
         guard current.transcriptState == .pending, !current.editedByUser else { return }
 
         let fileURL = fileStore.absoluteURL(for: current.relPath)
-        var updated = current
-        do {
-            let transcript = try await transcriber.transcribe(fileURL: fileURL, language: language)
+        let transcript = try? await transcriber.transcribe(fileURL: fileURL, language: language)
+
+        // Re-read after the (multi-second) transcription: a deletion, an edit or a state change made
+        // meanwhile wins, and the result is dropped instead of being saved over it.
+        guard var updated = await storedNote(note.id, taskID: task.id),
+            updated.transcriptState == .pending, !updated.editedByUser
+        else { return }
+        if let transcript {
             updated.transcript = transcript.text
             updated.transcriptJSON = Self.encode(transcript)
             updated.transcriptState = .done
             updated.engine = transcript.engine
             try? await taskRepository.save(updated)
             await autoFillTitle(for: task, transcript: transcript.text)
-        } catch {
+        } else {
             updated.transcriptState = .failed
             updated.engine = transcriber.engineName
             try? await taskRepository.save(updated)
         }
+    }
+
+    /// The note as stored now; nil when it is gone or cannot be read.
+    private func storedNote(_ id: UUID, taskID: UUID) async -> VoiceNote? {
+        (try? await taskRepository.voiceNotes(taskID: taskID))?.first { $0.id == id }
     }
 
     /// Spec §5.4: the title follows the note, then the transcript, and stops once the user edits it.

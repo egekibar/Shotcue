@@ -124,19 +124,33 @@ struct WhisperKitTranscriberTests {
         #expect(transcript.text == "clear the cache")
     }
 
-    @Test func failureMovesTheStateToFailed() async {
-        let engine = RecordingWhisperEngine(failure: FakeError("model missing"))
+    @Test func aPerFileFailureKeepsTheModelReady() async {
+        // One unreadable recording fails that note only (spec §8, retryable); it must not block the queue.
+        let engine = RecordingWhisperEngine(failure: FakeError("bad audio"))
         let transcriber = WhisperKitTranscriber(
             modelName: WhisperKitTranscriber.defaultModelName,
             modelsDirectory: emptyModelsDirectory(),
             engine: engine, initialState: .ready)
-        await #expect(throws: FakeError.self) {
+        await #expect(throws: FakeError("bad audio")) {
+            _ = try await transcriber.transcribe(fileURL: URL(fileURLWithPath: "/tmp/x.m4a"), language: "tr")
+        }
+        let state = await transcriber.modelState()
+        #expect(state == .ready)
+    }
+
+    @Test func aModelThatCannotBeLoadedMovesTheStateToFailed() async {
+        // Production engine on an empty models directory: loading fails offline, on the missing model files.
+        let directory = emptyModelsDirectory()
+        let transcriber = WhisperKitTranscriber(
+            modelName: WhisperKitTranscriber.defaultModelName, modelsDirectory: directory)
+        await #expect(throws: (any Error).self) {
             _ = try await transcriber.transcribe(fileURL: URL(fileURLWithPath: "/tmp/x.m4a"), language: "tr")
         }
         if case .failed(let message) = await transcriber.modelState() {
-            #expect(message.contains("model missing"))
+            #expect(message.contains(transcriber.modelFolderURL.path))
         } else {
             Issue.record("state should be .failed")
         }
+        try? FileManager.default.removeItem(at: directory)
     }
 }

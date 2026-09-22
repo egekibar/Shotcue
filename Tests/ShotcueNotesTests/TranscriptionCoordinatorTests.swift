@@ -44,19 +44,32 @@ actor GatedTranscriber: Transcriber {
     private(set) var modelStateCalls = 0
     private var holdsModelState: Bool
     private var holdsTranscription = true
+    /// What `modelState()` answers; captured when the check starts, like a real check racing a download.
+    private var reportedState: TranscriberModelState
+    private let failsTranscription: Bool
     private var parkedModelStates: [CheckedContinuation<Void, Never>] = []
     private var parkedTranscriptions: [CheckedContinuation<Void, Never>] = []
     private var watchers: [CheckedContinuation<Void, Never>] = []
 
-    init(holdsModelState: Bool = false) {
+    init(
+        holdsModelState: Bool = false, reportedState: TranscriberModelState = .ready,
+        failsTranscription: Bool = false
+    ) {
         self.holdsModelState = holdsModelState
+        self.reportedState = reportedState
+        self.failsTranscription = failsTranscription
     }
 
     func modelState() async -> TranscriberModelState {
         modelStateCalls += 1
+        let answer = reportedState
         wakeWatchers()
         if holdsModelState { await withCheckedContinuation { parkedModelStates.append($0) } }
-        return .ready
+        return answer
+    }
+
+    func setReportedState(_ state: TranscriberModelState) {
+        reportedState = state
     }
 
     func downloadModel() async throws {}
@@ -65,6 +78,7 @@ actor GatedTranscriber: Transcriber {
         transcribedFiles.append(fileURL.lastPathComponent)
         wakeWatchers()
         if holdsTranscription { await withCheckedContinuation { parkedTranscriptions.append($0) } }
+        if failsTranscription { throw FakeError("bad audio") }
         return Transcript(text: "not metni", language: language, engine: engineName)
     }
 
@@ -94,6 +108,22 @@ actor GatedTranscriber: Transcriber {
     private func wakeWatchers() {
         watchers.forEach { $0.resume() }
         watchers.removeAll()
+    }
+}
+
+/// Fails the way `WhisperKitTranscriber` does when its model cannot be loaded: the state turns `.failed`
+/// and the transcription throws.
+final class ModelLoadFailingTranscriber: Transcriber, @unchecked Sendable {
+    let engineName = "load-failing"
+    let state = Locked<TranscriberModelState>(.ready)
+    let calls = Locked<[String]>([])
+
+    func modelState() async -> TranscriberModelState { state.current }
+    func downloadModel() async throws {}
+    func transcribe(fileURL: URL, language: String) async throws -> Transcript {
+        calls.withLock { $0.append(fileURL.lastPathComponent) }
+        state.set(.failed("model files missing"))
+        throw FakeError("model files missing")
     }
 }
 
@@ -352,5 +382,77 @@ struct TranscriptionCoordinatorTests {
         #expect(files == ["one.m4a"])
         let notes = try await fixture.repo.voiceNotes(taskID: fixture.task.id)
         #expect(notes.first?.transcriptState == .done)
+    }
+
+    @Test func aModelLoadFailureStopsTheRunAndLeavesTheRestPending() async throws {
+        // The note that hit the unloadable model is marked failed (spec §8); the others must wait as
+        // `pending` for the model instead of failing one after another.
+        let repo = InMemoryTaskRepository()
+        for index in 0..<3 {
+            let task = ShotTask(
+                projectID: UUID(), title: "task \(index)", status: .ready, sortIndex: Double(index),
+                createdAt: Date(timeIntervalSince1970: 1_790_000_000 + Double(index)))
+            try await repo.save(task)
+            try await repo.save(
+                VoiceNote(taskID: task.id, relPath: "audio/n\(index).m4a", durationSec: 20, transcriptState: .pending))
+        }
+        let transcriber = ModelLoadFailingTranscriber()
+        let coordinator = TranscriptionCoordinator(
+            transcriber: transcriber, taskRepository: repo,
+            fileStore: FileStore(rootURL: URL(fileURLWithPath: "/tmp/shotcue-load")), language: "tr")
+        await coordinator.processPending()
+
+        #expect(transcriber.calls.current == ["n0.m4a"])
+        var states: [TranscriptState] = []
+        for task in try await repo.allTasks() {
+            for note in try await repo.voiceNotes(taskID: task.id) { states.append(note.transcriptState) }
+        }
+        #expect(states == [.failed, .pending, .pending])
+    }
+
+    @Test func aRescanRequestedWhileTheModelCheckIsInFlightIsNotLost() async throws {
+        // The run asks whether the model is ready; before the answer ("not downloaded") arrives, the download
+        // finishes and the app calls `processPending()` again. That call only requests a rescan, so the run
+        // must honour it instead of stopping on the stale answer.
+        let fixture = try await CoordinatorFixture.make()
+        let transcriber = GatedTranscriber(holdsModelState: true, reportedState: .notDownloaded)
+        let coordinator = TranscriptionCoordinator(
+            transcriber: transcriber, taskRepository: fixture.repo,
+            fileStore: fixture.temporaryStore(), language: "tr")
+        let firstRun = Task { await coordinator.processPending() }
+        await transcriber.waitForModelStateCalls(1)
+
+        await transcriber.setReportedState(.ready)
+        await coordinator.processPending()
+        await transcriber.open()
+        await firstRun.value
+
+        let notes = try await fixture.repo.voiceNotes(taskID: fixture.task.id)
+        #expect(notes.first?.transcriptState == .done)
+    }
+
+    @Test(arguments: [false, true])
+    func aUserEditMadeDuringTranscriptionIsKept(transcriptionFails: Bool) async throws {
+        // The result used to be saved over a copy read before the (multi-second) transcription, both on
+        // success and on failure.
+        let fixture = try await CoordinatorFixture.make()
+        let transcriber = GatedTranscriber(failsTranscription: transcriptionFails)
+        let coordinator = TranscriptionCoordinator(
+            transcriber: transcriber, taskRepository: fixture.repo,
+            fileStore: fixture.temporaryStore(), language: "tr")
+        let run = Task { await coordinator.processPending() }
+        await transcriber.waitForTranscriptions(1)
+
+        var edited = fixture.note
+        edited.transcript = "kullanıcının düzelttiği metin"
+        edited.editedByUser = true
+        try await fixture.repo.save(edited)
+        await transcriber.open()
+        await run.value
+
+        let stored = try #require(try await fixture.repo.voiceNotes(taskID: fixture.task.id).first)
+        #expect(stored == edited)
+        let task = try #require(try await fixture.repo.task(id: fixture.task.id))
+        #expect(task.title == "Yakalama 22.09 12:00")
     }
 }
