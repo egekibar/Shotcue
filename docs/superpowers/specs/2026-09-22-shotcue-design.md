@@ -43,7 +43,7 @@ Package.swift                      # swift-tools-version 6.4, platforms [.macOS(
 Sources/
   ShotcueCore/          # saf domain: modeller, protokoller, durum makinesi, prompt üretici, zamanlayıcı mantığı, stream-json ayrıştırıcı. Bağımlılık: yok.
   ShotcuePersistence/   # GRDB: migration'lar, repository implementasyonları, dosya deposu (PNG/m4a yolları)
-  ShotcueCapture/       # screencapture sarmalayıcı, thumbnail üretici, izin servisi, KeyboardShortcuts entegrasyonu
+  ShotcueCapture/       # screencapture sarmalayıcı, thumbnail üretici, izin servisi, Carbon global kısayol (HotKeyCenter)
   ShotcueNotes/         # AVAudioEngine kayıt, WhisperKit transkripsiyon, (opsiyonel) Foundation Models
   ShotcueClaudeBridge/  # Process runner, RunCoordinator, git durum kaydı, aktarım (terminal/deep link), zamanlayıcı sürücüsü
   ShotcueUI/            # SwiftUI görünümleri ve @Observable store'lar
@@ -65,15 +65,14 @@ Bağımlılık yönü: `App → UI → Core`, `App → {Persistence, Capture, No
 - UI ve App target'ları: `.defaultIsolation(MainActor.self)`; servis target'ları: `.defaultIsolation(nil)`; tümünde `NonisolatedNonsendingByDefault` ve `InferIsolatedConformances` upcoming feature'ları.
 - Dil modu Swift 6 (strict concurrency). Servisler `actor` veya `Sendable` sınıf; Core tipleri `Sendable` value type.
 
-### 4.3 Bağımlılıklar (üçü de SPM)
+### 4.3 Bağımlılıklar (ikisi de SPM)
 
-| Paket | Sürüm | Amaç |
-|---|---|---|
-| `groue/GRDB.swift` | 7.x | SQLite, migration, `ValueObservation` |
-| `sindresorhus/KeyboardShortcuts` | 3.1.x | Global kısayol (Carbon, izin istemez) + SwiftUI recorder |
-| `argmaxinc/argmax-oss-swift` (WhisperKit) | 1.1.x | Cihaz içi Türkçe/İngilizce transkripsiyon |
+| Paket | Sürüm | Ürün | Amaç |
+|---|---|---|---|
+| `groue/GRDB.swift` | 7.11.x | `GRDB` | SQLite, migration, `ValueObservation` |
+| `argmaxinc/argmax-oss-swift` | 1.1.x | `WhisperKit` | Cihaz içi Türkçe/İngilizce transkripsiyon |
 
-Başka bağımlılık eklenmez. Waveform için basit SwiftUI seviye çubuğu yeterli.
+Başka bağımlılık eklenmez. **`sindresorhus/KeyboardShortcuts` elendi:** kaynağında `#Preview` makrosu var ve Command Line Tools `PreviewsMacros` eklentisini içermediği için Xcode'suz derlenmiyor (bu makinede denendi, 2026-09-22). Global kısayol için `ShotcueCapture` içinde ~100 satırlık Carbon `RegisterEventHotKey` sarmalayıcısı yazılır; kısayol Ayarlar'da hazır kombinasyon listesinden seçilir. Aynı sebeple `#Preview` kullanan hiçbir bağımlılık eklenemez; aday bağımlılıklar önce scratchpad'de `swift build` ile denenir. Waveform için basit SwiftUI seviye çubuğu yeterli.
 
 ### 4.4 Core protokolleri (her biri için production + fake implementasyon)
 
@@ -81,6 +80,7 @@ Başka bağımlılık eklenmez. Waveform için basit SwiftUI seviye çubuğu yet
 CaptureService        func captureRegion() async throws -> CaptureResult?   // nil = kullanıcı iptal etti
 ThumbnailService      func makeThumbnail(for: URL, maxPixel: Int) async throws -> URL
 PermissionService     var screenRecording: PermissionState; var microphone: PermissionState; func request(_:)
+HotKeyService         func register(_ combo: KeyCombo, handler: @Sendable () -> Void) throws; func unregister()
 AudioRecorder         func start(to: URL) throws; func stop() async -> RecordingInfo; var level: AsyncStream<Float>
 Transcriber           func transcribe(file: URL, language: String) async throws -> Transcript; var modelState: ModelState
 ClaudeRunner          func run(_ spec: RunSpec, events: (RunEvent) -> Void) async throws -> RunResult; func cancel(runID:)
@@ -117,7 +117,7 @@ Görüntüler (büyük önizleme, `⌘C`, Finder'da göster), başlık (otomatik
 ### 6.1 Capture (`ShotcueCapture`)
 - **v1 yöntemi:** `screencapture -i -s -x -t png`. TCC kontrolü "responsible process" üzerinden yapılır, yani izin Shotcue.app'e sorulur. Sonuç doğrulama: çıkış 0 → başarı; 1 + boş stderr → iptal; diğer → hata.
 - **İzinler:** açılışta `CGPreflightScreenCaptureAccess()`; false ise onboarding görünümü → `CGRequestScreenCaptureAccess()`; reddedilmişse `x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture` linki; izin verilince uygulama yeniden başlatılır. Aylık yeniden onay diyaloğu beklenen davranıştır (Ayarlar > İzinler'de açıklama).
-- **Kısayol:** `KeyboardShortcuts.Name.captureRegion`; Ayarlar'da `KeyboardShortcuts.Recorder`.
+- **Kısayol:** `HotKeyCenter` (Carbon `RegisterEventHotKey` + `InstallEventHandler`, izin istemez). `KeyCombo { keyCode: UInt32, modifiers: UInt32 }` Core'da; Ayarlar'da hazır liste: `⌃⇧2` (varsayılan), `⌃⇧3`, `⌃⇧4`, `⌘⇧2`, `⌥Space`, `⌃⌥Space`. Özel kombinasyon kaydedici v1.1.
 - **Thumbnail:** `CGImageSourceCreateThumbnailAtIndex` (`kCGImageSourceThumbnailMaxPixelSize: 512`), `Task.detached(priority: .utility)`.
 - **Retina:** PNG piksel boyutu + `scale` (`NSScreen.backingScaleFactor` yerine görüntü DPI metadata'sından; screencapture bunu yazar) kaydedilir; SwiftUI'da nokta boyutuyla gösterilir.
 - **v2 (planlanmış, v1 dışı):** her ekran için `NSPanel` overlay + `SCScreenshotManager.captureScreenshot(contentFilter:configuration:)`; aynı bölgeyi tekrar çek, büyüteç.
@@ -125,7 +125,7 @@ Görüntüler (büyük önizleme, `⌘C`, Finder'da göster), başlık (otomatik
 ### 6.2 Notes (`ShotcueNotes`)
 - **Kayıt:** `AVAudioEngine`, `inputNode.installTap(onBus: 0)` tek tap; blokta `AVAudioFile` yazımı (AAC ayarları) + RMS seviye. `AVAudioEngineConfigurationChange` bildiriminde tap kaldır, formatı yeniden oku, tap kur, `engine.start()`; 0 Hz format koruması. Giriş cihazı seçimi: `AVCaptureDevice.DiscoverySession` listesi → `kAudioOutputUnitProperty_CurrentDevice`.
 - **Mikrofon izni:** `NSMicrophoneUsageDescription` + entitlement `com.apple.security.device.audio-input` (Hardened Runtime'da yoksa diyalog hiç çıkmaz).
-- **Transkripsiyon (tek motor, v1):** WhisperKit, model ayarı varsayılan `openai_whisper-large-v3-v20240930_turbo` (alternatif `…_626MB`), dil ayarı varsayılan `tr` (`en` seçilebilir; `auto` yok, karışık dilde Türkçe sabit). Model ilk kullanımda **açık onayla** indirilir (boyut gösterilir, arka planda ilerleme çubuğu). Model hazır değilken sesli notlar kaydedilir, transkript `pending` kalır, model gelince kuyruk işlenir; bu arada kullanıcı metin yazabilir.
+- **Transkripsiyon (tek motor, v1):** WhisperKit (bu makinede Swift 6.4 ile derlendiği doğrulandı), model ayarı varsayılan `openai_whisper-large-v3-v20240930_turbo` (alternatif `openai_whisper-large-v3-v20240930_turbo_632MB`; ikisi de `WhisperKit.recommendedModels().supported` listesinde), dil ayarı varsayılan `tr` (`en` seçilebilir; `auto` yok, karışık dilde Türkçe sabit). Model ilk kullanımda **açık onayla** indirilir (boyut gösterilir, arka planda ilerleme çubuğu). Model hazır değilken sesli notlar kaydedilir, transkript `pending` kalır, model gelince kuyruk işlenir; bu arada kullanıcı metin yazabilir.
   - Gerekçe: `SpeechTranscriber` Türkçe desteklemiyor; Apple'ın Türkçe dikte modeli İngilizce teknik terimleri bozuyor (rapor 03'te ölçüldü). `SFSpeechRecognizer` kullanılmaz.
   - Çıktı: `Transcript { text, language, engine, segments[{start,end,text,confidence?}] }`; DB'de `voice_note.transcript` + `transcript_json`.
 - **v1.1 seçenekleri:** kayıt sırasında canlı taslak (`DictationTranscriber` tr-TR / `SpeechTranscriber` en-US), bulut fallback (AssemblyAI). Runtime'da `SpeechTranscriber.supportedLocales` kontrol edilir; Türkçe gelirse ayarlarda motor seçeneği olarak açılır (`supportedLocale(equivalentTo:)` kullanılmaz, yanıltıcı).
@@ -138,8 +138,8 @@ GRDB `DatabasePool` (WAL), `DatabaseMigrator` ile numaralı migration'lar. Dosya
 project     id TEXT PK, name, path, default_mode, default_model NULL, default_effort NULL,
             daily_time NULL (HH:MM), daily_enabled INT, daily_last_fired_at NULL,
             run_in_branch INT DEFAULT 0, stash_before_run INT DEFAULT 0, sort_index REAL, created_at
-task        id TEXT PK, project_id NULL FK, title, note_text, status, mode, model_override NULL,
-            sort_index REAL, scheduled_at NULL, created_at, updated_at
+task        id TEXT PK, project_id NULL FK, title, title_edited_by_user INT DEFAULT 0, note_text, status, mode,
+            model_override NULL, sort_index REAL, scheduled_at NULL, created_at, updated_at
 capture     id TEXT PK, task_id FK, rel_path, thumb_rel_path NULL, width, height, scale, created_at
 voice_note  id TEXT PK, task_id FK, rel_path, duration_sec, transcript NULL, transcript_json NULL,
             transcript_state, engine NULL, edited_by_user INT DEFAULT 0, created_at
@@ -181,7 +181,7 @@ Analiz modu farkı: `--permission-mode dontAsk --allowedTools "Read,Glob,Grep,We
 - **Sahneler (App):** `MenuBarExtra("Shotcue", systemImage:)` `.menuBarExtraStyle(.window)`; `Window("Kütüphane", id: "library")`; `Settings`. Hızlı panel ve onboarding `NSPanel`/`NSWindow` + `NSHostingView` (bridging App'te, içerik UI'da).
 - **Hızlı panel:** `NSPanel(styleMask: [.nonactivatingPanel, .fullSizeContentView])`, `isFloatingPanel`, `level = .floating`, `hidesOnDeactivate = false`, `becomesKeyOnlyIfNeeded = true`, `canBecomeKey` override, `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]`; `NSApp.activate` çağrılmaz; odak `panel.makeKey()` + `@FocusState` (bir frame sonra); `⌘↩`/`Esc` için `NSEvent.addLocalMonitorForEvents`; dışarı tıklamada kapanmaz (kullanıcı bilinçli kapatır), `Esc` kapatır.
 - **Kütüphane:** `NavigationSplitView` (sidebar `List` + `Section`; içerik `LazyVGrid`/`Table`, `Picker` ile geçiş; `.inspector(isPresented:)`), `.searchable`, `.contextMenu(forSelectionType:)`, alt seçim çubuğu `.safeAreaInset(edge: .bottom)` + `glassEffect`. Store'lar: `LibraryStore`, `TaskDetailStore`, `QuickPanelStore`, `SettingsStore` (`@Observable`, GRDB `ValueObservation` ile beslenir).
-- **Ayarlar sekmeleri:** Genel (kısayol recorder, login'de başlat `SMAppService`, yakalamada panoya kopyala, depolama konumu, varsayılan proje), Claude (CLI yolu + sürüm, varsayılan mod, model, effort, max tur, bütçe tahmini, zaman aşımı, eş zamanlı run, ek sistem talimatı), Ses (giriş cihazı, model seçimi + indirme durumu, dil), İzinler (Ekran Kaydı, Mikrofon, Bildirim durumu + Sistem Ayarları linkleri; Foundation Models durumu).
+- **Ayarlar sekmeleri:** Genel (kısayol seçici, hazır kombinasyon listesi; login'de başlat `SMAppService`, yakalamada panoya kopyala, depolama konumu, varsayılan proje), Claude (CLI yolu + sürüm, varsayılan mod, model, effort, max tur, bütçe tahmini, zaman aşımı, eş zamanlı run, ek sistem talimatı), Ses (giriş cihazı, model seçimi + indirme durumu, dil), İzinler (Ekran Kaydı, Mikrofon, Bildirim durumu + Sistem Ayarları linkleri; Foundation Models durumu).
 - **Dock:** `LSUIElement = true`; kütüphane açılınca `NSApp.setActivationPolicy(.regular)` + `activate()`, kapanınca `.accessory`.
 - **Görsel dil:** toolbar ve panel yüzeyinde Liquid Glass (`glassEffect`, `.buttonStyle(.glass)`/`.glassProminent`), SF Symbols, sistem renkleri; ikonlar asset catalog gerektirmez.
 
@@ -234,7 +234,7 @@ Kurallar: `running` task düzenlenemez (iptal edilebilir); bir task'ın birden �
 `Tests/Fixtures/fake-claude.sh`: argümanları bir dosyaya yazar, `sample-stream.jsonl`'i stdout'a basar (senaryo: başarı / max_turns / hata / yavaş). `fake-screencapture.sh`: `sample.png`'i hedef yola kopyalar veya `exit 1` ile iptal simüle eder. Runner ve capture testleri bu betikleri `executableURL` olarak alır.
 
 ### 10.4 `CLAUDE.md` (proje kökü, ajanlar için)
-Kurallar: Xcode yok, `make test` birincil döngü; mantık Core'a, UI ince; yasak API'ler (`CGWindowListCreateImage`, `CGDisplayCreateImage`, `SFSpeechRecognizer`, `SpeechTranscriber.supportedLocale(equivalentTo:)`, `NSApp.activate` panelde, ad-hoc imza, `AVAudioSession`, `Timer` yerine `DispatchSourceTimer`, `--bare`); Swift Testing; `swift-format`; commit mesajları İngilizce; her task için testler önce; UI değişikliğinde `make shot` ile görsel doğrulama.
+Kurallar: Xcode yok, `make test` birincil döngü; mantık Core'a, UI ince; yasak API'ler (`#Preview` makrosu ve `#Preview` içeren bağımlılıklar, `CGWindowListCreateImage`, `CGDisplayCreateImage`, `SFSpeechRecognizer`, `SpeechTranscriber.supportedLocale(equivalentTo:)`, `NSApp.activate` panelde, ad-hoc imza, `AVAudioSession`, `Timer` yerine `DispatchSourceTimer`, `--bare`); yeni bağımlılık eklemeden önce scratchpad'de `swift build` denemesi; Swift Testing; `swift-format`; commit mesajları İngilizce; her task için testler önce; UI değişikliğinde `make shot` ile görsel doğrulama.
 
 ## 11. Test stratejisi
 
@@ -255,7 +255,7 @@ Kurallar: Xcode yok, `make test` birincil döngü; mantık Core'a, UI ince; yasa
 | S4: WhisperKit Türkçe kalite/hız | Model seçimi (turbo vs 626MB) | 5 gerçek not, teknik terimler korunuyor, 30 sn not < 5 sn |
 | S5: `claude://code/new?file=` görseli iliştiriyor mu | Composer aktarımı | Görsel eklenmezse `cowork/new` kullanılır |
 
-Diğer riskler: aylık TCC yeniden onayı (kabul edildi); WhisperKit'in Swift 6.4/SDK 27 ile derlenmesi (S4'te görülür; sorun çıkarsa `626MB` + eski sürüm pin); SwiftUI incremental build ~31 sn (mantık Core'da; UI değişiklikleri toplu); `claude` bayraklarının sürümle değişmesi (sürüm kontrolü + argümanlar tek dosyada).
+Diğer riskler: aylık TCC yeniden onayı (kabul edildi); bağımlılıkların `#Preview` kullanması (CLT'de derlenmez; KeyboardShortcuts bu yüzden elendi, her aday bağımlılık önce scratchpad'de derlenir); WhisperKit'in Swift 6.4/SDK 27 ile derlenmesi (S4'te görülür; sorun çıkarsa `626MB` + eski sürüm pin); SwiftUI incremental build ~31 sn (mantık Core'da; UI değişiklikleri toplu); `claude` bayraklarının sürümle değişmesi (sürüm kontrolü + argümanlar tek dosyada).
 
 ## 13. Superpowers ile uygulama süreci
 
