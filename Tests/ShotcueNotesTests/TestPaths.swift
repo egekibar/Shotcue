@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 enum TestPaths {
     /// Tests/Fixtures dizini. Her test target'ı Tests/<Target>Tests/ altında olduğu için iki üst dizin.
