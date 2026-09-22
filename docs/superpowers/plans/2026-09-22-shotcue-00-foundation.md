@@ -2052,7 +2052,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Test: `Tests/ShotcueCoreTests/FakesTests.swift`
 
 **Interfaces:**
-- Produces (bütün planların sözleşmesi; imzalar birebir): aşağıdaki protokoller ve `ShotcueTestSupport` içindeki `Fake*` / `InMemory*` tipleri. Plan 01 `InMemory*`'nin GRDB karşılığını yazar; Plan 02 `CaptureService/ThumbnailService/PermissionService/HotKeyService`; Plan 03 `AudioRecorder/Transcriber`; Plan 04 `ClaudeRunner/GitInspector/HandoffService/Notifier`; Plan 05 hepsini `AppEnvironment`'ta birleştirir.
+- Produces (bütün planların sözleşmesi; imzalar birebir): aşağıdaki protokoller ve `ShotcueTestSupport` içindeki `Fake*` / `InMemory*` tipleri. Plan 01 `InMemory*`'nin GRDB karşılığını yazar; Plan 02 `CaptureService/ThumbnailService/PermissionService/HotKeyService`; Plan 03 `AudioRecorder/Transcriber/TranscriptionQueue`; Plan 04 `ClaudeRunner/GitInspector/HandoffService/Notifier/TaskDispatcher`; Plan 05 (UI) yalnızca bu protokolleri kullanır; Plan 06 (App) hepsini `AppEnvironment`'ta birleştirir.
 
 - [ ] **Step 1: Protokolleri yaz**
 
@@ -2133,6 +2133,13 @@ public protocol Transcriber: Sendable {
     func downloadModel() async throws
     func transcribe(fileURL: URL, language: String) async throws -> Transcript
 }
+
+/// Background transcription of pending voice notes (implemented by `TranscriptionCoordinator` in ShotcueNotes).
+/// UI calls `enqueue` after a recording is saved; the app calls `processPending` at launch and when the model becomes ready.
+public protocol TranscriptionQueue: Sendable {
+    func enqueue(voiceNoteID: UUID) async
+    func processPending() async
+}
 ```
 
 `Sources/ShotcueCore/Services/ClaudeServices.swift`:
@@ -2189,6 +2196,21 @@ public protocol HandoffService: Sendable {
     func openInTerminal(sessionID: String) throws
     func openInDesktop(sessionID: String) throws
     func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws
+}
+
+/// UI-facing façade over the run coordinator (implemented by `RunCoordinator` in ShotcueClaudeBridge).
+/// UI never imports ShotcueClaudeBridge; it talks to this protocol.
+public protocol TaskDispatcher: Sendable {
+    /// Moves the task to `queued` (via `transition`) and pumps the queue.
+    func enqueue(taskID: UUID) async throws
+    /// Cancels the running run of the task (SIGINT) or removes it from the queue (→ `ready`).
+    func cancel(taskID: UUID) async
+    /// Enqueues every `ready` task of every project in manual order, then pumps.
+    func runQueueNow() async
+    func setPaused(_ paused: Bool) async
+    func isPaused() async -> Bool
+    /// Live events of a run in progress; finishes when the run ends. Empty stream for unknown ids.
+    func liveEvents(runID: UUID) -> AsyncStream<RunEvent>
 }
 ```
 
@@ -2454,6 +2476,37 @@ public final class FakeHandoffService: HandoffService, @unchecked Sendable {
     public func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws {
         actions.withLock { $0.append("composer:\(projectPath):\(files.count)") }
     }
+}
+
+/// Records dispatch calls; `emit(runID:event:)` feeds `liveEvents` subscribers (uses `Broadcaster` from InMemoryRepositories.swift).
+public final class FakeTaskDispatcher: TaskDispatcher, @unchecked Sendable {
+    public let enqueued = Locked<[UUID]>([])
+    public let cancelledTasks = Locked<[UUID]>([])
+    public let runQueueCalls = Locked(0)
+    public let paused = Locked(false)
+    private let broadcasters = Locked<[UUID: Broadcaster<RunEvent>]>([:])
+    public init() {}
+    public func enqueue(taskID: UUID) async throws { enqueued.withLock { $0.append(taskID) } }
+    public func cancel(taskID: UUID) async { cancelledTasks.withLock { $0.append(taskID) } }
+    public func runQueueNow() async { runQueueCalls.withLock { $0 += 1 } }
+    public func setPaused(_ value: Bool) async { paused.set(value) }
+    public func isPaused() async -> Bool { paused.current }
+    public func liveEvents(runID: UUID) -> AsyncStream<RunEvent> {
+        let b = broadcasters.withLock { dict -> Broadcaster<RunEvent> in
+            if let existing = dict[runID] { return existing }
+            let created = Broadcaster<RunEvent>(); dict[runID] = created; return created
+        }
+        return b.stream(initial: .other(type: "subscribed"))
+    }
+    public func emit(runID: UUID, event: RunEvent) { broadcasters.current[runID]?.send(event) }
+}
+
+public final class FakeTranscriptionQueue: TranscriptionQueue, @unchecked Sendable {
+    public let enqueued = Locked<[UUID]>([])
+    public let processPendingCalls = Locked(0)
+    public init() {}
+    public func enqueue(voiceNoteID: UUID) async { enqueued.withLock { $0.append(voiceNoteID) } }
+    public func processPending() async { processPendingCalls.withLock { $0 += 1 } }
 }
 ```
 
