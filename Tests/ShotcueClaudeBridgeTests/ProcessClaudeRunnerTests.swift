@@ -167,6 +167,25 @@ struct ProcessClaudeRunnerTests {
         }
     }
 
+    @Test func cancelBeforeRunNeverLaunches() async throws {
+        let project = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: project) }
+        let argsFile = project.appendingPathComponent("args.txt")
+        let subject = runner(scenario: "success", argsFile: argsFile)
+        let spec = spec(projectPath: project.path)
+
+        await subject.cancel(runID: spec.runID)
+        await #expect(throws: ClaudeRunError.cancelled) {
+            _ = try await subject.run(spec) { _ in }
+        }
+        // The fake writes the args file first thing, so no file means no launch.
+        #expect(!FileManager.default.fileExists(atPath: argsFile.path))
+
+        // The pending cancel was consumed by that attempt: the registry keeps nothing behind.
+        let result = try await subject.run(spec) { _ in }
+        #expect(result.isSuccess)
+    }
+
     @Test func versionReadsTheCLIVersion() async throws {
         #expect(try await runner(scenario: "success").version() == "2.1.278 (Claude Code)")
     }

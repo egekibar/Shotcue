@@ -18,8 +18,19 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
     /// How long a SIGINT gets before SIGKILL. 10 s in production; tests shorten it.
     let killGrace: Duration
 
-    private let active = LockBox<[UUID: Process]>([:])
-    private let cancelRequested = LockBox<Set<UUID>>([])
+    /// `run` and `cancel(runID:)` share ONE lock, so a cancel can never slip between
+    /// "is the process registered yet?" and "remember the cancel".
+    private struct Registry {
+        var active: [UUID: Process] = [:]
+        var cancelRequested: Set<UUID> = []
+
+        mutating func forget(_ runID: UUID) {
+            active[runID] = nil
+            cancelRequested.remove(runID)
+        }
+    }
+
+    private let registry = LockBox(Registry())
 
     public convenience init(executableURL: URL, environmentOverrides: [String: String] = [:]) {
         self.init(
@@ -34,6 +45,11 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
     }
 
     public func run(_ spec: RunSpec, onEvent: @escaping @Sendable (RunEvent) -> Void) async throws -> ClaudeRunResult {
+        let runID = spec.runID
+        // Every exit path (notFound and launchFailed included) drops what the registry holds for this run.
+        defer { registry.withLock { $0.forget(runID) } }
+        // A cancel that arrived before the launch wins: nothing is started.
+        if registry.withLock({ $0.cancelRequested.contains(runID) }) { throw ClaudeRunError.cancelled }
         guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
             throw ClaudeRunError.notFound
         }
@@ -99,7 +115,12 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
             stderrHandle.readabilityHandler = nil
             throw ClaudeRunError.launchFailed(String(describing: error))
         }
-        active.withLock { $0[spec.runID] = process }
+        // Register and re-check atomically: a cancel that raced with the launch still stops the child.
+        let cancelPending = registry.withLock { registry -> Bool in
+            registry.active[runID] = process
+            return registry.cancelRequested.contains(runID)
+        }
+        if cancelPending { stop(process) }
 
         // Race the child against the timeout. Never wait for stdout EOF: a grandchild of the
         // child can keep the write end open long after the child itself is gone.
@@ -130,8 +151,7 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         stdoutHandle.readabilityHandler = nil
         stderrHandle.readabilityHandler = nil
         if let leftover = stdoutTail.withLock({ LineSplitter.flush(&$0) }) { consume(leftover) }
-        active.withLock { $0[spec.runID] = nil }
-        let wasCancelled = cancelRequested.withLock { $0.remove(spec.runID) != nil }
+        let wasCancelled = registry.withLock { $0.cancelRequested.contains(runID) }
         try? stdoutHandle.close()
         try? stderrHandle.close()
 
@@ -150,9 +170,11 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
     }
 
     public func cancel(runID: UUID) async {
-        cancelRequested.withLock { _ = $0.insert(runID) }
-        guard let process = active.current[runID] else { return }
-        stop(process)
+        let process = registry.withLock { registry -> Process? in
+            registry.cancelRequested.insert(runID)
+            return registry.active[runID]
+        }
+        if let process { stop(process) }
     }
 
     public func version() async throws -> String {
