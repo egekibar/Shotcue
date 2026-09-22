@@ -21,7 +21,7 @@
 - Kod, identifier'lar ve commit mesajları İngilizce; UI metinleri Türkçe literal; Swift Testing (`import Testing`, `#expect`, `#require`); XCTest kullanılmaz.
 - Domain görev tipi **`ShotTask`** (Swift'in `Task` tipiyle çakışmasın diye). Çalışma kaydı `Run`, ekran görüntüsü `Capture`, ses notu `VoiceNote`, proje `Project`.
 - `ShotcueCore` yalnızca `Foundation` import eder. AppKit/SwiftUI/AVFoundation/GRDB Core'a giremez.
-- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ---
 
@@ -389,7 +389,7 @@ rm -f Tests/ShotcueClaudeBridgeTests/SmokeTests.swift
 make format && git add -A Sources/ShotcueClaudeBridge Tests/ShotcueClaudeBridgeTests
 git commit -m "feat(bridge): build claude CLI arguments and locate the executable
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -919,7 +919,7 @@ Expected: `Test run with 9 tests in 1 suite passed`. Süre ~2 sn (`slow` 1 sn, `
 make format && git add Sources/ShotcueClaudeBridge Tests/ShotcueClaudeBridgeTests
 git commit -m "feat(bridge): run claude -p with live stream-json events
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1097,7 +1097,7 @@ Expected: `Test run with 5 tests in 1 suite passed`. Testler gerçek `git`'i ge�
 make format && git add Sources/ShotcueClaudeBridge/ShellGitInspector.swift Tests/ShotcueClaudeBridgeTests/ShellGitInspectorTests.swift
 git commit -m "feat(bridge): snapshot git state around runs
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1267,7 +1267,7 @@ Expected: `Test run with 3 tests in 1 suite passed`.
 make format && git add Sources/ShotcueClaudeBridge/RunLogWriter.swift Tests/ShotcueClaudeBridgeTests/RunLogWriterTests.swift
 git commit -m "feat(bridge): append run events to an ndjson log
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2229,7 +2229,7 @@ Expected: `Test run with 16 tests in 1 suite passed`, ~0.3 sn. `oneRunPerProject
 make format && git add Sources/ShotcueClaudeBridge Tests/ShotcueClaudeBridgeTests
 git commit -m "feat(bridge): coordinate the run queue with live events
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2444,7 +2444,7 @@ Expected: `Test run with 4 tests in 1 suite passed`.
 make format && git add Sources/ShotcueClaudeBridge/SchedulerDriver.swift Tests/ShotcueClaudeBridgeTests/SchedulerDriverTests.swift
 git commit -m "feat(bridge): drive scheduled runs with a dispatch timer
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2686,7 +2686,7 @@ Expected: `Test run with 7 tests in 1 suite passed`.
 make format && git add Sources/ShotcueClaudeBridge/DesktopHandoffService.swift Tests/ShotcueClaudeBridgeTests/DesktopHandoffServiceTests.swift
 git commit -m "feat(bridge): hand sessions to the terminal and Claude Desktop
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2859,7 +2859,7 @@ Expected: `Test run with 58 tests in 9 suites passed` (~2 sn).
 make format && git add Sources/ShotcueClaudeBridge/UserNotificationNotifier.swift Tests/ShotcueClaudeBridgeTests/UserNotificationNotifierTests.swift
 git commit -m "feat(bridge): post run notifications with actions
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---

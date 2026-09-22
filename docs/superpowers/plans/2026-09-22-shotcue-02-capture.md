@@ -21,7 +21,7 @@
 - Kod, identifier'lar ve commit mesajları İngilizce; UI metinleri Türkçe literal; Swift Testing (`import Testing`, `#expect`, `#require`); XCTest kullanılmaz.
 - Domain görev tipi **`ShotTask`** (Swift'in `Task` tipiyle çakışmasın diye). Çalışma kaydı `Run`, ekran görüntüsü `Capture`, ses notu `VoiceNote`, proje `Project`.
 - `ShotcueCore` yalnızca `Foundation` import eder. AppKit/SwiftUI/AVFoundation/GRDB Core'a giremez.
-- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Dosya haritası
 
@@ -200,7 +200,7 @@ Expected: `Test run with 3 tests in 1 suite passed`.
 make format && git add Sources/ShotcueCapture/ImageInfo.swift Tests/ShotcueCaptureTests/TestPaths.swift Tests/ShotcueCaptureTests/CaptureTestSupport.swift Tests/ShotcueCaptureTests/ImageInfoTests.swift
 git commit -m "feat(capture): read pixel size and Retina scale from image metadata
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -440,7 +440,7 @@ Expected: `Test run with 7 tests in 1 suite passed`.
 make format && git add Sources/ShotcueCapture/CaptureError.swift Sources/ShotcueCapture/ScreencaptureService.swift Tests/ShotcueCaptureTests/ScreencaptureServiceTests.swift
 git commit -m "feat(capture): wrap screencapture with cancel and failure detection
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -590,7 +590,7 @@ Expected: `Test run with 4 tests in 1 suite passed`.
 make format && git add Sources/ShotcueCapture/ImageIOThumbnailService.swift Tests/ShotcueCaptureTests/ImageIOThumbnailServiceTests.swift
 git commit -m "feat(capture): generate JPEG thumbnails with ImageIO off the main thread
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -769,7 +769,7 @@ Expected: Plan 00 Task 11 bunu S3 olarak zaten doğruladı (`docs/superpowers/pl
 make format && git add Sources/ShotcueCapture/SystemPermissionService.swift Tests/ShotcueCaptureTests/SystemPermissionServiceTests.swift
 git commit -m "feat(capture): report TCC state and open the matching settings pane
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1016,7 +1016,7 @@ Expected: bir satır eşleşir.
 make format && git add Sources/ShotcueCapture/CarbonHotKeyService.swift Tests/ShotcueCaptureTests/CarbonHotKeyServiceTests.swift
 git commit -m "feat(capture): register a global hotkey with Carbon RegisterEventHotKey
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1106,7 +1106,7 @@ Expected: `Test run with 23 tests in 7 suites passed` (Plan 00'ın `CaptureSmoke
 make format && git add Sources/ShotcueCapture/PasteboardWriter.swift Tests/ShotcueCaptureTests/PasteboardWriterTests.swift
 git commit -m "feat(capture): copy a capture to the pasteboard as PNG and file URL
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---

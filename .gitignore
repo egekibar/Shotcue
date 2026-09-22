@@ -3,3 +3,6 @@
 *.xcodeproj
 .swiftpm/
 /dist/
+.claude/worktrees/
+.worktrees/
+.superpowers/

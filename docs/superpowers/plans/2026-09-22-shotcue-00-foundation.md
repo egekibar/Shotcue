@@ -21,7 +21,7 @@
 - Kod, identifier'lar ve commit mesajları İngilizce; UI metinleri Türkçe literal; Swift Testing (`import Testing`, `#expect`, `#require`); XCTest kullanılmaz.
 - Domain görev tipi **`ShotTask`** (Swift'in `Task` tipiyle çakışmasın diye). Çalışma kaydı `Run`, ekran görüntüsü `Capture`, ses notu `VoiceNote`, proje `Project`.
 - `ShotcueCore` yalnızca `Foundation` import eder. AppKit/SwiftUI/AVFoundation/GRDB Core'a giremez.
-- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Dosya haritası (bu planın ürettikleri)
 
@@ -527,7 +527,7 @@ Spec: docs/superpowers/specs/2026-09-22-shotcue-design.md · Plans: docs/superpo
 ## Workflow
 - TDD: failing test → minimal code → green → commit. Swift Testing (`#expect`, `#require`), no XCTest.
 - `swift-format` config in `.swift-format`; run `make format` before committing.
-- Commit messages end with: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Commit messages end with: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 ```
 
 - [ ] **Step 11: Format, test, commit**
@@ -538,7 +538,7 @@ Expected: testler geçer; `.build/` ve `dist/` gitignore'da olduğu için listed
 ```bash
 git commit -m "chore: scaffold Shotcue package, build scripts, fixtures and agent rules
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -839,7 +839,7 @@ Expected: `Test run with 5 tests … passed`.
 make format && git add Sources/ShotcueCore/Models Tests/ShotcueCoreTests/ModelsTests.swift
 git commit -m "feat(core): add domain models
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -988,7 +988,7 @@ Expected: `Test run with 6 tests … passed`.
 make format && git add Sources/ShotcueCore/Logic/TaskTransitions.swift Tests/ShotcueCoreTests/TaskTransitionsTests.swift
 git commit -m "feat(core): add task status state machine
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1131,7 +1131,7 @@ Expected: `Test run with 9 tests … passed`.
 make format && git add Sources/ShotcueCore/Logic/SortIndex.swift Sources/ShotcueCore/Models/KeyCombo.swift Tests/ShotcueCoreTests/SortIndexTests.swift Tests/ShotcueCoreTests/KeyComboTests.swift
 git commit -m "feat(core): add fractional sort index and hotkey combos
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1239,7 +1239,7 @@ Expected: `Test run with 4 tests … passed`.
 make format && git add Sources/ShotcueCore/Logic/TitleMaker.swift Tests/ShotcueCoreTests/TitleMakerTests.swift
 git commit -m "feat(core): derive task titles from notes
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1416,7 +1416,7 @@ Expected: `Test run with 4 tests … passed`.
 make format && git add Sources/ShotcueCore/Logic/PromptBuilder.swift Tests/ShotcueCoreTests/PromptBuilderTests.swift
 git commit -m "feat(core): build Claude prompts from tasks
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1619,7 +1619,7 @@ Expected: `Test run with 4 tests … passed`.
 make format && git add Sources/ShotcueCore/Models/RunEvent.swift Sources/ShotcueCore/Logic/StreamJSONParser.swift Tests/ShotcueCoreTests/StreamJSONParserTests.swift
 git commit -m "feat(core): parse Claude stream-json events
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1819,7 +1819,7 @@ Expected: `Test run with 10 tests … passed`.
 make format && git add Sources/ShotcueCore/Logic/QueuePolicy.swift Sources/ShotcueCore/Logic/SchedulerRules.swift Tests/ShotcueCoreTests/QueuePolicyTests.swift Tests/ShotcueCoreTests/SchedulerRulesTests.swift
 git commit -m "feat(core): add queue policy and scheduler rules
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1916,7 +1916,7 @@ Expected: `Test run with 4 tests … passed`.
 make format && git add Sources/ShotcueCore/Models/GitSnapshot.swift Tests/ShotcueCoreTests/GitOutputParserTests.swift
 git commit -m "feat(core): parse git state snapshots
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2054,7 +2054,7 @@ Expected: `Test run with 4 tests … passed`.
 make format && git add Sources/ShotcueCore/Services/FileStore.swift Tests/ShotcueCoreTests/FileStoreTests.swift
 git commit -m "feat(core): add file store layout
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2722,7 +2722,7 @@ make format && git add Sources/ShotcueCore/Services Sources/ShotcueTestSupport T
 git rm -q Sources/ShotcueTestSupport/ShotcueTestSupport.swift 2>/dev/null || true
 git commit -m "feat(core): define service protocols and shared test fakes
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2820,7 +2820,7 @@ Expected: Claude Desktop açılır, composer'a metin dolar; hangi rotada görsel
 git add Sources/ShotcueApp/ShotcueApp.swift docs/superpowers/plans/spike-results.md
 git commit -m "chore: add spike diagnostics and record spike results
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
