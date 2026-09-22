@@ -5,7 +5,7 @@ import Testing
 @testable import ShotcueCapture
 
 /// Every test writes to a private, uniquely named pasteboard and releases it afterwards:
-/// running the suite must never overwrite the user's clipboard (NSPasteboard.general).
+/// running the suite must never overwrite the user's clipboard (the general pasteboard).
 @Suite("PasteboardWriter")
 struct PasteboardWriterTests {
     /// Both representations must land: consumers pick whichever they understand (research §7.5).
