@@ -12,9 +12,12 @@ Spec: `../specs/2026-09-22-shotcue-design.md` · Araştırma: `../../research/01
 | 03 | `2026-09-22-shotcue-03-notes.md` | `Sources/ShotcueNotes`, `Tests/ShotcueNotesTests` | 00 |
 | 04 | `2026-09-22-shotcue-04-claude-bridge.md` | `Sources/ShotcueClaudeBridge`, `Tests/ShotcueClaudeBridgeTests` | 00 |
 | 05 | `2026-09-22-shotcue-05-ui.md` | `Sources/ShotcueUI`, `Tests/ShotcueUITests` | 00 |
-| 06 | `2026-09-22-shotcue-06-app.md` | `Sources/ShotcueApp`, `Resources/AppIcon.icns`, `scripts/make-icon.sh` | 01–05 |
+| 06 | `2026-09-22-shotcue-06-app.md` | `Sources/ShotcueApp`, `Resources/AppIcon.icns`, `scripts/make-icon.sh` | 01–05, 07 |
+| 07 | `2026-09-22-shotcue-07-diff-view.md` | "Diff'i göster": yeni Core protokolü + `ShellGitInspector` uyumu + Inspector sayfası (Plan 00/04/05 dosyalarına ek) | 04, 05 |
 
 Sözleşme: modüller arası tek bağ `ShotcueCore` protokolleridir (Plan 00 Task 10). Somut tip adları ve init imzaları her planın "Naming contract" bölümünde sabittir; bir plan başka planın dosyasına dokunmaz, `Package.swift` yalnızca Plan 00'da yazılır.
+
+Uygulama sırasında eklenenler (koordinatör kapsam denetimi, 2026-09-22): Plan 05 **Task 14** (proje oluşturma sayfası, proje ayarları düzenleyicisi, günlük kuyruk arayüzü ve "bir sonraki saatten başla" kuralı) ve **Plan 07** (uygulama içi diff).
 
 ## Yürütme sırası
 
