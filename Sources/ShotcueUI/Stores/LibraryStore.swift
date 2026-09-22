@@ -34,6 +34,8 @@ public final class LibraryStore {
     public var viewMode: ViewMode = .grid
     public var isInspectorPresented = true
     public var isSchedulePresented = false
+    /// "Proje ekle…" sheet'i için; `LibraryView` bağlar, Plan 06 dokunmaz.
+    public var isProjectCreatorPresented = false
     public var scheduleDate: Date
     public var lastError: String?
 
