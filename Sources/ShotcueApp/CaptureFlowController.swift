@@ -123,9 +123,8 @@ final class CaptureFlowController {
             AppLog.app.error("clipboard copy failed for \(relPath, privacy: .public)")
         }
 
-        // 7. Quick panel + a short menu bar highlight (spec §5.1 step 5).
+        // 7. Quick panel. The menu bar highlight follows when the panel closes (spec §5.1 step 5).
         quickPanel.present(taskID: task.id)
-        status.flashMenuBarIcon()
     }
 
     private func makeThumbnail(for capture: Capture) {

@@ -168,7 +168,10 @@ final class AppEnvironment {
                 // and fills in as soon as the load lands.
                 Task { await store.capture(taskID: taskID) }
                 return store
-            })
+            },
+            thumbnails: thumbnails)
+        // Spec §5.1 step 5: "Panel kapanır; menü çubuğu ikonu kısa süre vurgulanır."
+        quickPanel.onClosed = { [weak status] in status?.flashMenuBarIcon() }
         self.quickPanel = quickPanel
         let onboarding = OnboardingWindowController(
             permissionsStore: permissionsStore,
