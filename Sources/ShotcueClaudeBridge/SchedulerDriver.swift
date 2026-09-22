@@ -58,7 +58,9 @@ public actor SchedulerDriver {
         guard timer == nil else { return }
         let source = DispatchSource.makeTimerSource(queue: queue)
         source.schedule(deadline: .now() + interval, repeating: interval, leeway: .seconds(5))
-        source.setEventHandler { [weak self] in
+        // Explicitly @Sendable: the handler runs on `queue`, never on this actor's executor, so it must not
+        // be inferred actor-isolated (SE-0423 would check the executor at runtime). It only hops in.
+        source.setEventHandler { @Sendable [weak self] in
             guard let self else { return }
             Task { await self.tick() }
         }
