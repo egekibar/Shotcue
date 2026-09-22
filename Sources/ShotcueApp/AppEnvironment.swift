@@ -290,10 +290,13 @@ final class AppEnvironment {
             let version = await diagnostics.claudeVersion()
             status.claudeVersion = version.text
             status.claudeFound = version.found
+            AppLog.app.notice(
+                "claude \(version.found ? "found" : "missing", privacy: .public): \(version.text, privacy: .public)")
             status.transcriberState = await transcriber.modelState()
             status.projects = (try? await projectRepository.allProjects()) ?? []
         }
         status.inputDevices = AudioDeviceCatalog.inputDevices()
+        status.foundationModelsText = FoundationModelsStatus.current.localizedDescription
         refreshLoginItemStatus()
     }
 

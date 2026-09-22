@@ -24,6 +24,10 @@ struct DiagnosticsBar: View {
                         .buttonStyle(.link)
                         .font(.caption)
                 }
+                // Settings > Ses > Deneysel points here for the Apple Intelligence state (A19).
+                Text("Apple Intelligence (Foundation Models): \(status.foundationModelsText)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if let hotKeyError = status.hotKeyError {
                     Text(hotKeyError).font(.caption).foregroundStyle(Color.red)
                 }

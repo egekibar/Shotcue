@@ -13,6 +13,8 @@ final class AppStatusModel {
     /// Microphones for Ayarlar > Ses (`AudioDeviceCatalog`), re-read whenever Settings opens.
     var inputDevices: [(uid: String, name: String)] = []
     var loginItemStatusText: String = "bilinmiyor"
+    /// Apple Intelligence availability (`FoundationModelsStatus`, A19): shown in the Diagnostics strip.
+    var foundationModelsText: String = "bilinmiyor"
     var hotKeyError: String?
     var diagnosticsRunning: Bool = false
     var captureFlash: Bool = false
