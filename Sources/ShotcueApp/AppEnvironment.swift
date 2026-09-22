@@ -339,16 +339,17 @@ final class AppEnvironment {
         }
     }
 
-    /// First launch (or after a TCC reset): show onboarding when screen recording is missing (spec §6.1)
-    /// or the microphone has never been asked for. A microphone the user denied on purpose does not
-    /// bring onboarding back on every launch: text notes work without it (spec §8).
+    /// First launch (or after a TCC reset): show onboarding while Screen Recording is missing — the one
+    /// permission the app cannot work without (spec §6.1 "açılışta CGPreflightScreenCaptureAccess(); false
+    /// ise onboarding"). The microphone is optional (spec §8: text notes still work) and can be granted from
+    /// the onboarding rows, the quick panel or Settings; gating launch on it would reopen onboarding on
+    /// every start until the user decides.
     /// The refresh also primes `permissionsStore`, whose `isBlocking` gates the hotkey.
     /// Returns whether onboarding was shown (it carries its own notification row).
     @discardableResult
     func showOnboardingIfNeeded() async -> Bool {
         await permissionsStore.refresh()
-        let microphoneNeverAsked = permissionsStore.state(of: .microphone) == .notDetermined
-        guard permissionsStore.isBlocking || microphoneNeverAsked else { return false }
+        guard permissionsStore.isBlocking else { return false }
         onboarding.show()
         return true
     }
