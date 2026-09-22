@@ -21,6 +21,8 @@ private final class HotKeyHandlerBox {
 ///
 /// One combination at a time (spec §6.1). Registering again replaces the previous registration,
 /// because Carbon rejects a second registration of the same combo with eventHotKeyExistsErr.
+///
+/// Main thread only: Carbon event APIs are not thread safe.
 // Manual verification (Plan 06, `make run`): press ⌃⇧2 while another app is frontmost; the quick
 // panel must open without Shotcue stealing focus. Headless tests cannot cover key delivery.
 public final class CarbonHotKeyService: HotKeyService, @unchecked Sendable {
@@ -40,6 +42,7 @@ public final class CarbonHotKeyService: HotKeyService, @unchecked Sendable {
     public var registeredCombo: KeyCombo? { lock.withLock { combo } }
 
     public func register(_ combo: KeyCombo, handler: @escaping @Sendable () -> Void) throws {
+        dispatchPrecondition(condition: .onQueue(.main))
         lock.lock()
         defer { lock.unlock() }
         teardownLocked()
@@ -90,12 +93,17 @@ public final class CarbonHotKeyService: HotKeyService, @unchecked Sendable {
     }
 
     public func unregister() {
+        dispatchPrecondition(condition: .onQueue(.main))
         lock.lock()
         defer { lock.unlock() }
         teardownLocked()
     }
 
-    deinit { teardownLocked() }
+    deinit {
+        // Only a live registration makes Carbon calls here; an idle service may be released anywhere.
+        if hotKeyRef != nil || eventHandler != nil { dispatchPrecondition(condition: .onQueue(.main)) }
+        teardownLocked()
+    }
 
     /// Caller holds `lock` (or is deinit, where no other reference can exist).
     private func teardownLocked() {

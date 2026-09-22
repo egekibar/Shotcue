@@ -11,9 +11,13 @@ public enum PasteboardWriter {
     @MainActor
     public static func copyPNG(at url: URL, to pasteboard: NSPasteboard = .general) -> Bool {
         guard let data = try? Data(contentsOf: url) else { return false }
+        // One item carrying both flavours: two separate items would make apps that paste every
+        // item insert the image and the file.
+        let item = NSPasteboardItem()
+        let wroteData = item.setData(data, forType: .png)
+        let wroteURL = item.setString(url.absoluteString, forType: .fileURL)
         pasteboard.clearContents()
-        let wroteData = pasteboard.setData(data, forType: .png)
-        let wroteURL = pasteboard.writeObjects([url as NSURL])
-        return wroteData && wroteURL
+        let wroteItem = pasteboard.writeObjects([item])
+        return wroteData && wroteURL && wroteItem
     }
 }
