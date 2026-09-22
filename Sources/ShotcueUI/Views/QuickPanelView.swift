@@ -234,8 +234,9 @@ public struct QuickPanelView: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
+            // No `.keyboardShortcut(.cancelAction)`: Plan 06's key monitor owns Esc (like ⌘↩ / ⌘⇧↩), and
+            // `.onExitCommand` above is its in-view fallback; `dismiss()` ignores a repeated Esc.
             Button("Vazgeç") { store.dismiss() }
-                .keyboardShortcut(.cancelAction)
 
             Spacer(minLength: 12)
 

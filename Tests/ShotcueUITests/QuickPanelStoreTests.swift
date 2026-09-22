@@ -195,6 +195,26 @@ struct QuickPanelStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// Review fix round 1, item 8: Esc can arrive twice (the view's `.onExitCommand` and Plan 06's key
+    /// monitor); the second one must not stop the recording again or close the panel a second time.
+    @MainActor
+    @Test func aSecondDismissWhileRecordingIsIgnored() async throws {
+        let f = try await fixture()
+        let closed = Locked(0)
+        f.store.onClose = { closed.withLock { $0 += 1 } }
+        await f.store.toggleRecording()
+
+        f.store.dismiss()
+        f.store.dismiss()
+
+        #expect(await waitUntil("closed") { closed.current >= 1 })
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(closed.current == 1)
+        #expect(try await f.bundle.services.tasks.voiceNotes(taskID: f.task.id).count == 1)
+        #expect(f.bundle.transcriptionQueue.enqueued.current.count == 1)
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func saveAndCloseWritesThenClosesWithoutEnqueueing() async throws {
         let f = try await fixture()

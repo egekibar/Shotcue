@@ -35,6 +35,8 @@ public final class QuickPanelStore {
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var pendingNoteID: UUID?
     @ObservationIgnored private var pendingRelPath: String?
+    @ObservationIgnored private var isDismissing = false
+    @ObservationIgnored private var didClose = false
 
     /// The level meter ticks at 200 ms, which is also the recording timer's resolution.
     static let tick: Duration = .milliseconds(200)
@@ -278,7 +280,11 @@ public final class QuickPanelStore {
 
     /// `Esc`. Nothing is written: the capture stays in the inbox with no project (spec §5.1 step 4).
     /// A recording in flight is still finished and stored so audio is never thrown away.
+    /// Idempotent: Esc can arrive twice (the view's `.onExitCommand` and Plan 06's key monitor), and a
+    /// second one must neither stop the recording again nor close the panel while the note is saved.
     public func dismiss() {
+        guard !isDismissing else { return }
+        isDismissing = true
         if isRecording {
             Task { [weak self] in
                 await self?.stopRecording()
@@ -289,11 +295,14 @@ public final class QuickPanelStore {
         close()
     }
 
+    /// `onClose` fires at most once per panel, whichever path (Esc, ⌘↩, ⌘⇧↩, Zamanla) closes it.
     private func close() {
         levelTask?.cancel()
         levelTask = nil
         tickTask?.cancel()
         tickTask = nil
+        guard !didClose else { return }
+        didClose = true
         onClose?()
     }
 
