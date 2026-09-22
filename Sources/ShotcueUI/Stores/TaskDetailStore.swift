@@ -82,6 +82,10 @@ public final class TaskDetailStore {
                 for await list in taskStream {
                     guard let self else { return }
                     guard let updated = list.first(where: { $0.id == self.taskID }) else { continue }
+                    // An emission older than the local copy is a stale echo of an earlier write (the local
+                    // change is already on screen and its own emission follows); skipping it avoids a
+                    // flicker back to the old value.
+                    if let current = self.task, updated.updatedAt < current.updatedAt { continue }
                     self.task = updated
                     // Captures and voice notes have no stream of their own: re-read them on every emission.
                     await self.refreshAttachments()
@@ -202,6 +206,60 @@ public final class TaskDetailStore {
 
     public func absoluteURL(for relPath: String) -> URL {
         services.fileStore.absoluteURL(for: relPath)
+    }
+
+    // MARK: - Text drafts
+
+    /// An inspector text field that edits through a draft.
+    public enum EditableField: Hashable, Sendable {
+        case title
+        case note
+        case transcript(UUID)
+    }
+
+    /// Uncommitted text per field. A draft exists only while its field has edits that were not committed;
+    /// otherwise the field shows the model value. Bindings write here on every keystroke, so typing never
+    /// triggers a save and incoming model updates never rewrite text under the cursor.
+    private var drafts: [EditableField: String] = [:]
+
+    public var titleDraft: String { drafts[.title] ?? task?.title ?? "" }
+    public var noteDraft: String { drafts[.note] ?? task?.noteText ?? "" }
+
+    public func transcriptDraft(for voiceNoteID: UUID) -> String {
+        drafts[.transcript(voiceNoteID)] ?? voiceNotes.first { $0.id == voiceNoteID }?.transcript ?? ""
+    }
+
+    public func editTitle(_ text: String) {
+        guard isEditable else { return }
+        drafts[.title] = text
+    }
+
+    public func editNote(_ text: String) {
+        guard isEditable else { return }
+        drafts[.note] = text
+    }
+
+    public func editTranscript(voiceNoteID: UUID, text: String) {
+        drafts[.transcript(voiceNoteID)] = text
+    }
+
+    /// Normalises and persists one field's draft (on submit and when the field loses focus). A no-op when
+    /// the field has no uncommitted edits. The draft is taken before persisting, so keys typed while the
+    /// save is in flight start a new draft instead of being lost.
+    public func commit(_ field: EditableField) async {
+        guard let text = drafts.removeValue(forKey: field) else { return }
+        switch field {
+        case .title: await updateTitle(text)
+        case .note: await updateNote(text)
+        case .transcript(let voiceNoteID): await updateTranscript(voiceNoteID: voiceNoteID, text: text)
+        }
+    }
+
+    /// Commits every field with uncommitted edits (e.g. when the inspector goes away).
+    public func commitDrafts() async {
+        for field in Array(drafts.keys) {
+            await commit(field)
+        }
     }
 
     // MARK: - Editing
@@ -559,11 +617,15 @@ public final class TaskDetailStore {
 
     // MARK: - Plumbing
 
+    /// Shows the change at once, then persists it; a failed save rolls the change back unless something
+    /// newer has replaced it meanwhile.
     private func save(_ updated: ShotTask) async {
+        let previous = task
+        task = updated
         do {
             try await services.tasks.save(updated)
-            task = updated
         } catch {
+            if task == updated { task = previous }
             report(error)
         }
     }

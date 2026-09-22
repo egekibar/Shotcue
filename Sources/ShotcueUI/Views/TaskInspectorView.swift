@@ -8,6 +8,9 @@ public struct TaskInspectorView: View {
     public let store: TaskDetailStore
     public let thumbnails: ThumbnailCache?
 
+    /// The text field being edited. Its draft is committed when focus leaves it (and on submit).
+    @FocusState private var focusedField: TaskDetailStore.EditableField?
+
     public init(store: TaskDetailStore, thumbnails: ThumbnailCache? = nil) {
         self.store = store
         self.thumbnails = thumbnails
@@ -27,6 +30,15 @@ public struct TaskInspectorView: View {
             }
             .padding(14)
         }
+        .onChange(of: focusedField) { previous, _ in
+            guard let previous else { return }
+            Task { await store.commit(previous) }
+        }
+        // Selecting another task swaps the store; the old subtree (and its drafts) must go away with it.
+        .onDisappear { [store] in
+            Task { await store.commitDrafts() }
+        }
+        .id(store.taskID)
         .inspectorColumnWidth(min: 300, ideal: 380, max: 560)
         .alert(
             "Bir şey ters gitti",
@@ -132,12 +144,12 @@ public struct TaskInspectorView: View {
                 sectionTitle("BAŞLIK")
                 TextField(
                     "Başlık",
-                    text: Binding(
-                        get: { task.title },
-                        set: { newValue in Task { await store.updateTitle(newValue) } }),
+                    text: Binding(get: { store.titleDraft }, set: { store.editTitle($0) }),
                     axis: .vertical
                 )
                 .textFieldStyle(.roundedBorder)
+                .focused($focusedField, equals: .title)
+                .onSubmit { Task { await store.commit(.title) } }
                 .disabled(!store.isEditable)
                 if !task.titleEditedByUser {
                     Text("Nottan otomatik türetiliyor. Düzenlersen sabitlenir.")
@@ -146,17 +158,14 @@ public struct TaskInspectorView: View {
                 }
 
                 sectionTitle("NOT")
-                TextEditor(
-                    text: Binding(
-                        get: { task.noteText },
-                        set: { newValue in Task { await store.updateNote(newValue) } })
-                )
-                .font(.body)
-                .frame(minHeight: 80)
-                .scrollContentBackground(.hidden)
-                .padding(6)
-                .background(.background.secondary, in: .rect(cornerRadius: 6))
-                .disabled(!store.isEditable)
+                TextEditor(text: Binding(get: { store.noteDraft }, set: { store.editNote($0) }))
+                    .focused($focusedField, equals: .note)
+                    .font(.body)
+                    .frame(minHeight: 80)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .background(.background.secondary, in: .rect(cornerRadius: 6))
+                    .disabled(!store.isEditable)
             }
         }
     }
@@ -196,9 +205,10 @@ public struct TaskInspectorView: View {
 
             TextEditor(
                 text: Binding(
-                    get: { note.transcript ?? "" },
-                    set: { newValue in Task { await store.updateTranscript(voiceNoteID: note.id, text: newValue) } })
+                    get: { store.transcriptDraft(for: note.id) },
+                    set: { store.editTranscript(voiceNoteID: note.id, text: $0) })
             )
+            .focused($focusedField, equals: .transcript(note.id))
             .font(.callout)
             .frame(minHeight: 60)
             .scrollContentBackground(.hidden)

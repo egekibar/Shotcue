@@ -268,3 +268,145 @@ struct TaskDetailRunLogTests {
         f.store.stop()
     }
 }
+
+/// Review fix round 1, item 9: inspector text fields edit store-held drafts; nothing is saved or normalised
+/// per keystroke, only on commit (submit / focus loss).
+@Suite("TaskDetailStore drafts")
+struct TaskDetailDraftTests {
+    let t0 = Date(timeIntervalSince1970: 1_790_078_400)
+
+    @MainActor
+    func started(tasks: GatedTaskRepository? = nil) async throws
+        -> (bundle: FakeBundle, store: TaskDetailStore, task: ShotTask, note: VoiceNote)
+    {
+        let project = Project(name: "acme-web", path: "/tmp/acme-web", createdAt: t0)
+        let task = ShotTask(
+            projectID: project.id, title: "Buton rengi", noteText: "kırmızı olmalı", status: .ready,
+            createdAt: t0, updatedAt: t0)
+        let bundle = makeFakeServices(projects: [project], tasks: [task], clock: MutableClock(t0))
+        let note = VoiceNote(
+            taskID: task.id, relPath: "audio/n.m4a", durationSec: 2, transcript: "eski metin",
+            transcriptState: .done, createdAt: t0)
+        try await bundle.services.tasks.save(note)
+        let services = tasks.map { bundle.services.replacingTasks($0) } ?? bundle.services
+        let store = TaskDetailStore(services: services, taskID: task.id)
+        await store.start()
+        return (bundle, store, task, note)
+    }
+
+    @MainActor
+    @Test func typingKeepsTrailingSpacesUntilCommit() async throws {
+        let f = try await started()
+        defer { f.bundle.cleanUp() }
+        f.store.editTitle("Buton ")
+        #expect(f.store.titleDraft == "Buton ")
+        #expect(f.store.task?.title == "Buton rengi")
+        #expect(try await f.bundle.tasks.task(id: f.task.id)?.title == "Buton rengi")
+
+        await f.store.commit(.title)
+        #expect(f.store.task?.title == "Buton")
+        #expect(f.store.task?.titleEditedByUser == true)
+        #expect(f.store.titleDraft == "Buton")
+        #expect(try await f.bundle.tasks.task(id: f.task.id)?.title == "Buton")
+        f.store.stop()
+    }
+
+    @MainActor
+    @Test func clearingAndTypingANewTitleWorks() async throws {
+        let f = try await started()
+        defer { f.bundle.cleanUp() }
+        f.store.editTitle("")
+        #expect(f.store.titleDraft == "")
+        f.store.editTitle("Yeni başlık")
+        #expect(f.store.titleDraft == "Yeni başlık")
+        await f.store.commit(.title)
+        let saved = try #require(try await f.bundle.tasks.task(id: f.task.id))
+        #expect(saved.title == "Yeni başlık")
+        #expect(saved.titleEditedByUser)
+        f.store.stop()
+    }
+
+    @MainActor
+    @Test func committingAnEmptyTitleHandsItBackToTheAutomaticTitle() async throws {
+        let f = try await started()
+        defer { f.bundle.cleanUp() }
+        f.store.editTitle("   ")
+        await f.store.commit(.title)
+        #expect(f.store.task?.title == "kırmızı olmalı")
+        #expect(f.store.task?.titleEditedByUser == false)
+        #expect(f.store.titleDraft == "kırmızı olmalı")
+        f.store.stop()
+    }
+
+    @MainActor
+    @Test func incomingChangesNeverOverwriteAnUncommittedDraft() async throws {
+        let f = try await started()
+        defer { f.bundle.cleanUp() }
+        f.store.editNote("yazıyorum")
+
+        var elsewhere = f.task
+        elsewhere.noteText = "başka yerden"
+        elsewhere.title = "Başka başlık"
+        try await f.bundle.services.tasks.save(elsewhere)
+        #expect(await waitUntil("stream") { f.store.task?.title == "Başka başlık" })
+        #expect(f.store.noteDraft == "yazıyorum")
+        #expect(f.store.titleDraft == "Başka başlık")
+
+        await f.store.commit(.note)
+        #expect(try await f.bundle.tasks.task(id: f.task.id)?.noteText == "yazıyorum")
+        #expect(f.store.noteDraft == "yazıyorum")
+        f.store.stop()
+    }
+
+    @MainActor
+    @Test func transcriptDraftsCommitPerVoiceNote() async throws {
+        let f = try await started()
+        defer { f.bundle.cleanUp() }
+        #expect(f.store.transcriptDraft(for: f.note.id) == "eski metin")
+        f.store.editTranscript(voiceNoteID: f.note.id, text: "yeni metin ")
+        #expect(f.store.transcriptDraft(for: f.note.id) == "yeni metin ")
+        #expect(try await f.bundle.tasks.voiceNotes(taskID: f.task.id).first?.transcript == "eski metin")
+
+        await f.store.commit(.transcript(f.note.id))
+        let saved = try #require(try await f.bundle.tasks.voiceNotes(taskID: f.task.id).first)
+        #expect(saved.transcript == "yeni metin ")
+        #expect(saved.editedByUser)
+        f.store.stop()
+    }
+
+    @MainActor
+    @Test func commitDraftsPersistsEveryPendingEdit() async throws {
+        let f = try await started()
+        defer { f.bundle.cleanUp() }
+        f.store.editTitle("Başlık A")
+        f.store.editNote("Not B")
+        await f.store.commitDrafts()
+        let saved = try #require(try await f.bundle.tasks.task(id: f.task.id))
+        #expect(saved.title == "Başlık A")
+        #expect(saved.noteText == "Not B")
+        f.store.stop()
+    }
+
+    @MainActor
+    @Test func theTaskIsUpdatedBeforePersistenceCompletes() async throws {
+        let project = Project(name: "acme-web", path: "/tmp/acme-web", createdAt: t0)
+        let task = ShotTask(projectID: project.id, title: "t", status: .ready, createdAt: t0, updatedAt: t0)
+        let bundle = makeFakeServices(projects: [project], tasks: [task], clock: MutableClock(t0))
+        defer { bundle.cleanUp() }
+        let gate = Gate()
+        let gated = GatedTaskRepository(base: bundle.tasks, saveGate: gate)
+        let store = TaskDetailStore(services: bundle.services.replacingTasks(gated), taskID: task.id)
+        await store.start()
+        // The edit happens later than the row the stream is still delivering (as with a real clock), so
+        // that stale initial emission must not roll the local change back.
+        bundle.clock.advance(by: 1)
+
+        let saving = Task { await store.updateNote("kaydediliyor") }
+        #expect(await waitUntil("parked in save") { gate.arrivals.current == 1 })
+        #expect(store.task?.noteText == "kaydediliyor")
+        gate.open()
+        await saving.value
+        #expect(try await bundle.tasks.task(id: task.id)?.noteText == "kaydediliyor")
+        store.stop()
+    }
+}
