@@ -59,14 +59,14 @@ struct TaskRecord: ShotcueRecord {
         updatedAt = task.updatedAt
     }
 
-    var model: ShotTask {
-        ShotTask(
-            id: UUID(uuidString: id) ?? UUID(),
-            projectID: projectId.flatMap(UUID.init(uuidString:)),
+    func model() throws -> ShotTask {
+        try ShotTask(
+            id: Self.parsed(CodingKeys.id, id, using: UUID.init(uuidString:)),
+            projectID: projectId.map { try Self.parsed(CodingKeys.projectId, $0, using: UUID.init(uuidString:)) },
             title: title,
             noteText: noteText,
-            status: TaskStatus(rawValue: status) ?? .inbox,
-            mode: TaskMode(rawValue: mode) ?? .implement,
+            status: Self.parsed(CodingKeys.status, status, using: TaskStatus.init(rawValue:)),
+            mode: Self.parsed(CodingKeys.mode, mode, using: TaskMode.init(rawValue:)),
             modelOverride: modelOverride,
             sortIndex: sortIndex,
             scheduledAt: scheduledAt,

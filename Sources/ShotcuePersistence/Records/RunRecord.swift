@@ -72,11 +72,11 @@ struct RunRecord: ShotcueRecord {
         gitBranch = run.gitBranch
     }
 
-    var model: Run {
-        Run(
-            id: UUID(uuidString: id) ?? UUID(),
-            taskID: UUID(uuidString: taskId) ?? UUID(),
-            state: RunState(rawValue: state) ?? .starting,
+    func model() throws -> Run {
+        try Run(
+            id: Self.parsed(CodingKeys.id, id, using: UUID.init(uuidString:)),
+            taskID: Self.parsed(CodingKeys.taskId, taskId, using: UUID.init(uuidString:)),
+            state: Self.parsed(CodingKeys.state, state, using: RunState.init(rawValue:)),
             startedAt: startedAt,
             finishedAt: finishedAt,
             numTurns: numTurns,

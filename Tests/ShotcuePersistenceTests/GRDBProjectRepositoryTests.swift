@@ -56,7 +56,7 @@ struct GRDBProjectRepositoryTests {
         try await repository.deleteProject(id: value.id)
         #expect(try await repository.allProjects().isEmpty)
         let orphaned = try await database.reader.read { db in
-            try #require(try TaskRecord.fetchOne(db, key: task.id.dbKey)).model
+            try #require(try TaskRecord.fetchOne(db, key: task.id.dbKey)).model()
         }
         #expect(orphaned.projectID == nil)
     }

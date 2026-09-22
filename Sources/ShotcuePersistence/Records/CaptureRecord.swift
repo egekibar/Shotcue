@@ -42,10 +42,10 @@ struct CaptureRecord: ShotcueRecord {
         createdAt = capture.createdAt
     }
 
-    var model: Capture {
-        Capture(
-            id: UUID(uuidString: id) ?? UUID(),
-            taskID: UUID(uuidString: taskId) ?? UUID(),
+    func model() throws -> Capture {
+        try Capture(
+            id: Self.parsed(CodingKeys.id, id, using: UUID.init(uuidString:)),
+            taskID: Self.parsed(CodingKeys.taskId, taskId, using: UUID.init(uuidString:)),
             relPath: relPath,
             thumbRelPath: thumbRelPath,
             width: width,

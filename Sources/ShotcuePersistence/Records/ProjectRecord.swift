@@ -57,12 +57,12 @@ struct ProjectRecord: ShotcueRecord {
         createdAt = project.createdAt
     }
 
-    var model: Project {
-        Project(
-            id: UUID(uuidString: id) ?? UUID(),
+    func model() throws -> Project {
+        try Project(
+            id: Self.parsed(CodingKeys.id, id, using: UUID.init(uuidString:)),
             name: name,
             path: path,
-            defaultMode: TaskMode(rawValue: defaultMode) ?? .implement,
+            defaultMode: Self.parsed(CodingKeys.defaultMode, defaultMode, using: TaskMode.init(rawValue:)),
             defaultModel: defaultModel,
             defaultEffort: defaultEffort,
             dailyTime: dailyTime.flatMap(DailyTime.init(parsing:)),

@@ -6,16 +6,35 @@ import GRDB
 /// lives in exactly one place per table.
 protocol ShotcueRecord: Codable, FetchableRecord, PersistableRecord, Sendable {}
 
+/// Thrown when a stored row cannot be turned back into its Core model, instead of
+/// inventing a replacement value (a fresh UUID, a default enum case).
+enum PersistenceError: Error, Equatable, Sendable {
+    case corruptRow(table: String, column: String, value: String)
+}
+
 extension ShotcueRecord {
-    /// Dates are stored as Double seconds since 1970 in every table. GRDB's default
-    /// ("YYYY-MM-DD HH:MM:SS.SSS") truncates to milliseconds, which breaks exact
-    /// round trips; Double round trips exactly and still sorts with ORDER BY.
+    /// Dates are stored as Double seconds since 2001-01-01 (`Date`'s own reference date)
+    /// in every table. GRDB's default ("YYYY-MM-DD HH:MM:SS.SSS") truncates to
+    /// milliseconds, and the 1970 offset moves current timestamps into the next binade,
+    /// dropping the last mantissa bit; the reference-date Double is the exact value
+    /// `Date` holds, so it round trips exactly and still sorts with ORDER BY.
     static func databaseDateEncodingStrategy(for column: String) -> DatabaseDateEncodingStrategy {
-        .timeIntervalSince1970
+        .timeIntervalSinceReferenceDate
     }
 
     static func databaseDateDecodingStrategy(for column: String) -> DatabaseDateDecodingStrategy {
-        .timeIntervalSince1970
+        .timeIntervalSinceReferenceDate
+    }
+
+    /// Turns a stored column value (UUID text, enum raw value) back into its model type,
+    /// throwing `PersistenceError.corruptRow` instead of inventing a replacement.
+    static func parsed<Value>(
+        _ column: some CodingKey, _ stored: String, using transform: (String) -> Value?
+    ) throws -> Value {
+        guard let value = transform(stored) else {
+            throw PersistenceError.corruptRow(table: databaseTableName, column: column.stringValue, value: stored)
+        }
+        return value
     }
 }
 

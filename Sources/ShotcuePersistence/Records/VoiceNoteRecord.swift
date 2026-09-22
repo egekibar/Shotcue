@@ -49,15 +49,16 @@ struct VoiceNoteRecord: ShotcueRecord {
         createdAt = note.createdAt
     }
 
-    var model: VoiceNote {
-        VoiceNote(
-            id: UUID(uuidString: id) ?? UUID(),
-            taskID: UUID(uuidString: taskId) ?? UUID(),
+    func model() throws -> VoiceNote {
+        try VoiceNote(
+            id: Self.parsed(CodingKeys.id, id, using: UUID.init(uuidString:)),
+            taskID: Self.parsed(CodingKeys.taskId, taskId, using: UUID.init(uuidString:)),
             relPath: relPath,
             durationSec: durationSec,
             transcript: transcript,
             transcriptJSON: transcriptJson,
-            transcriptState: TranscriptState(rawValue: transcriptState) ?? .pending,
+            transcriptState: Self.parsed(
+                CodingKeys.transcriptState, transcriptState, using: TranscriptState.init(rawValue:)),
             engine: engine,
             editedByUser: editedByUser,
             createdAt: createdAt)

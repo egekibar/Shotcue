@@ -12,7 +12,7 @@ public final class GRDBTaskRepository: TaskRepository, Sendable {
     // MARK: - Shared queries
 
     private static func fetchAll(_ db: Database) throws -> [ShotTask] {
-        try TaskRecord.ordered().fetchAll(db).map(\.model)
+        try TaskRecord.ordered().fetchAll(db).map { try $0.model() }
     }
 
     /// `projectID == nil` is the inbox: GRDB turns `Column == nil` into `project_id IS NULL`.
@@ -23,7 +23,7 @@ public final class GRDBTaskRepository: TaskRepository, Sendable {
         } else {
             request = TaskRecord.ordered().filter(TaskRecord.Columns.projectId == nil)
         }
-        return try request.fetchAll(db).map(\.model)
+        return try request.fetchAll(db).map { try $0.model() }
     }
 
     // MARK: - Tasks
@@ -33,7 +33,7 @@ public final class GRDBTaskRepository: TaskRepository, Sendable {
     }
 
     public func task(id: UUID) async throws -> ShotTask? {
-        try await database.reader.read { db in try TaskRecord.fetchOne(db, key: id.dbKey)?.model }
+        try await database.reader.read { db in try TaskRecord.fetchOne(db, key: id.dbKey)?.model() }
     }
 
     public func tasks(projectID: UUID?) async throws -> [ShotTask] {
@@ -45,7 +45,7 @@ public final class GRDBTaskRepository: TaskRepository, Sendable {
             try TaskRecord.ordered()
                 .filter(TaskRecord.Columns.status == status.rawValue)
                 .fetchAll(db)
-                .map(\.model)
+                .map { try $0.model() }
         }
     }
 
@@ -68,7 +68,7 @@ public final class GRDBTaskRepository: TaskRepository, Sendable {
                 .filter(CaptureRecord.Columns.taskId == taskID.dbKey)
                 .order(CaptureRecord.Columns.createdAt)
                 .fetchAll(db)
-                .map(\.model)
+                .map { try $0.model() }
         }
     }
 
@@ -97,7 +97,7 @@ public final class GRDBTaskRepository: TaskRepository, Sendable {
                 .filter(VoiceNoteRecord.Columns.taskId == taskID.dbKey)
                 .order(VoiceNoteRecord.Columns.createdAt)
                 .fetchAll(db)
-                .map(\.model)
+                .map { try $0.model() }
         }
     }
 
@@ -133,7 +133,7 @@ public final class GRDBTaskRepository: TaskRepository, Sendable {
     public func search(_ query: String) async throws -> [ShotTask] {
         guard let request = Self.searchRequest(query) else { return try await allTasks() }
         return try await database.reader.read { db in
-            try request.fetchAll(db).map(\.model)
+            try request.fetchAll(db).map { try $0.model() }
         }
     }
 

@@ -25,7 +25,7 @@ struct RecordRoundTripTests {
         let decoded = try await database.writer.write { db -> Project in
             try ProjectRecord(project).upsert(db)
             let record = try #require(try ProjectRecord.fetchOne(db, key: project.id.dbKey))
-            return record.model
+            return try record.model()
         }
         #expect(decoded == project)
     }
@@ -44,7 +44,7 @@ struct RecordRoundTripTests {
         #expect(stored == "3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73")
     }
 
-    @Test func datesAreStoredAsSecondsSince1970() async throws {
+    @Test func datesAreStoredAsSecondsSinceReferenceDate() async throws {
         let database = try AppDatabase.inMemory()
         let seconds = try await database.writer.write { db -> Double in
             try ProjectRecord(
@@ -54,7 +54,22 @@ struct RecordRoundTripTests {
             ).upsert(db)
             return try Double.fetchOne(db, sql: "SELECT created_at FROM project") ?? 0
         }
-        #expect(seconds == 1_758_500_000)
+        #expect(seconds == 780_192_800)  // 1_758_500_000 - 978_307_200 (1970 -> 2001-01-01)
+    }
+
+    /// `Date` stores seconds since 2001; converting through the 1970 offset moves a
+    /// fractional timestamp into the next binade and drops its last mantissa bit.
+    @Test func fractionalDatesRoundTrip() async throws {
+        let database = try AppDatabase.inMemory()
+        let project = Project(
+            name: "p", path: "/tmp/p",
+            createdAt: Date(timeIntervalSinceReferenceDate: 821_940_390.0717787))
+        let decoded = try await database.writer.write { db -> Project in
+            try ProjectRecord(project).upsert(db)
+            return try #require(try ProjectRecord.fetchOne(db, key: project.id.dbKey)).model()
+        }
+        #expect(decoded.createdAt.timeIntervalSinceReferenceDate == project.createdAt.timeIntervalSinceReferenceDate)
+        #expect(decoded == project)
     }
 
     @Test func enumsAreStoredAsRawValues() async throws {
@@ -102,10 +117,10 @@ struct RecordRoundTripTests {
             try VoiceNoteRecord(note).upsert(db)
             try RunRecord(run).upsert(db)
             return (
-                try #require(try TaskRecord.fetchOne(db, key: task.id.dbKey)).model,
-                try #require(try CaptureRecord.fetchOne(db, key: capture.id.dbKey)).model,
-                try #require(try VoiceNoteRecord.fetchOne(db, key: note.id.dbKey)).model,
-                try #require(try RunRecord.fetchOne(db, key: run.id.dbKey)).model
+                try #require(try TaskRecord.fetchOne(db, key: task.id.dbKey)).model(),
+                try #require(try CaptureRecord.fetchOne(db, key: capture.id.dbKey)).model(),
+                try #require(try VoiceNoteRecord.fetchOne(db, key: note.id.dbKey)).model(),
+                try #require(try RunRecord.fetchOne(db, key: run.id.dbKey)).model()
             )
         }
         #expect(decoded.0 == task)
@@ -155,11 +170,43 @@ struct RecordRoundTripTests {
                     id: captureID, taskID: task.id, relPath: relPath,
                     width: 8, height: 8, createdAt: epoch)
             ).upsert(db)
-            return try #require(try CaptureRecord.fetchOne(db, key: captureID.dbKey)).model
+            return try #require(try CaptureRecord.fetchOne(db, key: captureID.dbKey)).model()
         }
         #expect(stored.relPath == relPath)
         #expect(stored.relPath.hasPrefix("captures/2025/09/"))
         #expect(store.relativePath(for: store.absoluteURL(for: relPath)) == relPath)
         #expect(FileManager.default.fileExists(atPath: store.absoluteURL(for: relPath).path))
+    }
+
+    @Test func unknownStatusRawValueThrowsCorruptRow() async throws {
+        let database = try AppDatabase.inMemory()
+        let id = UUID()
+        try await database.writer.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO task (id, title, status, mode, created_at, updated_at)
+                    VALUES (?, 't', 'archived', 'implement', 0, 0)
+                    """,
+                arguments: [id.dbKey])
+        }
+        let repository = GRDBTaskRepository(database: database)
+        await #expect(throws: PersistenceError.corruptRow(table: "task", column: "status", value: "archived")) {
+            try await repository.task(id: id)
+        }
+    }
+
+    @Test func malformedIDThrowsCorruptRow() async throws {
+        let database = try AppDatabase.inMemory()
+        try await database.writer.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO task (id, title, status, mode, created_at, updated_at)
+                    VALUES ('not-a-uuid', 't', 'inbox', 'implement', 0, 0)
+                    """)
+        }
+        let repository = GRDBTaskRepository(database: database)
+        await #expect(throws: PersistenceError.corruptRow(table: "task", column: "id", value: "not-a-uuid")) {
+            try await repository.allTasks()
+        }
     }
 }

@@ -11,7 +11,7 @@ public final class GRDBProjectRepository: ProjectRepository, Sendable {
 
     /// Single source of truth for the ordering, shared by the fetch and the observation.
     private static func fetchAll(_ db: Database) throws -> [Project] {
-        try ProjectRecord.ordered().fetchAll(db).map(\.model)
+        try ProjectRecord.ordered().fetchAll(db).map { try $0.model() }
     }
 
     public func allProjects() async throws -> [Project] {
@@ -20,7 +20,7 @@ public final class GRDBProjectRepository: ProjectRepository, Sendable {
 
     public func project(id: UUID) async throws -> Project? {
         try await database.reader.read { db in
-            try ProjectRecord.fetchOne(db, key: id.dbKey)?.model
+            try ProjectRecord.fetchOne(db, key: id.dbKey)?.model()
         }
     }
 

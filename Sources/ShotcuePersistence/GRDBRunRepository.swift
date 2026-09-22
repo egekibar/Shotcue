@@ -14,7 +14,7 @@ public final class GRDBRunRepository: RunRepository, Sendable {
             .filter(RunRecord.Columns.taskId == taskID.dbKey)
             .order(RunRecord.Columns.startedAt)
             .fetchAll(db)
-            .map(\.model)
+            .map { try $0.model() }
     }
 
     private static func activeRequest() -> QueryInterfaceRequest<RunRecord> {
@@ -28,7 +28,7 @@ public final class GRDBRunRepository: RunRepository, Sendable {
     }
 
     public func run(id: UUID) async throws -> Run? {
-        try await database.reader.read { db in try RunRecord.fetchOne(db, key: id.dbKey)?.model }
+        try await database.reader.read { db in try RunRecord.fetchOne(db, key: id.dbKey)?.model() }
     }
 
     public func save(_ run: Run) async throws {
@@ -38,7 +38,7 @@ public final class GRDBRunRepository: RunRepository, Sendable {
 
     public func activeRuns() async throws -> [Run] {
         try await database.reader.read { db in
-            try Self.activeRequest().fetchAll(db).map(\.model)
+            try Self.activeRequest().fetchAll(db).map { try $0.model() }
         }
     }
 
@@ -51,7 +51,7 @@ public final class GRDBRunRepository: RunRepository, Sendable {
                     db,
                     RunRecord.Columns.state.set(to: RunState.failed.rawValue),
                     RunRecord.Columns.error.set(to: "interrupted"),
-                    RunRecord.Columns.finishedAt.set(to: now.timeIntervalSince1970))
+                    RunRecord.Columns.finishedAt.set(to: now.timeIntervalSinceReferenceDate))
         }
     }
 
