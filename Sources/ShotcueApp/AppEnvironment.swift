@@ -322,15 +322,30 @@ final class AppEnvironment {
         status.loginItemStatusText = LoginItemManager.statusText
     }
 
+    /// Settings > Ses > "Modeli indir" (explicit consent, spec §6.2). The transcriber reports its progress
+    /// through `modelState()`, so it is mirrored into the status every half second while the download runs;
+    /// the poll is awaited before the final state is written, so a late poll cannot overwrite `.ready`.
     func downloadTranscriberModel() {
+        if case .downloading = status.transcriberState { return }
+        status.transcriberState = .downloading(progress: 0)
         let transcriber = services.transcriber
         Task { @MainActor in
-            status.transcriberState = .downloading(progress: 0)
+            let progressPoll = Task { @MainActor in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    let state = await transcriber.modelState()
+                    if !Task.isCancelled, case .downloading = state { status.transcriberState = state }
+                }
+            }
             do {
                 try await transcriber.downloadModel()
+                progressPoll.cancel()
+                await progressPoll.value
                 status.transcriberState = await transcriber.modelState()
                 await services.transcriptionQueue.processPending()
             } catch {
+                progressPoll.cancel()
+                await progressPoll.value
                 status.transcriberState = .failed(error.localizedDescription)
             }
         }
