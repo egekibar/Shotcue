@@ -217,7 +217,9 @@ struct PersistenceSmokeTests {
 
 - [ ] **Step 4: Derle ve testleri çalıştır (ilk çözümleme WhisperKit yüzünden birkaç dakika sürer)**
 
-Run: `swift build 2>&1 | tail -5 && swift test 2>&1 | tail -8`
+Makefile henüz yok, bu yüzden Swift Testing makro eklentisi bu adımda elle yüklenir (Step 7'den sonra her zaman `make test`):
+
+Run: `swift build 2>&1 | tail -5 && swift test -Xswiftc -load-plugin-library -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib 2>&1 | tail -8`
 Expected: `Build complete!` ve `Test run with 6 tests … passed`. `ld: warning: search path … not found` uyarıları zararsızdır. Bir bağımlılık `PreviewsMacros`/`#Preview` hatası verirse o bağımlılık Global Constraints gereği kullanılamaz; durumu raporla, devam etme.
 
 - [ ] **Step 5: Resources/Info.plist ve entitlements'ı yaz**
@@ -381,10 +383,17 @@ BUNDLE_ID    := com.shotcue.app
 SIGN_IDENTITY ?= Shotcue Dev
 INSTALL_DIR  := $(HOME)/Applications
 
+# CLT-only SwiftPM intermittently fails to resolve the Swift Testing macro plugin on the first build
+# ("plugin for module 'TestingMacros' not found", measured on this machine 2026-09-22). Loading it explicitly
+# makes `make test` deterministic. The path is skipped automatically when it does not exist (e.g. with Xcode).
+TESTING_PLUGIN   := $(shell xcode-select -p)/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib
+SWIFT_TEST_FLAGS := $(if $(wildcard $(TESTING_PLUGIN)),-Xswiftc -load-plugin-library -Xswiftc $(TESTING_PLUGIN),)
+
 .PHONY: build test bundle install run shot reset-tcc format lint clean cert
 
 build: ; swift build
-test: ; swift test
+# Usage: make test            (everything)   |   make test FILTER='ModelsTests|TitleMakerTests'   (regex on suite/test names)
+test: ; @swift test $(SWIFT_TEST_FLAGS) $(if $(FILTER),--filter '$(FILTER)',)
 bundle: build ; ./scripts/bundle.sh "$(APP_NAME)" "$(BUNDLE_ID)" "$(SIGN_IDENTITY)"
 install: bundle ; ./scripts/install.sh "$(APP_NAME)" "$(INSTALL_DIR)"
 run: install ; open "$(INSTALL_DIR)/$(APP_NAME).app"
@@ -488,7 +497,9 @@ Native macOS app (Swift 6.4, SwiftUI, macOS 26+), built WITHOUT Xcode: only Comm
 Spec: docs/superpowers/specs/2026-09-22-shotcue-design.md · Plans: docs/superpowers/plans/
 
 ## Build & test (the only loop)
-- `make test` — Swift Testing, run before every commit. Core tests take ~6 s; keep logic in ShotcueCore.
+- `make test` / `make test FILTER='<SuiteName>'` — Swift Testing, run before every commit. Core tests take ~6 s; keep logic in ShotcueCore.
+- Always go through `make test`, never bare `swift test`: the CLT build system intermittently fails with
+  `plugin for module 'TestingMacros' not found`; the Makefile loads the macro plugin explicitly. If you still see it, run again.
 - `make build` / `make run` (bundle → ~/Applications → open) / `make shot` (screenshot app windows to /tmp/shotcue-shots).
 - Never use `xcodebuild`, `actool`, `.xcassets`, Xcode projects, or `#Preview` (CLT has no PreviewsMacros; it breaks the build).
 - Never add a dependency without first compiling it in a scratch package with `swift build`; deps that use `#Preview` cannot be used.
@@ -597,7 +608,7 @@ struct ModelsTests {
 
 - [ ] **Step 2: Testin derlenmediğini gör**
 
-Run: `swift test --filter ModelsTests 2>&1 | grep -E "error:" | head -5`
+Run: `make test FILTER=ModelsTests 2>&1 | grep -E "error:" | head -5`
 Expected: `cannot find 'DailyTime' in scope` ve benzeri hatalar.
 
 - [ ] **Step 3: Modelleri yaz**
@@ -814,7 +825,7 @@ public struct Run: Identifiable, Hashable, Sendable, Codable {
 
 - [ ] **Step 4: Testlerin geçtiğini gör**
 
-Run: `swift test --filter ModelsTests 2>&1 | tail -3`
+Run: `make test FILTER=ModelsTests 2>&1 | tail -3`
 Expected: `Test run with 5 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -904,7 +915,7 @@ struct TaskTransitionsTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter TaskTransitionsTests 2>&1 | grep -E "error:" | head -3`
+Run: `make test FILTER=TaskTransitionsTests 2>&1 | grep -E "error:" | head -3`
 Expected: `cannot find type 'TaskStateError' in scope`.
 
 - [ ] **Step 3: Geçiş kurallarını yaz**
@@ -963,7 +974,7 @@ extension ShotTask {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter TaskTransitionsTests 2>&1 | tail -3`
+Run: `make test FILTER=TaskTransitionsTests 2>&1 | tail -3`
 Expected: `Test run with 6 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -1034,7 +1045,7 @@ struct KeyComboTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter "SortIndexTests|KeyComboTests" 2>&1 | grep -c "error:"`
+Run: `make test FILTER="SortIndexTests|KeyComboTests" 2>&1 | grep -c "error:"`
 Expected: 1'den büyük bir sayı.
 
 - [ ] **Step 3: Uygulamayı yaz**
@@ -1106,7 +1117,7 @@ public struct KeyCombo: Hashable, Sendable, Codable {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter "SortIndexTests|KeyComboTests" 2>&1 | tail -3`
+Run: `make test FILTER="SortIndexTests|KeyComboTests" 2>&1 | tail -3`
 Expected: `Test run with 9 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -1169,7 +1180,7 @@ struct TitleMakerTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter TitleMakerTests 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=TitleMakerTests 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'TitleMaker' in scope`.
 
 - [ ] **Step 3: Uygulamayı yaz**
@@ -1214,7 +1225,7 @@ public enum TitleMaker {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter TitleMakerTests 2>&1 | tail -3`
+Run: `make test FILTER=TitleMakerTests 2>&1 | tail -3`
 Expected: `Test run with 4 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -1291,7 +1302,7 @@ struct PromptBuilderTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter PromptBuilderTests 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=PromptBuilderTests 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'PromptInput' in scope`.
 
 - [ ] **Step 3: Uygulamayı yaz**
@@ -1391,7 +1402,7 @@ public enum PromptBuilder {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter PromptBuilderTests 2>&1 | tail -3`
+Run: `make test FILTER=PromptBuilderTests 2>&1 | tail -3`
 Expected: `Test run with 4 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -1475,7 +1486,7 @@ struct StreamJSONParserTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter StreamJSONParserTests 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=StreamJSONParserTests 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'StreamJSONParser' in scope`.
 
 - [ ] **Step 3: Uygulamayı yaz**
@@ -1594,7 +1605,7 @@ public enum StreamJSONParser {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter StreamJSONParserTests 2>&1 | tail -3`
+Run: `make test FILTER=StreamJSONParserTests 2>&1 | tail -3`
 Expected: `Test run with 4 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -1722,7 +1733,7 @@ struct SchedulerRulesTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter "QueuePolicyTests|SchedulerRulesTests" 2>&1 | grep -c "error:"`
+Run: `make test FILTER="QueuePolicyTests|SchedulerRulesTests" 2>&1 | grep -c "error:"`
 Expected: 1'den büyük.
 
 - [ ] **Step 3: Uygulamayı yaz**
@@ -1794,7 +1805,7 @@ public enum SchedulerRules {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter "QueuePolicyTests|SchedulerRulesTests" 2>&1 | tail -3`
+Run: `make test FILTER="QueuePolicyTests|SchedulerRulesTests" 2>&1 | tail -3`
 Expected: `Test run with 10 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -1854,7 +1865,7 @@ struct GitOutputParserTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter GitOutputParserTests 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=GitOutputParserTests 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'GitOutputParser' in scope`.
 
 - [ ] **Step 3: Uygulamayı yaz**
@@ -1891,7 +1902,7 @@ public enum GitOutputParser {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter GitOutputParserTests 2>&1 | tail -3`
+Run: `make test FILTER=GitOutputParserTests 2>&1 | tail -3`
 Expected: `Test run with 4 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -1966,7 +1977,7 @@ struct FileStoreTests {
 
 - [ ] **Step 2: Derlenmediğini gör**
 
-Run: `swift test --filter FileStoreTests 2>&1 | grep -m1 "error:"`
+Run: `make test FILTER=FileStoreTests 2>&1 | grep -m1 "error:"`
 Expected: `cannot find 'FileStore' in scope`.
 
 - [ ] **Step 3: Uygulamayı yaz**
@@ -2029,7 +2040,7 @@ public struct FileStore: Sendable {
 
 - [ ] **Step 4: Testleri çalıştır**
 
-Run: `swift test --filter FileStoreTests 2>&1 | tail -3`
+Run: `make test FILTER=FileStoreTests 2>&1 | tail -3`
 Expected: `Test run with 4 tests … passed`.
 
 - [ ] **Step 5: Commit**
@@ -2693,12 +2704,12 @@ struct FakesTests {
 
 - [ ] **Step 4: Testleri çalıştır ve tüm paketi derle**
 
-Run: `swift build 2>&1 | grep -E "error|warning: unused" ; swift test --filter FakesTests 2>&1 | tail -3`
+Run: `swift build 2>&1 | grep -E "error|warning: unused" ; make test FILTER=FakesTests 2>&1 | tail -3`
 Expected: derleme hatası yok; `Test run with 5 tests … passed`.
 
 - [ ] **Step 5: Tüm Core testlerini çalıştır ve commit'le**
 
-Run: `swift test --filter ShotcueCoreTests 2>&1 | tail -3`
+Run: `make test FILTER=ShotcueCoreTests 2>&1 | tail -3`
 Expected: Task 1–10'daki tüm testler geçer (toplam 55; Core smoke testiyle 56).
 
 ```bash
