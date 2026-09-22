@@ -19,6 +19,28 @@ final class ErrorClaudeRunner: ClaudeRunner, @unchecked Sendable {
     func version() async throws -> String { "2.1.278 (Claude Code)" }
 }
 
+/// Measures how many `run` calls overlap; every call holds its slot for `hold`.
+final class ConcurrencyProbeRunner: ClaudeRunner, @unchecked Sendable {
+    let hold: Duration
+    let active = Locked(0)
+    let peak = Locked(0)
+    let calls = Locked(0)
+    init(hold: Duration) { self.hold = hold }
+    func run(_ spec: RunSpec, onEvent: @escaping @Sendable (RunEvent) -> Void) async throws -> ClaudeRunResult {
+        let now = active.withLock { count -> Int in
+            count += 1
+            return count
+        }
+        peak.withLock { $0 = max($0, now) }
+        calls.withLock { $0 += 1 }
+        try? await Task.sleep(for: hold)
+        active.withLock { $0 -= 1 }
+        return ClaudeRunResult(subtype: "success", isError: false)
+    }
+    func cancel(runID: UUID) async {}
+    func version() async throws -> String { "probe" }
+}
+
 /// A latch: `wait()` suspends until `open()`. `arrivals` counts the callers that reached it, so a test
 /// knows a run is parked there before it acts.
 final class Gate: @unchecked Sendable {
@@ -386,6 +408,31 @@ struct RunCoordinatorTests {
         #expect(peak >= 1)
         #expect(peak <= 2)
         #expect(everDoubledUpOnOneProject == false)
+    }
+
+    @Test func theGlobalLimitCapsRunsAcrossProjects() async throws {
+        let projects = (1...3).map { Project(name: "p\($0)", path: Harness.makeProjectDirectory("p\($0)")) }
+        let tasks = projects.flatMap { project in
+            (1...2).map { index in
+                ShotTask(
+                    projectID: project.id, title: "\(project.name)-\(index)", status: .ready,
+                    sortIndex: Double(index))
+            }
+        }
+        let runner = ConcurrencyProbeRunner(hold: .milliseconds(100))
+        let h = Harness(
+            projects: projects, tasks: tasks, runner: runner,
+            settings: RunSettings(maxConcurrent: 2, keepAwake: false))
+        defer { h.cleanUp() }
+
+        for task in tasks { try await h.coordinator.enqueue(taskID: task.id) }
+        await waitUntil("every task done") {
+            ((try? await h.taskRepository.tasks(status: .done)) ?? []).count == tasks.count
+        }
+
+        #expect(runner.calls.current == tasks.count)
+        // Three projects could run side by side; only the global limit holds them at two.
+        #expect(runner.peak.current == 2)
     }
 
     @Test func pausedQueueDoesNotStartRuns() async throws {
