@@ -139,12 +139,16 @@ public actor RunCoordinator: TaskDispatcher {
 
     // MARK: - One run
 
+    /// One attempt at a queued task. Whatever `perform` does, the slot is released and the queue pumped.
     private func execute(taskID: UUID, runID: UUID) async {
-        guard let loaded = try? await taskRepository.task(id: taskID),
-            let projectID = loaded.projectID,
-            let project = try? await projectRepository.project(id: projectID)
-        else {
-            await finishInFlight(taskID)
+        await perform(taskID: taskID, runID: runID)
+        await finishInFlight(taskID)
+    }
+
+    private func perform(taskID: UUID, runID: UUID) async {
+        // The row is gone, or it lost its project (never runnable, so the queue cannot pick it again):
+        // there is nothing to run and nothing to report.
+        guard let loaded = try? await taskRepository.task(id: taskID), let projectID = loaded.projectID else {
             return
         }
         var task = loaded
@@ -153,22 +157,26 @@ public actor RunCoordinator: TaskDispatcher {
             logRelPath: fileStore.runLogRelPath(id: runID))
         try? await runRepository.save(run)
 
+        // A missing or unreadable project row must not leave the task queued: the queue would pick it
+        // again at once, forever.
+        let project: Project
+        do {
+            guard let found = try await projectRepository.project(id: projectID) else {
+                await failBeforeLaunch(&run, task: &task, message: Self.missingProjectRecordMessage)
+                return
+            }
+            project = found
+        } catch {
+            await failBeforeLaunch(&run, task: &task, message: Self.unreadableProjectMessage(error))
+            return
+        }
+
         // Spec §8: a moved or deleted project directory must not start a run at all.
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: project.path, isDirectory: &isDirectory),
             isDirectory.boolValue
         else {
-            run.state = .failed
-            run.finishedAt = clock.now
-            run.error = Self.missingProjectMessage(path: project.path)
-            // The task never entered `running`, so it goes back to `ready`: fix the path and resend.
-            await apply(.ready, to: &task)
-            try? await runRepository.save(run)
-            await notifier.notify(
-                AppNotification(
-                    kind: .runFailed, title: task.title,
-                    body: run.error ?? "", taskID: task.id, runID: runID))
-            await finishInFlight(taskID)
+            await failBeforeLaunch(&run, task: &task, message: Self.missingProjectMessage(path: project.path))
             return
         }
 
@@ -227,7 +235,18 @@ public actor RunCoordinator: TaskDispatcher {
         let notification = await record(outcome: outcome, into: &run, task: &task)
         try? await runRepository.save(run)
         if let notification { await notifier.notify(notification) }
-        await finishInFlight(taskID)
+    }
+
+    /// The run never started (spec §8): the Run row says why, the task goes back to `ready` (the task
+    /// never entered `running`; fix the cause and resend) and the user is told.
+    private func failBeforeLaunch(_ run: inout Run, task: inout ShotTask, message: String) async {
+        run.state = .failed
+        run.finishedAt = clock.now
+        run.error = message
+        await apply(.ready, to: &task)
+        try? await runRepository.save(run)
+        await notifier.notify(
+            AppNotification(kind: .runFailed, title: task.title, body: message, taskID: task.id, runID: run.id))
     }
 
     /// Maps the runner outcome onto the Run row, the task status and the notification (spec §6.4).
@@ -351,6 +370,12 @@ public actor RunCoordinator: TaskDispatcher {
 
     static func missingProjectMessage(path: String) -> String {
         "Proje klasörü bulunamadı: \(path). Ayarlar > Projeler'den yolu düzeltin."
+    }
+
+    static let missingProjectRecordMessage = "Proje bulunamadı. Görevi bir projeye atayıp yeniden gönderin."
+
+    static func unreadableProjectMessage(_ error: any Error) -> String {
+        "Proje okunamadı: \(error)"
     }
 
     static func message(for error: any Error) -> String {

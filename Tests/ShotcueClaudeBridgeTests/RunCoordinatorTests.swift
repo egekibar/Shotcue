@@ -446,6 +446,31 @@ struct RunCoordinatorTests {
         #expect(h.notifier.sent.current.first?.kind == .runFailed)
     }
 
+    @Test func missingProjectRowFailsTheRunInsteadOfRestartingIt() async throws {
+        let present = Project(name: "var", path: Harness.makeProjectDirectory("var"))
+        // Never saved in the repository: the queued task points at a project row that is gone.
+        let ghost = Project(name: "silinmiş", path: Harness.makeProjectDirectory("ghost"))
+        let orphan = ShotTask(projectID: ghost.id, title: "Sahipsiz", status: .ready, sortIndex: 1)
+        let normal = ShotTask(projectID: present.id, title: "Normal", status: .ready, sortIndex: 2)
+        let runner = successRunner()
+        let h = Harness(
+            projects: [present], tasks: [orphan, normal], runner: runner,
+            settings: RunSettings(maxConcurrent: 1, keepAwake: false))
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: orphan.id)
+        try await h.coordinator.enqueue(taskID: normal.id)
+        await waitUntil("the other project's task finished") { await h.status(of: normal.id) == .done }
+
+        #expect(runner.specs.current.map { $0.projectPath } == [present.path])
+        #expect(await h.status(of: orphan.id) == .ready)
+        let runs = await h.runs(of: orphan.id)
+        #expect(runs.count == 1)
+        #expect(runs.first?.state == .failed)
+        #expect(runs.first?.error == RunCoordinator.missingProjectRecordMessage)
+        #expect(h.notifier.sent.current.contains { $0.kind == .runFailed && $0.taskID == orphan.id })
+    }
+
     @Test func updateSettingsAppliesToTheNextRun() async throws {
         let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
         let task = ShotTask(projectID: project.id, title: "Ayar", status: .ready)
