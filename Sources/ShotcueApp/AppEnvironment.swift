@@ -181,6 +181,7 @@ final class AppEnvironment {
             fileStore: fileStore,
             notifier: notifier,
             status: status,
+            permissionsStore: permissionsStore,
             quickPanel: quickPanel,
             onboarding: onboarding)
     }
@@ -241,8 +242,10 @@ final class AppEnvironment {
         do {
             try hotKeys.register(combo, handler: handler)
             status.hotKeyError = nil
+            AppLog.app.notice("hotkey \(combo.label, privacy: .public) registered")
         } catch {
             let reason = "Kısayol \(combo.label) kaydedilemedi (\(Self.describe(hotKeyError: error)))."
+            defer { AppLog.app.error("\(self.status.hotKeyError ?? reason, privacy: .public)") }
             guard let previous else {
                 status.hotKeyError = reason
                 return

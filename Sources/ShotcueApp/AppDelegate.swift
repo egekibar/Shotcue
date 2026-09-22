@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             do {
                 let recovered = try await environment.runCoordinator.recoverInterruptedRuns()
                 if recovered > 0 {
-                    NSLog("[Shotcue] marked %d interrupted run(s) as failed", recovered)
+                    AppLog.app.notice("marked \(recovered, privacy: .public) interrupted run(s) as failed")
                 }
             } catch {
                 environment.status.lastError =
@@ -99,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        NSLog("[Shotcue] notification action %@ (not wired yet)", response.actionIdentifier)
+        AppLog.app.notice("notification action \(response.actionIdentifier, privacy: .public) (not wired yet)")
     }
 
     /// Banners while Shotcue is frontmost, too — a finished run is the whole point of the app.

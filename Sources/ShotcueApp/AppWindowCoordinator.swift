@@ -30,7 +30,7 @@ final class WindowOpener {
 
     func openLibrary() {
         guard let openWindowAction else {
-            NSLog("[Shotcue] openWindow not connected yet; library request dropped")
+            AppLog.app.error("openWindow not connected yet; library request dropped")
             return
         }
         openWindowAction(AppWindowID.library)
@@ -45,7 +45,7 @@ final class WindowOpener {
     /// Settings window would open behind the frontmost app without the explicit activation.
     func openSettingsWindow() {
         guard let openSettingsAction else {
-            NSLog("[Shotcue] openSettings not connected yet; settings request dropped")
+            AppLog.app.error("openSettings not connected yet; settings request dropped")
             return
         }
         NSApp.activate()
