@@ -192,7 +192,6 @@ public final class QuickPanelStore {
         let now = services.clock.now
         current.noteText = noteText
         current.mode = mode
-        current.projectID = selectedProjectID
         if !current.titleEditedByUser {
             let transcript = voiceNotes.compactMap(\.transcript).first
             current.title = TitleMaker.title(
@@ -200,13 +199,17 @@ public final class QuickPanelStore {
                 createdAt: current.createdAt)
         }
         current.updatedAt = now
-        if selectedProjectID != nil, current.status == .inbox {
-            do {
-                try current.transition(to: .ready, at: now)
-            } catch {
-                report(error)
-                return false
+        do {
+            if let selectedProjectID {
+                current.projectID = selectedProjectID
+                if current.status == .inbox { try current.transition(to: .ready, at: now) }
+            } else {
+                // Without a project the task goes (back) to the inbox; it is never left `ready`.
+                current = try ProjectAssignment.withoutProject(current, now: now)
             }
+        } catch {
+            report(error)
+            return false
         }
         do {
             try await services.tasks.save(current)

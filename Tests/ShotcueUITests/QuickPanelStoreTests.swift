@@ -141,6 +141,22 @@ struct QuickPanelStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// Review fix round 1, item 2: clearing the project on a second save sends the task back to the inbox.
+    @MainActor
+    @Test func aProjectlessSaveNeverLeavesTheTaskReady() async throws {
+        let f = try await fixture()
+        f.store.selectedProjectID = f.projectA.id
+        #expect(await f.store.save())
+        #expect(try await f.bundle.services.tasks.task(id: f.task.id)?.status == .ready)
+
+        f.store.selectedProjectID = nil
+        #expect(await f.store.save())
+        let saved = try #require(try await f.bundle.services.tasks.task(id: f.task.id))
+        #expect(saved.projectID == nil)
+        #expect(saved.status == .inbox)
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func saveAndCloseWritesThenClosesWithoutEnqueueing() async throws {
         let f = try await fixture()

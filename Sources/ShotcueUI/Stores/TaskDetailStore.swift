@@ -220,18 +220,27 @@ public final class TaskDetailStore {
     public func setProject(_ projectID: UUID?) async {
         guard var current = task, current.status.isEditable else { return }
         let now = services.clock.now
+        guard let projectID else {
+            // Clearing the project never strands the task (`ProjectAssignment`).
+            do {
+                if let detached = try await ProjectAssignment.detach(taskID: taskID, services: services, now: now) {
+                    task = detached
+                }
+            } catch {
+                report(error)
+            }
+            return
+        }
         let cameFromInbox = current.projectID == nil
         current.projectID = projectID
         current.updatedAt = now
-        do {
-            if projectID == nil {
-                if current.status == .ready { try current.transition(to: .inbox, at: now) }
-            } else if cameFromInbox, current.status == .inbox {
+        if cameFromInbox, current.status == .inbox {
+            do {
                 try current.transition(to: .ready, at: now)
+            } catch {
+                report(error)
+                return
             }
-        } catch {
-            report(error)
-            return
         }
         await save(current)
     }

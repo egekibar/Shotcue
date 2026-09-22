@@ -317,19 +317,22 @@ public final class LibraryStore {
         }
     }
 
-    /// "Projeye taşı". Coming out of the inbox the task also becomes `ready` (spec §7).
+    /// "Projeye taşı". Coming out of the inbox the task also becomes `ready` (spec §7); going back to the
+    /// inbox never strands it (`ProjectAssignment`).
     public func move(taskIDs: Set<UUID>, toProject projectID: UUID?) async {
         let now = services.clock.now
         for id in ordered(taskIDs) {
             do {
+                guard let projectID else {
+                    _ = try await ProjectAssignment.detach(taskID: id, services: services, now: now)
+                    continue
+                }
                 guard var task = try await services.tasks.task(id: id), task.status.isEditable
                 else { continue }
                 let cameFromInbox = task.projectID == nil
                 task.projectID = projectID
                 task.updatedAt = now
-                if projectID == nil {
-                    if task.status == .ready { try task.transition(to: .inbox, at: now) }
-                } else if cameFromInbox, task.status == .inbox {
+                if cameFromInbox, task.status == .inbox {
                     try task.transition(to: .ready, at: now)
                 }
                 try await services.tasks.save(task)
@@ -430,16 +433,19 @@ public final class LibraryStore {
         }
     }
 
-    /// Deleting a project returns its tasks to the inbox; captures are never destroyed here.
+    /// Deleting a project returns its tasks to the inbox without stranding them (`ProjectAssignment`);
+    /// captures are never destroyed here. Refused while one of its tasks runs. The tasks are read from the
+    /// repository, not the stream snapshot, so none is missed.
     public func deleteProject(id: UUID) async {
         let now = services.clock.now
         do {
-            for var task in allTasks where task.projectID == id {
-                guard task.status.isEditable else { continue }
-                task.projectID = nil
-                if task.status == .ready { try? task.transition(to: .inbox, at: now) }
-                task.updatedAt = now
-                try await services.tasks.save(task)
+            let projectTasks = try await services.tasks.tasks(projectID: id)
+            guard !projectTasks.contains(where: { $0.status == .running }) else {
+                lastError = "Bu projede çalışan bir görev var. Önce bitmesini bekle ya da iptal et."
+                return
+            }
+            for task in projectTasks {
+                _ = try await ProjectAssignment.detach(taskID: task.id, services: services, now: now)
             }
             try await services.projects.deleteProject(id: id)
             if storedSelection == .project(id) { selection = .inbox }
