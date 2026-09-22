@@ -328,10 +328,10 @@ public struct TaskInspectorView: View {
                             .frame(width: 320)
                         }
                         Button("Günlük kuyruğa al", systemImage: "calendar.badge.clock") {
-                            Task { await store.unschedule() }
+                            Task { await store.addToDailyQueue() }
                         }
                         .buttonStyle(.glass)
-                        .disabled(task.status == .ready || !store.isEditable)
+                        .disabled(!store.canAddToDailyQueue)
                     }
                 }
             }

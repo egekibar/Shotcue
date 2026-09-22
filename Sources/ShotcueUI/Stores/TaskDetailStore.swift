@@ -283,6 +283,49 @@ public final class TaskDetailStore {
         await services.dispatcher.cancel(taskID: taskID)
     }
 
+    /// Whether "Günlük kuyruğa al" can do something: the task has a project and an edge to `ready`.
+    public var canAddToDailyQueue: Bool {
+        guard let task, task.projectID != nil, task.status != .ready else { return false }
+        return task.status.canTransition(to: .ready)
+    }
+
+    /// "Günlük kuyruğa al" (spec §6.5): makes the task `ready` so the project's daily queue picks it up.
+    /// Mirrors `LibraryStore.addToDailyQueue(taskIDs:)`; a queued task leaves the queue through the
+    /// dispatcher, which owns the queue.
+    public func addToDailyQueue() async {
+        guard var current = task, current.status != .ready else { return }
+        guard current.projectID != nil else {
+            lastError = "Günlük kuyruğa almak için önce bir proje seç."
+            return
+        }
+        guard current.status.canTransition(to: .ready) else {
+            lastError = "\(StatusPresentation.label(for: current.status)) durumundaki görev günlük kuyruğa alınamaz."
+            return
+        }
+        if current.status == .queued {
+            await services.dispatcher.cancel(taskID: taskID)
+            do {
+                guard let fresh = try await services.tasks.task(id: taskID) else { return }
+                current = fresh
+            } catch {
+                report(error)
+                return
+            }
+            // The dispatcher already moved it to `ready`; or it started running meanwhile.
+            guard current.status != .ready, current.status.canTransition(to: .ready) else {
+                task = current
+                return
+            }
+        }
+        do {
+            try current.transition(to: .ready, at: services.clock.now)
+        } catch {
+            report(error)
+            return
+        }
+        await save(current)
+    }
+
     /// "Yeniden çalıştır": failed/cancelled/done all have an edge to `queued`.
     public func retry() async {
         do {
