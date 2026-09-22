@@ -147,13 +147,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return UUID(uuidString: string)
     }
 
+    /// The id exactly as the run was started with: `ClaudeArguments` passes
+    /// `--session-id <uuid lowercased>`, so `--resume` gets the same spelling.
     private static func sessionID(
         runID: UUID?, taskID: UUID?, environment: AppEnvironment
     ) async -> String? {
-        if let runID { return runID.uuidString }
+        if let runID { return runID.uuidString.lowercased() }
         guard let taskID else { return nil }
         let runs = (try? await environment.services.runs.runs(taskID: taskID)) ?? []
-        return runs.max(by: { $0.startedAt < $1.startedAt })?.id.uuidString
+        return runs.max(by: { $0.startedAt < $1.startedAt })?.id.uuidString.lowercased()
     }
 
     /// Banners while Shotcue is frontmost, too — a finished run is the whole point of the app.
