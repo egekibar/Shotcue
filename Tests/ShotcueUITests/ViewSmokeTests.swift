@@ -217,3 +217,42 @@ struct QuickPanelViewTests {
         #expect(LevelMeterView(level: 0).litBars == 0)
     }
 }
+
+@Suite("SettingsView")
+struct SettingsViewTests {
+    @MainActor
+    @Test func settingsViewIsWiredToBothStoresAndItsCallback() async {
+        let bundle = makeFakeServices(permissions: [.screenRecording: .granted])
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "settings-\(UUID().uuidString)")!)
+        let permissions = PermissionsStore(services: bundle.services)
+        await permissions.refresh()
+        let downloads = Locked(0)
+
+        let view = SettingsView(
+            settings: settings,
+            permissions: permissions,
+            projects: [Project(name: "acme-web", path: "/tmp/acme-web", createdAt: Date())],
+            claudeVersion: "2.1.278 (Claude Code)",
+            transcriberState: .notDownloaded,
+            onDownloadModel: { downloads.withLock { $0 += 1 } })
+
+        #expect(view.settings === settings)
+        #expect(view.permissions === permissions)
+        #expect(view.projects.count == 1)
+        #expect(view.claudeVersion == "2.1.278 (Claude Code)")
+        view.onDownloadModel()
+        #expect(downloads.current == 1)
+        bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func transcriberStateCopyCoversEveryCase() {
+        #expect(SettingsView.modelStateLabel(.notDownloaded) == "İndirilmedi")
+        #expect(SettingsView.modelStateLabel(.downloading(progress: 0.42)) == "İndiriliyor… %42")
+        #expect(SettingsView.modelStateLabel(.ready) == "Hazır")
+        #expect(SettingsView.modelStateLabel(.failed("disk dolu")) == "Hata: disk dolu")
+        #expect(SettingsView.permissionModeLabel(.bypassPermissions) == "bypassPermissions (sormaz, uygular)")
+        #expect(SettingsView.permissionModeLabel(.acceptEdits) == "acceptEdits (düzenlemeleri kabul eder)")
+        #expect(SettingsView.permissionModeLabel(.dontAsk) == "dontAsk (yalnızca okuma)")
+    }
+}

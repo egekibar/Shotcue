@@ -22,6 +22,9 @@ public final class SettingsStore {
 
     // MARK: - Keys and defaults
 
+    /// "Klasör seç…" `fileImporter`'ı için geçici durum; kalıcı değil.
+    public var isStoragePickerPresented = false
+
     /// The `UserDefaults` keys are the property names verbatim, so they read the same in `defaults read`.
     enum Key {
         static let hotKeyLabel = "hotKeyLabel"
