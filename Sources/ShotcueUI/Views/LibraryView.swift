@@ -434,10 +434,8 @@ public struct LibraryView: View {
 
     @ViewBuilder
     private var inspector: some View {
-        // Temporary until Task 10 adds `TaskInspectorView`; Task 10 restores the brief's final body:
-        // `if let detail = store.detailStore { TaskInspectorView(store: detail, thumbnails: thumbnails) }`.
-        if store.detailStore != nil {
-            Text("Detay")
+        if let detail = store.detailStore {
+            TaskInspectorView(store: detail, thumbnails: thumbnails)
         } else {
             VStack(spacing: 8) {
                 Image(systemName: "sidebar.trailing")

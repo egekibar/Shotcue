@@ -112,3 +112,70 @@ struct LibraryViewTests {
         bundle.cleanUp()
     }
 }
+
+@Suite("TaskInspectorView")
+struct TaskInspectorViewTests {
+    let t0 = Date(timeIntervalSince1970: 1_790_078_400)
+
+    @MainActor
+    @Test func inspectorIsWiredToItsDetailStore() async throws {
+        let project = Project(name: "acme-web", path: "/tmp/acme-web", sortIndex: 1024, createdAt: t0)
+        let task = ShotTask(
+            projectID: project.id, title: "Buton rengi", noteText: "kırmızı olmalı",
+            status: .ready, sortIndex: 1024, createdAt: t0, updatedAt: t0)
+        let bundle = makeFakeServices(projects: [project], tasks: [task], clock: MutableClock(t0))
+        try await bundle.services.tasks.save(
+            Capture(
+                taskID: task.id, relPath: "captures/2026/09/a.png", thumbRelPath: "thumbs/a.jpg",
+                width: 800, height: 600, createdAt: t0))
+        let store = TaskDetailStore(services: bundle.services, taskID: task.id)
+        await store.start()
+
+        let cache = ThumbnailCache(fileStore: bundle.services.fileStore)
+        let view = TaskInspectorView(store: store, thumbnails: cache)
+        #expect(view.store === store)
+        #expect(view.thumbnails === cache)
+        #expect(view.store.captures.count == 1)
+        #expect(view.store.project?.name == "acme-web")
+        store.stop()
+        bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func runLogRendersEveryEventKindAndFormatsTheResult() {
+        let result = ClaudeRunResult(
+            subtype: "success", isError: false, sessionID: "s1",
+            result: "Fixed the button color.", totalCostUSD: 0.4137,
+            numTurns: 11, durationMs: 84_213, permissionDenials: [])
+        let events: [RunEvent] = [
+            .initialized(sessionID: "s1", model: "claude-sonnet-5"),
+            .assistantText("Reading the screenshot first."),
+            .toolUse(name: "Read", summary: "Read /tmp/a.png"),
+            .apiRetry(attempt: 1),
+            .other(type: "user"),
+            .result(result),
+        ]
+        let live = RunLogView(events: events, isLive: true)
+        #expect(live.events.count == 6)
+        #expect(live.isLive)
+
+        let replay = RunLogView(events: events)
+        #expect(replay.isLive == false)
+
+        // The row text each event maps to is a pure function, so it is asserted directly.
+        #expect(RunLogView.line(for: events[0]) == "başladı · claude-sonnet-5")
+        #expect(RunLogView.line(for: events[1]) == "Reading the screenshot first.")
+        #expect(RunLogView.line(for: events[2]) == "Read /tmp/a.png")
+        #expect(RunLogView.line(for: events[3]) == "API yeniden deneme (1)")
+        #expect(RunLogView.line(for: events[4]) == "user")
+        #expect(RunLogView.line(for: events[5]) == "bitti · $0.41 · 11 tur · 1 dk 24 sn")
+        #expect(RunLogView.symbol(for: events[2]) == "wrench.and.screwdriver")
+        #expect(RunLogView.symbol(for: events[5]) == "checkmark.seal.fill")
+
+        let failure = ClaudeRunResult(
+            subtype: "error_max_turns", isError: true, numTurns: 30,
+            permissionDenials: ["Bash"])
+        #expect(RunLogView.line(for: .result(failure)) == "limit aşıldı (error_max_turns) · 30 tur")
+        #expect(RunLogView.symbol(for: .result(failure)) == "exclamationmark.triangle.fill")
+    }
+}
