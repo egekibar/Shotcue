@@ -60,7 +60,8 @@ public struct TaskCardView: View {
             }
         }
         .frame(height: 118)
-        .frame(maxWidth: .infinity)
+        // `minWidth: 0` so a wide `.fill` thumbnail cannot push the card wider than its grid column.
+        .frame(minWidth: 0, maxWidth: .infinity)
         .clipped()
         .overlay(alignment: .topTrailing) {
             StatusChip(status: task.status)

@@ -38,7 +38,7 @@ public struct QuickPanelView: View {
         }
         .padding(16)
         .frame(width: 560)
-        .glassEffect()
+        .glassEffect(in: .rect(cornerRadius: 16))
         // Focus cannot be taken on the first frame inside a non-activating panel (research 02 §6).
         .task {
             await Task.yield()
