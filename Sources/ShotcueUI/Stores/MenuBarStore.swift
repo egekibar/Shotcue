@@ -21,12 +21,16 @@ public final class MenuBarStore {
         self.services = services
     }
 
+    /// Stream loops hold the store weakly and re-bind `self` per element, so a store that is dropped
+    /// without `stop()` is not kept alive by a stream that never ends.
     public func start() {
         guard streams.isEmpty else { return }
+        let taskStream = services.tasks.observeAllTasks()
+        let dispatcher = services.dispatcher
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                for await list in self.services.tasks.observeAllTasks() {
+                for await list in taskStream {
+                    guard let self else { return }
                     self.recentTasks =
                         list
                         .sorted { $0.updatedAt > $1.updatedAt }
@@ -38,8 +42,8 @@ public final class MenuBarStore {
             })
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                self.isPaused = await self.services.dispatcher.isPaused()
+                let paused = await dispatcher.isPaused()
+                self?.isPaused = paused
             })
     }
 

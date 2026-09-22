@@ -84,6 +84,7 @@ public final class LibraryStore {
     @ObservationIgnored private var streams: [Task<Void, Never>] = []
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var decorationTask: Task<Void, Never>?
+    @ObservationIgnored private var detailStartTask: Task<Void, Never>?
     @ObservationIgnored private var storedSelection: SidebarSelection = .inbox
     @ObservationIgnored private var storedSearchText = ""
     @ObservationIgnored private var storedSelectedIDs: Set<UUID> = []
@@ -102,20 +103,27 @@ public final class LibraryStore {
     // MARK: - Lifecycle
 
     /// Subscribes to the repository streams. Idempotent; pair with `stop()`.
+    ///
+    /// Stream loops hold the store weakly and re-bind `self` per element, so a store that is dropped
+    /// without `stop()` is not kept alive by a stream that never ends. A restart (the library window
+    /// reopened) rebuilds the inspector's detail store for the current selection.
     public func start() {
         guard streams.isEmpty else { return }
+        let projectStream = services.projects.observeProjects()
+        let taskStream = services.tasks.observeAllTasks()
+        let dispatcher = services.dispatcher
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                for await list in self.services.projects.observeProjects() {
+                for await list in projectStream {
+                    guard let self else { return }
                     self.projects = list
                     self.recompute()
                 }
             })
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                for await list in self.services.tasks.observeAllTasks() {
+                for await list in taskStream {
+                    guard let self else { return }
                     self.allTasks = list
                     self.recompute()
                     self.scheduleDecorations()
@@ -123,9 +131,10 @@ public final class LibraryStore {
             })
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                self.isPaused = await self.services.dispatcher.isPaused()
+                let paused = await dispatcher.isPaused()
+                self?.isPaused = paused
             })
+        syncDetailStore()
     }
 
     public func stop() {
@@ -135,7 +144,7 @@ public final class LibraryStore {
         searchTask = nil
         decorationTask?.cancel()
         decorationTask = nil
-        detailStore?.stop()
+        dropDetailStore()
     }
 
     // MARK: - Derived views of the data
@@ -567,15 +576,23 @@ public final class LibraryStore {
 
     private func syncDetailStore() {
         guard storedSelectedIDs.count == 1, let id = storedSelectedIDs.first else {
-            detailStore?.stop()
-            detailStore = nil
+            dropDetailStore()
             return
         }
         guard detailStore?.taskID != id else { return }
-        detailStore?.stop()
+        dropDetailStore()
         let store = TaskDetailStore(services: services, taskID: id)
         detailStore = store
-        Task { await store.start() }
+        detailStartTask = Task { await store.start() }
+    }
+
+    /// Stops the inspector's store and cancels a `start()` that has not run yet, so a store dropped
+    /// before its start task ran never subscribes afterwards.
+    private func dropDetailStore() {
+        detailStartTask?.cancel()
+        detailStartTask = nil
+        detailStore?.stop()
+        detailStore = nil
     }
 
     /// Loads the thumbnail path and voice-note length of tasks we have not decorated yet.
@@ -583,13 +600,14 @@ public final class LibraryStore {
         decorationTask?.cancel()
         let pending = allTasks.map(\.id).filter { thumbRelPaths[$0] == nil && voiceSeconds[$0] == nil }
         guard !pending.isEmpty else { return }
+        let repository = services.tasks
         decorationTask = Task { [weak self] in
-            guard let self else { return }
             for id in pending {
                 if Task.isCancelled { return }
-                guard let captures = try? await self.services.tasks.captures(taskID: id),
-                    let notes = try? await self.services.tasks.voiceNotes(taskID: id)
+                guard let captures = try? await repository.captures(taskID: id),
+                    let notes = try? await repository.voiceNotes(taskID: id)
                 else { continue }
+                guard let self else { return }
                 if let first = captures.first {
                     self.thumbRelPaths[id] = first.thumbRelPath ?? first.relPath
                 }

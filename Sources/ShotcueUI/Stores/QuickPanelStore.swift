@@ -140,10 +140,10 @@ public final class QuickPanelStore {
         isRecording = true
         recordingSeconds = 0
         level = 0
+        let levels = services.recorder.levels
         levelTask = Task { [weak self] in
-            guard let self else { return }
-            for await value in self.services.recorder.levels {
-                guard self.isRecording else { return }
+            for await value in levels {
+                guard let self, self.isRecording else { return }
                 self.level = value
             }
         }

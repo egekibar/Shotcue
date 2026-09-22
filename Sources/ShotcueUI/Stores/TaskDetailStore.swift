@@ -29,6 +29,11 @@ public final class TaskDetailStore {
     @ObservationIgnored private var streams: [Task<Void, Never>] = []
     @ObservationIgnored private var liveTask: Task<Void, Never>?
     @ObservationIgnored private var liveRunID: UUID?
+    /// Bumped by every `start()` and `stop()`. A `start()` whose reload outlived a `stop()` (or a newer
+    /// `start()`) sees a different value and does not subscribe, so no stream outlives the store's use.
+    @ObservationIgnored private var generation = 0
+    /// Between `start()` and `stop()`. The live-event subscription is only opened while started.
+    @ObservationIgnored private var isStarted = false
 
     public init(services: AppServices, taskID: UUID) {
         self.services = services
@@ -39,35 +44,48 @@ public final class TaskDetailStore {
     // MARK: - Lifecycle
 
     /// Loads the task with its attachments, then subscribes to the task and run streams.
+    ///
+    /// Stream loops hold the store weakly and re-bind `self` per element, so a store that is dropped
+    /// without `stop()` is not kept alive by a stream that never ends.
     public func start() async {
+        // A start whose task was cancelled before it ran (the library already dropped this store) is a no-op.
+        guard !Task.isCancelled else { return }
+        generation += 1
+        let startGeneration = generation
+        isStarted = true
         await reload()
-        guard streams.isEmpty else { return }
+        guard startGeneration == generation, !Task.isCancelled, streams.isEmpty else { return }
+        let runStream = services.runs.observeRuns(taskID: taskID)
+        let taskStream = services.tasks.observeAllTasks()
+        let projectStream = services.projects.observeProjects()
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                for await list in self.services.runs.observeRuns(taskID: self.taskID) {
+                for await list in runStream {
+                    guard let self else { return }
                     self.runs = list.sorted { $0.startedAt > $1.startedAt }
                     self.syncLiveSubscription()
                 }
             })
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                for await list in self.services.tasks.observeAllTasks() {
+                for await list in taskStream {
+                    guard let self else { return }
                     guard let updated = list.first(where: { $0.id == self.taskID }) else { continue }
                     self.task = updated
                 }
             })
         streams.append(
             Task { [weak self] in
-                guard let self else { return }
-                for await list in self.services.projects.observeProjects() {
+                for await list in projectStream {
+                    guard let self else { return }
                     self.projects = list
                 }
             })
     }
 
     public func stop() {
+        generation += 1
+        isStarted = false
         for stream in streams { stream.cancel() }
         streams.removeAll()
         liveTask?.cancel()
@@ -382,7 +400,7 @@ public final class TaskDetailStore {
 
     /// Subscribes to `liveEvents(runID:)` when a run starts and tears the subscription down when it ends.
     private func syncLiveSubscription() {
-        guard let active = activeRun else {
+        guard isStarted, let active = activeRun else {
             liveTask?.cancel()
             liveTask = nil
             liveRunID = nil
@@ -393,9 +411,10 @@ public final class TaskDetailStore {
         liveRunID = active.id
         liveEvents = []
         selectedRunID = active.id
+        let events = services.dispatcher.liveEvents(runID: active.id)
         liveTask = Task { [weak self] in
-            guard let self else { return }
-            for await event in self.services.dispatcher.liveEvents(runID: active.id) {
+            for await event in events {
+                guard let self else { return }
                 self.liveEvents.append(event)
             }
         }
