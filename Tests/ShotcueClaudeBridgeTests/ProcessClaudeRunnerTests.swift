@@ -103,6 +103,30 @@ struct ProcessClaudeRunnerTests {
         }
     }
 
+    /// Regression: the stdout and stderr sources fire independently, so reaching stdout EOF says nothing
+    /// about stderr. Here the failure text deterministically lands after stdout is closed and the child
+    /// has exited (a lingering helper writes it), which the drain window must still pick up.
+    @Test func stderrArrivingAfterStdoutEOFIsStillReported() async throws {
+        let project = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: project) }
+        let script = project.appendingPathComponent("late-stderr.sh")
+        try Data("#!/bin/bash\n( exec 1>&-; sleep 0.2; echo 'Error: not logged in.' >&2 ) &\nexit 1\n".utf8)
+            .write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        let subject = ProcessClaudeRunner(executableURL: script, environmentOverrides: [:], killGrace: .seconds(1))
+        do {
+            _ = try await subject.run(spec(projectPath: project.path)) { _ in }
+            Issue.record("expected a throw")
+        } catch let error as ClaudeRunError {
+            guard case .processFailed(let exitCode, let stderr) = error else {
+                Issue.record("expected processFailed, got \(error)")
+                return
+            }
+            #expect(exitCode == 1)
+            #expect(stderr.contains("not logged in"))
+        }
+    }
+
     @Test func slowOutputStillSucceeds() async throws {
         let project = try makeProjectDirectory()
         let events = Locked<[RunEvent]>([])

@@ -77,12 +77,14 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         }
 
         // stderr is drained on its own dispatch source: a chatty stderr must never block stdout.
+        let sawStderrEOF = LockBox(false)
         let stderrBuffer = LockBox(Data())
         let stderrHandle = stderrPipe.fileHandleForReading
         stderrHandle.readabilityHandler = { handle in
             let chunk = handle.availableData
             if chunk.isEmpty {
                 handle.readabilityHandler = nil
+                sawStderrEOF.set(true)
                 return
             }
             stderrBuffer.withLock { $0.append(chunk) }
@@ -119,9 +121,10 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         }
 
         // Give the handlers a moment to deliver buffered bytes, capped so a lingering
-        // grandchild cannot stall us.
+        // grandchild cannot stall us. Both pipes: the two sources fire independently, and stderr
+        // carries the failure reason (`processFailed`).
         let drainDeadline = Date().addingTimeInterval(1)
-        while !sawStdoutEOF.current, Date() < drainDeadline {
+        while !(sawStdoutEOF.current && sawStderrEOF.current), Date() < drainDeadline {
             try? await Task.sleep(for: .milliseconds(20))
         }
         stdoutHandle.readabilityHandler = nil
