@@ -179,3 +179,41 @@ struct TaskInspectorViewTests {
         #expect(RunLogView.symbol(for: .result(failure)) == "exclamationmark.triangle.fill")
     }
 }
+
+@Suite("QuickPanelView")
+struct QuickPanelViewTests {
+    let t0 = Date(timeIntervalSince1970: 1_790_078_400)
+
+    @MainActor
+    @Test func panelIsWiredToItsStore() async throws {
+        let project = Project(name: "acme-web", path: "/tmp/acme-web", sortIndex: 1024, createdAt: t0)
+        let task = ShotTask(title: "Yakalama 22.09 12:00", status: .inbox, createdAt: t0, updatedAt: t0)
+        let bundle = makeFakeServices(
+            projects: [project], tasks: [task],
+            permissions: [.microphone: .granted], clock: MutableClock(t0))
+        try await bundle.services.tasks.save(
+            Capture(
+                taskID: task.id, relPath: "captures/2026/09/a.png", thumbRelPath: "thumbs/a.jpg",
+                width: 800, height: 600, createdAt: t0))
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "panel-\(UUID().uuidString)")!)
+        let store = QuickPanelStore(services: bundle.services, settings: settings)
+        await store.capture(taskID: task.id)
+
+        let cache = ThumbnailCache(fileStore: bundle.services.fileStore)
+        let view = QuickPanelView(store: store, thumbnails: cache)
+        #expect(view.store === store)
+        #expect(view.thumbnails === cache)
+        #expect(view.store.selectedProjectID == project.id)
+        #expect(view.store.canRecord)
+        bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func levelMeterClampsItsInput() {
+        #expect(LevelMeterView(level: 0.5).level == 0.5)
+        #expect(LevelMeterView(level: -1).litBars == 0)
+        #expect(LevelMeterView(level: 2).litBars == 14)
+        #expect(LevelMeterView(level: 0.5, barCount: 10).litBars == 5)
+        #expect(LevelMeterView(level: 0).litBars == 0)
+    }
+}
