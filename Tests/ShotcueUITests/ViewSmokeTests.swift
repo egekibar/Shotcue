@@ -256,3 +256,34 @@ struct SettingsViewTests {
         #expect(SettingsView.permissionModeLabel(.dontAsk) == "dontAsk (yalnızca okuma)")
     }
 }
+
+@Suite("OnboardingView")
+struct OnboardingViewTests {
+    @MainActor
+    @Test func onboardingReflectsPermissionStateAndCallsBack() async {
+        let bundle = makeFakeServices(
+            permissions: [
+                .screenRecording: .notDetermined,
+                .microphone: .notDetermined,
+                .notifications: .notDetermined,
+            ],
+            grantOnRequest: true)
+        let permissions = PermissionsStore(services: bundle.services)
+        await permissions.refresh()
+        let done = Locked(0)
+        let view = OnboardingView(permissions: permissions, onDone: { done.withLock { $0 += 1 } })
+
+        #expect(view.permissions === permissions)
+        #expect(permissions.allGranted == false)
+        // Screen recording is the gate for finishing onboarding.
+        #expect(view.canFinish == false)
+
+        await permissions.request(.screenRecording)
+        #expect(permissions.state(of: .screenRecording) == .granted)
+        #expect(view.canFinish == true)
+
+        view.onDone()
+        #expect(done.current == 1)
+        bundle.cleanUp()
+    }
+}
