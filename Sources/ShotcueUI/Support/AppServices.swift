@@ -24,6 +24,8 @@ public struct AppServices: Sendable {
     public let handoff: any HandoffService
     public let fileStore: FileStore
     public let clock: any Clock
+    /// Backs "Diff'i göster" (Plan 07); nil disables the button.
+    public let diff: (any DiffProvider)?
 
     nonisolated public init(
         projects: any ProjectRepository,
@@ -38,7 +40,8 @@ public struct AppServices: Sendable {
         dispatcher: any TaskDispatcher,
         handoff: any HandoffService,
         fileStore: FileStore,
-        clock: any Clock
+        clock: any Clock,
+        diff: (any DiffProvider)? = nil
     ) {
         self.projects = projects
         self.tasks = tasks
@@ -53,6 +56,7 @@ public struct AppServices: Sendable {
         self.handoff = handoff
         self.fileStore = fileStore
         self.clock = clock
+        self.diff = diff
     }
 
     /// Absolute URL of a capture / voice note / run log, for AppKit calls and prompt building.

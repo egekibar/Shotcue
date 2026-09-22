@@ -566,6 +566,42 @@ public final class TaskDetailStore {
         return PromptBuilder.build(input)
     }
 
+    // MARK: - Diff (Plan 07)
+
+    public private(set) var diffText: String?
+    public private(set) var isLoadingDiff = false
+    public var isDiffPresented = false
+
+    /// Needs a diff provider, a HEAD recorded before the run, and a task that still points at a project.
+    public func canShowDiff(for run: Run) -> Bool {
+        services.diff != nil && run.gitHeadBefore != nil && project != nil
+    }
+
+    /// Loads the run's diff (`git diff <gitHeadBefore>` plus untracked files) and presents the sheet.
+    /// Any failure shows one Turkish explanation: git's raw (English) stderr never reaches the UI.
+    public func showDiff(runID: UUID) async {
+        await commitDrafts()
+        guard let provider = services.diff,
+            let run = runs.first(where: { $0.id == runID }),
+            let project
+        else { return }
+        isLoadingDiff = true
+        defer { isLoadingDiff = false }
+        do {
+            diffText = try await provider.diff(
+                at: project.path, since: run.gitHeadBefore,
+                maxBytes: DiffText.defaultMaxBytes)
+            isDiffPresented = true
+        } catch {
+            lastError = "Diff alınamadı: proje bir git deposu değil ya da git komutu başarısız oldu."
+        }
+    }
+
+    public func closeDiff() {
+        isDiffPresented = false
+        diffText = nil
+    }
+
     // MARK: - Attachments
 
     /// `⌘C` on a capture. Returns false when the PNG is missing instead of trapping.
