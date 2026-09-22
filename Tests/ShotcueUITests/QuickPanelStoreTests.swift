@@ -157,6 +157,44 @@ struct QuickPanelStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// Review fix round 1, item 7: the panel writes back only the fields it owns, onto a fresh copy of the row.
+    @MainActor
+    @Test func saveKeepsChangesMadeElsewhereWhileThePanelWasOpen() async throws {
+        let f = try await fixture()
+        var elsewhere = try #require(try await f.bundle.services.tasks.task(id: f.task.id))
+        elsewhere.title = "Sabit başlık"
+        elsewhere.titleEditedByUser = true
+        elsewhere.modelOverride = "opus"
+        try await f.bundle.services.tasks.save(elsewhere)
+
+        f.store.noteText = "panelden not"
+        #expect(await f.store.save())
+
+        let saved = try #require(try await f.bundle.services.tasks.task(id: f.task.id))
+        #expect(saved.noteText == "panelden not")
+        #expect(saved.projectID == f.projectA.id)
+        #expect(saved.title == "Sabit başlık")
+        #expect(saved.titleEditedByUser)
+        #expect(saved.modelOverride == "opus")
+        f.bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func saveTitlesFromATranscriptThatArrivedInTheBackground() async throws {
+        let f = try await fixture()
+        await f.store.toggleRecording()
+        await f.store.toggleRecording()
+        let note = try #require(f.store.voiceNotes.first)
+        var finished = note
+        finished.transcript = "Kaydet butonu kayık. Sonra bakarım."
+        finished.transcriptState = .done
+        f.bundle.tasks.voiceStorage.withLock { $0[note.id] = finished }
+
+        #expect(await f.store.save())
+        #expect(try await f.bundle.services.tasks.task(id: f.task.id)?.title == "Kaydet butonu kayık")
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func saveAndCloseWritesThenClosesWithoutEnqueueing() async throws {
         let f = try await fixture()

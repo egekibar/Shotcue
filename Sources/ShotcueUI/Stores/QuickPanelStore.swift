@@ -185,21 +185,36 @@ public final class QuickPanelStore {
     // MARK: - Saving
 
     /// `⌘↩`. Writes note, title, project and mode; assigning a project also makes the task `ready`.
+    ///
+    /// The row is re-read first and only the fields the panel owns are written back (note, project, mode,
+    /// and the title while the user has not pinned one), so changes made elsewhere while the panel was open
+    /// survive. The automatic title uses the latest transcripts, which may have arrived in the background.
     @discardableResult
     public func save() async -> Bool {
-        guard var current = task else { return false }
+        guard let cached = task else { return false }
         if isRecording { await stopRecording() }
         let now = services.clock.now
-        current.noteText = noteText
-        current.mode = mode
-        if !current.titleEditedByUser {
-            let transcript = voiceNotes.compactMap(\.transcript).first
-            current.title = TitleMaker.title(
-                noteText: noteText, transcript: transcript,
-                createdAt: current.createdAt)
-        }
-        current.updatedAt = now
         do {
+            guard var current = try await services.tasks.task(id: cached.id) else {
+                lastError = "Görev bulunamadı."
+                return false
+            }
+            guard current.status.isEditable else {
+                lastError = "Çalışan bir görev düzenlenemez."
+                return false
+            }
+            current.noteText = noteText
+            current.mode = mode
+            let notes = try await services.tasks.voiceNotes(taskID: current.id)
+            voiceNotes = notes
+            if !current.titleEditedByUser {
+                let transcript = notes.compactMap(\.transcript)
+                    .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                current.title = TitleMaker.title(
+                    noteText: noteText, transcript: transcript,
+                    createdAt: current.createdAt)
+            }
+            current.updatedAt = now
             if let selectedProjectID {
                 current.projectID = selectedProjectID
                 if current.status == .inbox { try current.transition(to: .ready, at: now) }
@@ -207,11 +222,6 @@ public final class QuickPanelStore {
                 // Without a project the task goes (back) to the inbox; it is never left `ready`.
                 current = try ProjectAssignment.withoutProject(current, now: now)
             }
-        } catch {
-            report(error)
-            return false
-        }
-        do {
             try await services.tasks.save(current)
             task = current
         } catch {

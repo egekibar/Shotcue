@@ -37,6 +37,14 @@ public final class TaskDetailStore {
     @ObservationIgnored private var isStarted = false
     /// Bumped whenever the displayed run changes; a replay that finishes under an older token is dropped.
     @ObservationIgnored private var selectionToken = 0
+    /// How often voice notes are re-read while a transcript is pending. GRDB's task observation does not see
+    /// voice-note writes, so a transcript finishing in the background only shows up through this poll.
+    /// Internal so tests can shorten it.
+    @ObservationIgnored var transcriptPollInterval: Duration = .milliseconds(1500)
+    @ObservationIgnored private var transcriptPollTask: Task<Void, Never>?
+
+    /// Whether the pending-transcript poll is running (test hook).
+    var isPollingTranscripts: Bool { transcriptPollTask != nil }
 
     public init(services: AppServices, taskID: UUID) {
         self.services = services
@@ -75,6 +83,8 @@ public final class TaskDetailStore {
                     guard let self else { return }
                     guard let updated = list.first(where: { $0.id == self.taskID }) else { continue }
                     self.task = updated
+                    // Captures and voice notes have no stream of their own: re-read them on every emission.
+                    await self.refreshAttachments()
                 }
             })
         streams.append(
@@ -94,6 +104,7 @@ public final class TaskDetailStore {
         liveTask?.cancel()
         liveTask = nil
         liveRunID = nil
+        syncTranscriptPolling()
     }
 
     public func reload() async {
@@ -105,8 +116,43 @@ public final class TaskDetailStore {
             projects = try await services.projects.allProjects()
             if let scheduled = task?.scheduledAt { scheduleDate = scheduled }
             syncLiveSubscription()
+            syncTranscriptPolling()
         } catch {
             report(error)
+        }
+    }
+
+    /// Re-reads captures and voice notes, which the task stream does not carry.
+    private func refreshAttachments() async {
+        do {
+            captures = try await services.tasks.captures(taskID: taskID)
+            voiceNotes = try await services.tasks.voiceNotes(taskID: taskID)
+        } catch {
+            report(error)
+        }
+        syncTranscriptPolling()
+    }
+
+    /// Polls voice notes every `transcriptPollInterval` while one is `pending` and the store is started;
+    /// stops by itself once none is pending. Read failures are skipped silently (the next tick retries).
+    private func syncTranscriptPolling() {
+        guard isStarted, voiceNotes.contains(where: { $0.transcriptState == .pending }) else {
+            transcriptPollTask?.cancel()
+            transcriptPollTask = nil
+            return
+        }
+        guard transcriptPollTask == nil else { return }
+        transcriptPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let interval = self?.transcriptPollInterval else { return }
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled, let self else { return }
+                if let notes = try? await self.services.tasks.voiceNotes(taskID: self.taskID) {
+                    guard !Task.isCancelled else { return }
+                    self.voiceNotes = notes
+                }
+                self.syncTranscriptPolling()
+            }
         }
     }
 
@@ -202,6 +248,7 @@ public final class TaskDetailStore {
             report(error)
             return
         }
+        syncTranscriptPolling()
         // The auto title falls back to the transcript when there is no written note.
         if var current = task, !current.titleEditedByUser,
             current.noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -431,6 +478,7 @@ public final class TaskDetailStore {
             report(error)
             return
         }
+        syncTranscriptPolling()
         await services.transcriptionQueue.enqueue(voiceNoteID: voiceNoteID)
     }
 

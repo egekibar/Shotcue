@@ -78,6 +78,70 @@ struct TaskDetailDailyQueueTests {
     }
 }
 
+/// Review fix round 1, item 7: captures and voice notes follow the task stream, and pending transcripts are
+/// polled because GRDB's task observation does not see voice-note writes.
+@Suite("TaskDetailStore fresh attachments")
+struct TaskDetailFreshAttachmentsTests {
+    let t0 = Date(timeIntervalSince1970: 1_790_078_400)
+
+    @MainActor
+    func bundleWithPendingNote() async throws -> (bundle: FakeBundle, task: ShotTask, note: VoiceNote) {
+        let project = Project(name: "acme-web", path: "/tmp/acme-web", createdAt: t0)
+        let task = ShotTask(projectID: project.id, title: "t", status: .ready, createdAt: t0, updatedAt: t0)
+        let bundle = makeFakeServices(projects: [project], tasks: [task], clock: MutableClock(t0))
+        let note = VoiceNote(
+            taskID: task.id, relPath: "audio/n.m4a", durationSec: 2, transcriptState: .pending, createdAt: t0)
+        try await bundle.services.tasks.save(note)
+        return (bundle, task, note)
+    }
+
+    @MainActor
+    @Test func aTranscriptWrittenBehindTheStreamsBackIsPickedUpByThePoll() async throws {
+        let f = try await bundleWithPendingNote()
+        defer { f.bundle.cleanUp() }
+        let store = TaskDetailStore(services: f.bundle.services, taskID: f.task.id)
+        store.transcriptPollInterval = .milliseconds(20)
+        await store.start()
+        #expect(store.isPollingTranscripts)
+
+        // Like GRDB: the transcript lands without the task stream noticing.
+        var finished = f.note
+        finished.transcript = "butonun rengi yanlış"
+        finished.transcriptState = .done
+        f.bundle.tasks.voiceStorage.withLock { $0[f.note.id] = finished }
+
+        #expect(await waitUntil("polled") { store.voiceNotes.first?.transcript == "butonun rengi yanlış" })
+        #expect(await waitUntil("poll ends") { !store.isPollingTranscripts })
+        store.stop()
+    }
+
+    @MainActor
+    @Test func stoppingTheStoreStopsThePoll() async throws {
+        let f = try await bundleWithPendingNote()
+        defer { f.bundle.cleanUp() }
+        let store = TaskDetailStore(services: f.bundle.services, taskID: f.task.id)
+        store.transcriptPollInterval = .milliseconds(20)
+        await store.start()
+        #expect(store.isPollingTranscripts)
+        store.stop()
+        #expect(store.isPollingTranscripts == false)
+    }
+
+    @MainActor
+    @Test func capturesAndNotesFollowTheTaskStream() async throws {
+        let f = try await bundleWithPendingNote()
+        defer { f.bundle.cleanUp() }
+        let store = TaskDetailStore(services: f.bundle.services, taskID: f.task.id)
+        await store.start()
+        #expect(store.captures.isEmpty)
+
+        try await f.bundle.services.tasks.save(
+            Capture(taskID: f.task.id, relPath: "captures/2026/09/b.png", width: 8, height: 8, createdAt: t0))
+        #expect(await waitUntil("capture arrived") { store.captures.count == 1 })
+        store.stop()
+    }
+}
+
 /// Review fix round 1, item 6: the run log follows the selected run, survives the end of a live run, and a
 /// slow replay of an earlier selection never overwrites a newer one.
 @Suite("TaskDetailStore run log selection")
