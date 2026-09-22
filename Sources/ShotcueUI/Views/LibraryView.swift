@@ -52,6 +52,19 @@ public struct LibraryView: View {
         .sheet(item: $bindable.projectDraft) { _ in
             ProjectEditorView(store: store)
         }
+        .confirmationDialog(
+            store.deleteConfirmationTitle,
+            isPresented: $bindable.isDeleteConfirmationPresented,
+            titleVisibility: .visible,
+            presenting: store.pendingDeleteIDs.isEmpty ? nil : store.pendingDeleteIDs
+        ) { ids in
+            Button("Sil", role: .destructive) {
+                Task { await store.confirmDelete(taskIDs: ids) }
+            }
+            Button("Vazgeç", role: .cancel) { store.cancelDelete() }
+        } message: { _ in
+            Text("Görseller, ses kayıtları ve çalışma logları da silinir. Bu işlem geri alınamaz.")
+        }
     }
 
     // MARK: - Sidebar
@@ -176,7 +189,7 @@ public struct LibraryView: View {
             .padding(14)
         }
         .focusable()
-        .onDeleteCommand { Task { await store.delete(taskIDs: store.selectedTaskIDs) } }
+        .onDeleteCommand { store.requestDelete(taskIDs: store.selectedTaskIDs) }
     }
 
     private func gridCell(_ task: ShotTask) -> some View {
@@ -282,8 +295,9 @@ public struct LibraryView: View {
         }
         Divider()
         Button("Sil", systemImage: "trash", role: .destructive) {
-            Task { await store.delete(taskIDs: [task.id]) }
+            store.requestDelete(taskIDs: [task.id])
         }
+        .disabled(task.status == .running)
     }
 
     @ViewBuilder
@@ -303,8 +317,9 @@ public struct LibraryView: View {
         }
         Divider()
         Button("Sil", systemImage: "trash", role: .destructive) {
-            Task { await store.delete(taskIDs: ids) }
+            store.requestDelete(taskIDs: ids)
         }
+        .disabled(!store.canDelete(taskIDs: ids))
     }
 
     // MARK: - Toolbar and bottom bar
@@ -395,9 +410,10 @@ public struct LibraryView: View {
                 }
 
                 Button("Sil", systemImage: "trash") {
-                    Task { await store.delete(taskIDs: store.selectedTaskIDs) }
+                    store.requestDelete(taskIDs: store.selectedTaskIDs)
                 }
                 .buttonStyle(.glass)
+                .disabled(!store.canDeleteSelection)
 
                 Button("Tek görev olarak gönder") {
                     Task { await store.sendAsOne(taskIDs: store.selectedTaskIDs) }

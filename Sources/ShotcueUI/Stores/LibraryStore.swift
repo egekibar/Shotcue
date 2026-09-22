@@ -374,9 +374,17 @@ public final class LibraryStore {
     }
 
     /// Deletes the rows and then the files they referenced (captures, thumbs, audio, run logs).
+    /// A running task is never deleted (spec §7: it can only be cancelled); the user is told why.
     public func delete(taskIDs: Set<UUID>) async {
+        var deleted: Set<UUID> = []
+        var skippedRunning = false
         for id in ordered(taskIDs) {
             do {
+                guard let task = try await services.tasks.task(id: id) else { continue }
+                guard task.status != .running else {
+                    skippedRunning = true
+                    continue
+                }
                 let captures = try await services.tasks.captures(taskID: id)
                 let notes = try await services.tasks.voiceNotes(taskID: id)
                 let runs = try await services.runs.runs(taskID: id)
@@ -385,13 +393,83 @@ public final class LibraryStore {
                 relPaths += notes.map(\.relPath)
                 relPaths += runs.map(\.logRelPath)
                 try await services.tasks.deleteTask(id: id)
+                deleted.insert(id)
                 await removeFiles(relPaths)
             } catch {
                 report(error)
             }
         }
-        selectedTaskIDs = storedSelectedIDs.subtracting(taskIDs)
+        if skippedRunning { lastError = Self.runningDeleteMessage }
+        selectedTaskIDs = storedSelectedIDs.subtracting(deleted)
     }
+
+    // MARK: - Delete confirmation
+
+    /// Tasks waiting for the user's answer in the delete confirmation dialog; empty while none is shown.
+    public private(set) var pendingDeleteIDs: Set<UUID> = []
+
+    /// Drives the confirmation dialog: true while tasks wait for confirmation; setting it false cancels.
+    public var isDeleteConfirmationPresented: Bool {
+        get { !pendingDeleteIDs.isEmpty }
+        set { if !newValue { pendingDeleteIDs = [] } }
+    }
+
+    public var deleteConfirmationTitle: String {
+        pendingDeleteIDs.count == 1
+            ? "Görev kalıcı olarak silinsin mi?"
+            : "\(pendingDeleteIDs.count) görev kalıcı olarak silinsin mi?"
+    }
+
+    /// "Sil" is available only for a non-empty set without a running task (a run can only be cancelled).
+    public func canDelete(taskIDs: Set<UUID>) -> Bool {
+        !taskIDs.isEmpty && !allTasks.contains { taskIDs.contains($0.id) && $0.status == .running }
+    }
+
+    public var canDeleteSelection: Bool { canDelete(taskIDs: selectedTaskIDs) }
+
+    /// ⌫ and every "Sil" land here: nothing is deleted before `confirmDelete(taskIDs:)`. Running tasks are
+    /// left out; when nothing else remains the user is told why.
+    public func requestDelete(taskIDs: Set<UUID>) {
+        let running = Set(allTasks.filter { taskIDs.contains($0.id) && $0.status == .running }.map(\.id))
+        let deletable = taskIDs.subtracting(running)
+        guard !deletable.isEmpty else {
+            if !running.isEmpty { lastError = Self.runningDeleteMessage }
+            return
+        }
+        pendingDeleteIDs = deletable
+    }
+
+    /// The dialog's "Sil". The view passes the set the dialog was presented for
+    /// (`confirmationDialog(presenting:)`), because SwiftUI may reset the presentation binding before the
+    /// button's action runs.
+    public func confirmDelete(taskIDs: Set<UUID>) async {
+        pendingDeleteIDs = []
+        await delete(taskIDs: taskIDs)
+    }
+
+    public func cancelDelete() {
+        pendingDeleteIDs = []
+    }
+
+    static let runningDeleteMessage = "Çalışan bir görev silinemez. Önce iptal et."
+
+    /// The absolute URL of `relPath` when deleting it is safe: non-empty, resolving strictly below one of
+    /// the four data folders (captures/, thumbs/, audio/, runs/) of this store. Anything else (empty,
+    /// `..` escapes, the folders themselves, the database, absolute paths elsewhere) is nil.
+    nonisolated static func removableURL(for relPath: String, in fileStore: FileStore) -> URL? {
+        let trimmed = relPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let url = fileStore.absoluteURL(for: trimmed).standardizedFileURL
+        guard let resolved = fileStore.relativePath(for: url) else { return nil }
+        let components = resolved.split(separator: "/")
+        guard components.count >= 2, let folder = components.first, removableFolders.contains(String(folder))
+        else { return nil }
+        return url
+    }
+
+    nonisolated static let removableFolders: Set<String> = [
+        FileStore.capturesDir, FileStore.thumbsDir, FileStore.audioDir, FileStore.runsDir,
+    ]
 
     /// Manual-order drag & drop. `before` is the neighbour ABOVE the drop point, `after` the one BELOW;
     /// pass nil for the ends of the list.
@@ -640,11 +718,33 @@ public final class LibraryStore {
     }
 
     /// Deletes files off the main actor and waits, so callers (and tests) see a settled filesystem.
+    /// Only paths `removableURL(for:in:)` accepts are touched, never a directory, and every refusal or
+    /// failure is logged instead of being swallowed.
     private func removeFiles(_ relPaths: [String]) async {
-        let urls = relPaths.map { services.fileStore.absoluteURL(for: $0) }
+        var urls: [URL] = []
+        for relPath in relPaths {
+            if let url = Self.removableURL(for: relPath, in: services.fileStore) {
+                urls.append(url)
+            } else {
+                NSLog("Shotcue: not deleting unexpected path '%@'", relPath)
+            }
+        }
         guard !urls.isEmpty else { return }
         await Task.detached(priority: .utility) {
-            for url in urls { try? FileManager.default.removeItem(at: url) }
+            let fileManager = FileManager.default
+            for url in urls {
+                var isDirectory: ObjCBool = false
+                guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
+                guard !isDirectory.boolValue else {
+                    NSLog("Shotcue: not deleting directory '%@'", url.path)
+                    continue
+                }
+                do {
+                    try fileManager.removeItem(at: url)
+                } catch {
+                    NSLog("Shotcue: could not delete '%@': %@", url.path, error.localizedDescription)
+                }
+            }
         }.value
     }
 
