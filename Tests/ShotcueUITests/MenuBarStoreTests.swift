@@ -96,6 +96,17 @@ struct PermissionsStoreTests {
         bundle.cleanUp()
     }
 
+    /// Review fix round 1, item 4: the real permission service reports `.notDetermined` both for a denied
+    /// and for a never-asked screen recording grant, so anything but `.granted` must open onboarding.
+    @MainActor
+    @Test func screenRecordingNotDeterminedIsBlocking() async {
+        let bundle = makeFakeServices(permissions: [.screenRecording: .notDetermined])
+        let store = PermissionsStore(services: bundle.services)
+        await store.refresh()
+        #expect(store.isBlocking == true)
+        bundle.cleanUp()
+    }
+
     @MainActor
     @Test func requestUpdatesTheStateAndOpenSettingsDelegates() async {
         let bundle = makeFakeServices(grantOnRequest: true)

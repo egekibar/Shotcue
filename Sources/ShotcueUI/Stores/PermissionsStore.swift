@@ -42,9 +42,10 @@ public final class PermissionsStore {
     }
 
     /// Screen recording is the only permission without which the app cannot do its job at all;
-    /// the hotkey opens onboarding until it is granted (spec §8).
+    /// the hotkey opens onboarding until it is granted (spec §8). Anything but `.granted` blocks: the
+    /// system reports `.notDetermined` both for a denied and for a never-asked screen recording grant.
     public var isBlocking: Bool {
-        state(of: .screenRecording) == .denied
+        state(of: .screenRecording) != .granted
     }
 
     public func label(for kind: PermissionKind) -> String {
