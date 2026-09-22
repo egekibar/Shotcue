@@ -65,14 +65,18 @@ public actor WhisperKitEngine: WhisperEngine {
         )
     }
 
-    /// Loads the CoreML models from disk. `download: false` keeps this offline — the explicit
-    /// download step (spec §6.2: "Model ilk kullanımda açık onayla indirilir") owns the network.
+    /// Loads the CoreML models from disk. `download: false` keeps the model download out of this path — the
+    /// explicit download step (spec §6.2: "Model ilk kullanımda açık onayla indirilir") owns the network; the
+    /// first load (run by `WhisperKitTranscriber.downloadModel()`) may still fetch the small tokenizer once.
+    /// `modelFolder` is required: with `download: false` WhisperKit 1.1 ignores `downloadBase` and
+    /// `loadModels()` throws "Model folder is not set.".
     public func load() async throws {
         guard kit == nil else { return }
         let config = WhisperKitConfig(
             model: modelName,
             downloadBase: modelsDirectory,
             modelRepo: Self.repo,
+            modelFolder: Self.modelFolderURL(modelsDirectory: modelsDirectory, modelName: modelName).path,
             verbose: false,
             logLevel: .error,
             prewarm: false,

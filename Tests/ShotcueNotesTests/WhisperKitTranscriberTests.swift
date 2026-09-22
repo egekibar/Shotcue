@@ -73,6 +73,22 @@ struct WhisperKitTranscriberTests {
                 == "/tmp/shotcue-models/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930_turbo")
     }
 
+    @Test func loadingLooksInsideTheModelFolderWithoutDownloading() async {
+        // Offline and model-free: with no model files WhisperKit must fail on a file inside `modelFolderURL`.
+        // "Model folder is not set." instead would mean `load()` can never succeed, even after a download.
+        let directory = emptyModelsDirectory()
+        let engine = WhisperKitEngine(modelName: WhisperKitTranscriber.defaultModelName, modelsDirectory: directory)
+        let folder = WhisperKitEngine.modelFolderURL(
+            modelsDirectory: directory, modelName: WhisperKitTranscriber.defaultModelName)
+        do {
+            try await engine.load()
+            Issue.record("load() must fail without model files")
+        } catch {
+            #expect(String(describing: error).contains(folder.path))
+        }
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     @Test func passesLanguageThroughAndMapsSegments() async throws {
         let engine = RecordingWhisperEngine()
         let transcriber = WhisperKitTranscriber(
