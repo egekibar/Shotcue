@@ -50,6 +50,13 @@ public struct TaskInspectorView: View {
         } message: {
             Text(store.lastError ?? "")
         }
+        .sheet(
+            isPresented: Binding(
+                get: { store.isDiffPresented },
+                set: { if !$0 { store.closeDiff() } })
+        ) {
+            DiffSheet(text: store.diffText ?? "", onClose: { store.closeDiff() })
+        }
     }
 
     // MARK: - Header
@@ -437,6 +444,12 @@ public struct TaskInspectorView: View {
                     Task { await store.openInDesktop() }
                 }
                 .disabled(store.sessionID == nil)
+            }
+            if let run = store.runs.first(where: { $0.id == store.selectedRunID }) ?? store.latestRun {
+                Button("Diff'i göster", systemImage: "plus.forwardslash.minus") {
+                    Task { await store.showDiff(runID: run.id) }
+                }
+                .disabled(!store.canShowDiff(for: run) || store.isLoadingDiff)
             }
             Button("Desktop composer'da aç", systemImage: "square.and.pencil") {
                 Task { await store.openComposer() }
