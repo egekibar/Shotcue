@@ -397,9 +397,8 @@ struct TaskDetailDraftTests {
         let gated = GatedTaskRepository(base: bundle.tasks, saveGate: gate)
         let store = TaskDetailStore(services: bundle.services.replacingTasks(gated), taskID: task.id)
         await store.start()
-        // The edit happens later than the row the stream is still delivering (as with a real clock), so
-        // that stale initial emission must not roll the local change back.
-        bundle.clock.advance(by: 1)
+        // No clock advance: the stream's initial emission may still arrive while the save is parked, and
+        // the store ignores emissions for this task while its own write is in flight.
 
         let saving = Task { await store.updateNote("kaydediliyor") }
         #expect(await waitUntil("parked in save") { gate.arrivals.current == 1 })
