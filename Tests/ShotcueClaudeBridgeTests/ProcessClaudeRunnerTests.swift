@@ -244,6 +244,20 @@ struct ProcessClaudeRunnerTests {
         #expect(try await runner(scenario: "success").version() == "2.1.278 (Claude Code)")
     }
 
+    /// An npm-global `claude` is a `#!/usr/bin/env node` script: `--version` needs the same PATH as `run`,
+    /// not the app's launchd PATH.
+    @Test func versionRunsWithClaudesOwnDirectoryFirstOnPATH() async throws {
+        let directory = try makeProjectDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let script = try makeScript(
+            """
+            if [ "${1:-}" = "--version" ]; then echo "$PATH"; exit 0; fi
+            exit 1
+            """, in: directory)
+        let path = try await ProcessClaudeRunner(executableURL: script).version()
+        #expect(path.hasPrefix(directory.path + ":"))
+    }
+
     @Test func missingExecutableThrowsNotFound() async throws {
         let missing = ProcessClaudeRunner(executableURL: URL(fileURLWithPath: "/nope/claude"))
         await #expect(throws: ClaudeRunError.notFound) {

@@ -61,11 +61,7 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         process.executableURL = executableURL
         process.arguments = ClaudeArguments.build(spec: spec)
         process.currentDirectoryURL = URL(fileURLWithPath: spec.projectPath, isDirectory: true)
-        var environment = ClaudeArguments.environment(
-            base: ProcessInfo.processInfo.environment,
-            claudeDirectory: executableURL.deletingLastPathComponent().path)
-        environment.merge(environmentOverrides) { _, override in override }
-        process.environment = environment
+        process.environment = claudeEnvironment()
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -192,11 +188,23 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
             throw ClaudeRunError.notFound
         }
-        let output = try await ProcessCapture.run(executableURL: executableURL, arguments: ["--version"])
+        let output = try await ProcessCapture.run(
+            executableURL: executableURL, arguments: ["--version"], environment: claudeEnvironment())
         guard output.exitCode == 0 else {
             throw ClaudeRunError.processFailed(exitCode: output.exitCode, stderr: output.stderr)
         }
         return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The environment of every `claude` invocation (`run` and `version`): HOME, a PATH that starts with
+    /// claude's own directory (an npm-global install is a `#!/usr/bin/env node` script), no API key, then
+    /// the overrides.
+    func claudeEnvironment() -> [String: String] {
+        var environment = ClaudeArguments.environment(
+            base: ProcessInfo.processInfo.environment,
+            claudeDirectory: executableURL.deletingLastPathComponent().path)
+        environment.merge(environmentOverrides) { _, override in override }
+        return environment
     }
 
     /// SIGINT for a graceful stop (Claude saves the turn), SIGKILL after `killGrace`.
