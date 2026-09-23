@@ -16,6 +16,10 @@ public struct SettingsView: View {
     /// Input devices for the "Giriş cihazı" picker; empty → a UID text field is shown instead.
     /// Filled by the App layer from `AudioDeviceCatalog.inputDevices()` (ShotcueNotes).
     public let inputDevices: [(uid: String, name: String)]
+    /// The running version, shown in Genel > Güncellemeler.
+    public let appVersion: String?
+    /// "Şimdi denetle"; the button is hidden when nil.
+    public let onCheckForUpdates: (() -> Void)?
 
     public init(
         settings: SettingsStore,
@@ -25,7 +29,9 @@ public struct SettingsView: View {
         transcriberState: TranscriberModelState,
         onDownloadModel: @escaping () -> Void,
         modelDownloadSize: String? = nil,
-        inputDevices: [(uid: String, name: String)] = []
+        inputDevices: [(uid: String, name: String)] = [],
+        appVersion: String? = nil,
+        onCheckForUpdates: (() -> Void)? = nil
     ) {
         self.settings = settings
         self.permissions = permissions
@@ -35,6 +41,8 @@ public struct SettingsView: View {
         self.onDownloadModel = onDownloadModel
         self.modelDownloadSize = modelDownloadSize
         self.inputDevices = inputDevices
+        self.appVersion = appVersion
+        self.onCheckForUpdates = onCheckForUpdates
     }
 
     public var body: some View {
@@ -101,6 +109,20 @@ public struct SettingsView: View {
                     ForEach(projects) { project in
                         Text(project.name).tag(Optional(project.id.uuidString))
                     }
+                }
+            }
+
+            Section("Güncellemeler") {
+                Toggle("Güncellemeleri otomatik denetle", isOn: $store.autoCheckUpdates)
+                if let appVersion {
+                    LabeledContent("Sürüm", value: appVersion)
+                }
+                LabeledContent("Son denetim") {
+                    Text(settings.lastUpdateCheck?.formatted(date: .abbreviated, time: .shortened) ?? "Henüz yok")
+                        .foregroundStyle(.secondary)
+                }
+                if let onCheckForUpdates {
+                    Button("Şimdi denetle", action: onCheckForUpdates)
                 }
             }
         }

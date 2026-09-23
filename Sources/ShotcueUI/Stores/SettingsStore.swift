@@ -48,6 +48,9 @@ public final class SettingsStore {
         static let inputDeviceUID = "inputDeviceUID"
         static let foundationModelsEnabled = "foundationModelsEnabled"
         static let lastUsedProjectID = "lastUsedProjectID"
+        static let autoCheckUpdates = "autoCheckUpdates"
+        static let lastUpdateCheck = "lastUpdateCheck"
+        static let skippedUpdateVersion = "skippedUpdateVersion"
     }
 
     public static let defaultSTTLanguage = "tr"
@@ -198,6 +201,29 @@ public final class SettingsStore {
     public var foundationModelsEnabled: Bool {
         get { bool(Key.foundationModelsEnabled, default: false, keyPath: \.foundationModelsEnabled) }
         set { setBool(newValue, Key.foundationModelsEnabled, keyPath: \.foundationModelsEnabled) }
+    }
+
+    // MARK: - Updates
+
+    /// Check GitHub Releases at launch and once a day.
+    public var autoCheckUpdates: Bool {
+        get { bool(Key.autoCheckUpdates, default: true, keyPath: \.autoCheckUpdates) }
+        set { setBool(newValue, Key.autoCheckUpdates, keyPath: \.autoCheckUpdates) }
+    }
+
+    /// When GitHub last answered a check; nil before the first one.
+    public var lastUpdateCheck: Date? {
+        get {
+            access(keyPath: \.lastUpdateCheck)
+            return defaults.object(forKey: Key.lastUpdateCheck) as? Date
+        }
+        set { withMutation(keyPath: \.lastUpdateCheck) { defaults.set(newValue, forKey: Key.lastUpdateCheck) } }
+    }
+
+    /// "Bu sürümü atla": automatic checks do not offer this version again.
+    public var skippedUpdateVersion: String? {
+        get { optionalString(Key.skippedUpdateVersion, keyPath: \.skippedUpdateVersion) }
+        set { setOptionalString(newValue, Key.skippedUpdateVersion, keyPath: \.skippedUpdateVersion) }
     }
 
     // MARK: - Session memory

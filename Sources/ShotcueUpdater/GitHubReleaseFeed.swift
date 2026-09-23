@@ -32,8 +32,9 @@ public struct GitHubReleaseFeed: ReleaseFeed {
         if let http = response as? HTTPURLResponse {
             switch http.statusCode {
             case 200..<300: break
-            case 403,
-                429 where http.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0":
+            case 429: throw UpdateError.rateLimited
+            // A `where` would bind only to the last pattern of a multi-pattern case; 403 is checked on its own.
+            case 403 where http.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0":
                 throw UpdateError.rateLimited
             case 404: throw UpdateError.unreadableRelease  // no published release yet
             default: throw UpdateError.network("HTTP \(http.statusCode)")
