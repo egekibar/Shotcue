@@ -4,7 +4,8 @@
 #   Configuration debug (default): dist/<App>.app from the debug binary — the bundle `make install` copies.
 #   Configuration release:         dist/release/<App>.app from the arm64 release binary — the bundle `make dmg` packs.
 #   Build that configuration first (`swift build [-c release]`; the Makefile does). SigningIdentity defaults to
-#   $SIGN_IDENTITY, then "Shotcue Dev"; when the keychain does not list it, the bundle is signed ad-hoc.
+#   $SIGN_IDENTITY, then "Shotcue Dev"; when the keychain does not list it, the bundle is signed ad-hoc. A
+#   "Developer ID Application: …" identity gets a secure timestamp (notarization needs it) and is never replaced.
 set -euo pipefail
 APP_NAME="${1:-Shotcue}"
 BUNDLE_ID="${2:-com.shotcue.app}"
@@ -46,10 +47,18 @@ sign_nested() {
     codesign --verify "$b" 2>/dev/null || codesign --force "$@" "$b"
   done
 }
+# A Developer ID build is meant for notarization, which needs a secure timestamp and must never fall back to ad-hoc.
+TIMESTAMP=--timestamp=none
+case "$IDENTITY" in
+  "Developer ID Application:"*) TIMESTAMP=--timestamp ;;
+esac
 if security find-identity -v -p codesigning 2>/dev/null | grep -qF "\"$IDENTITY\""; then
-  sign_nested --timestamp=none --sign "$IDENTITY"
-  codesign --force --options runtime --timestamp=none \
+  sign_nested "$TIMESTAMP" --sign "$IDENTITY"
+  codesign --force --options runtime "$TIMESTAMP" \
     --entitlements "$ROOT/Resources/Shotcue.entitlements" --sign "$IDENTITY" "$APP"
+elif [ "$TIMESTAMP" = --timestamp ]; then
+  echo "signing identity '$IDENTITY' is not in the keychain; see docs/distribution.md" >&2
+  exit 1
 else
   echo "WARNING: signing identity '$IDENTITY' not found. Run scripts/make-cert.sh once." >&2
   echo "         Falling back to ad-hoc signing: TCC permissions will NOT survive rebuilds." >&2

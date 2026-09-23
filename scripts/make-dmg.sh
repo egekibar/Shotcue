@@ -75,6 +75,12 @@ detach_scratch
 # 3. Compressed read-only image, verified, then moved into dist/ with its checksum.
 hdiutil convert -quiet "$WORK/rw.dmg" -format ULFO -o "$WORK/$DMG_NAME"
 hdiutil verify -quiet "$WORK/$DMG_NAME"
+# A Developer ID app gets a DMG signed by the same identity, ready for scripts/notarize.sh.
+DEVELOPER_ID="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^Authority=\(Developer ID Application: .*\)$/\1/p' | head -n 1)"
+if [ -n "$DEVELOPER_ID" ]; then
+  codesign --sign "$DEVELOPER_ID" --timestamp "$WORK/$DMG_NAME"
+  codesign --verify --strict "$WORK/$DMG_NAME"
+fi
 mv -f "$WORK/$DMG_NAME" "$DMG"
 (cd "$DIST" && shasum -a 256 "$DMG_NAME" > "$DMG_NAME.sha256" && shasum -a 256 -c "$DMG_NAME.sha256" >/dev/null)
 echo "Wrote $DMG ($(du -h "$DMG" | cut -f1))"
