@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-23
+
 ### Added
 
 - In-app updates from GitHub Releases: a check shortly after launch and then once a day (Ayarlar → Genel →
@@ -15,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asset, checks the bundle id and version, then quits (the usual confirmation for running tasks) and swaps the app in
   and reopens it; the old bundle is restored if the swap fails. Releases need both `Shotcue-<version>.dmg` and
   `Shotcue-<version>.dmg.sha256` (`make dmg` writes both).
+- Homebrew: `brew install --cask egekibar/tap/shotcue` (the cask clears the quarantine flag after installing).
+
+### Changed
+
+- The estimated run cost is no longer shown (notification, run row, log). On a subscription it is only an API-price
+  estimate; it is still recorded with the run.
 
 ## [1.0.0] — 2026-09-23
 
@@ -52,5 +60,6 @@ First public release. macOS 26 or later on Apple Silicon; the UI is in Turkish.
   report in Settings.
 - `make dmg` builds the release DMG (`dist/Shotcue-<version>.dmg`) and its SHA-256 file.
 
-[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/egekibar/Shotcue/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/egekibar/Shotcue/releases/tag/v1.0.0
