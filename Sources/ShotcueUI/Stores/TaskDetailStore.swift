@@ -42,6 +42,8 @@ public final class TaskDetailStore {
     /// Internal so tests can shorten it.
     @ObservationIgnored var transcriptPollInterval: Duration = .milliseconds(1500)
     @ObservationIgnored private var transcriptPollTask: Task<Void, Never>?
+    /// Saves of this task that have not returned yet; task-stream emissions are ignored meanwhile.
+    @ObservationIgnored private var localWritesInFlight = 0
 
     /// Whether the pending-transcript poll is running (test hook).
     var isPollingTranscripts: Bool { transcriptPollTask != nil }
@@ -82,10 +84,10 @@ public final class TaskDetailStore {
                 for await list in taskStream {
                     guard let self else { return }
                     guard let updated = list.first(where: { $0.id == self.taskID }) else { continue }
-                    // An emission older than the local copy is a stale echo of an earlier write (the local
-                    // change is already on screen and its own emission follows); skipping it avoids a
-                    // flicker back to the old value.
-                    if let current = self.task, updated.updatedAt < current.updatedAt { continue }
+                    // While this store's own write of the row is in flight, an emission cannot be told
+                    // apart from an echo of the row before that write; the write's own emission follows
+                    // once it lands and carries the result.
+                    guard self.localWritesInFlight == 0 else { continue }
                     self.task = updated
                     // Captures and voice notes have no stream of their own: re-read them on every emission.
                     await self.refreshAttachments()
@@ -243,15 +245,23 @@ public final class TaskDetailStore {
         drafts[.transcript(voiceNoteID)] = text
     }
 
-    /// Normalises and persists one field's draft (on submit and when the field loses focus). A no-op when
-    /// the field has no uncommitted edits. The draft is taken before persisting, so keys typed while the
-    /// save is in flight start a new draft instead of being lost.
+    /// Normalises and persists one field's draft (on submit, when the field loses focus, and before any
+    /// action that hands the task on). A no-op when the field has no uncommitted edits. The draft stays
+    /// on screen until its write lands; keys typed meanwhile form a newer draft that is kept. When the
+    /// task cannot take the text (it started running) the draft is kept and `lastError` says why.
     public func commit(_ field: EditableField) async {
-        guard let text = drafts.removeValue(forKey: field) else { return }
+        guard let text = drafts[field] else { return }
+        let outcome: FieldWrite
         switch field {
-        case .title: await updateTitle(text)
-        case .note: await updateNote(text)
-        case .transcript(let voiceNoteID): await updateTranscript(voiceNoteID: voiceNoteID, text: text)
+        case .title: outcome = await writeTitle(text)
+        case .note: outcome = await writeNote(text)
+        case .transcript(let voiceNoteID): outcome = await writeTranscript(voiceNoteID: voiceNoteID, text: text)
+        }
+        switch outcome {
+        case .saved, .missing:
+            if drafts[field] == text { drafts[field] = nil }
+        case .notEditable, .failed:
+            break
         }
     }
 
@@ -262,62 +272,110 @@ public final class TaskDetailStore {
         }
     }
 
+    /// Forgets uncommitted text, e.g. for a task that is being deleted (committing it would re-insert the row).
+    func discardDrafts() {
+        drafts.removeAll()
+    }
+
     // MARK: - Editing
 
     public func updateNote(_ text: String) async {
-        guard var current = task, current.status.isEditable else { return }
-        current.noteText = text
-        if !current.titleEditedByUser {
-            current.title = TitleMaker.title(
-                noteText: text, transcript: firstTranscript,
-                createdAt: current.createdAt)
-        }
-        current.updatedAt = services.clock.now
-        await save(current)
+        await writeNote(text)
     }
 
     /// An empty title hands control back to `TitleMaker`; anything else pins the title.
     public func updateTitle(_ text: String) async {
-        guard var current = task, current.status.isEditable else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            current.titleEditedByUser = false
-            current.title = TitleMaker.title(
-                noteText: current.noteText, transcript: firstTranscript,
-                createdAt: current.createdAt)
-        } else {
-            current.titleEditedByUser = true
-            current.title = trimmed
-        }
-        current.updatedAt = services.clock.now
-        await save(current)
+        await writeTitle(text)
     }
 
     /// Spec §5.2: once the user edits a transcript it is never overwritten by the transcriber again.
     public func updateTranscript(voiceNoteID: UUID, text: String) async {
-        guard var note = voiceNotes.first(where: { $0.id == voiceNoteID }) else { return }
-        note.transcript = text
-        note.editedByUser = true
-        note.transcriptState = .done
+        await writeTranscript(voiceNoteID: voiceNoteID, text: text)
+    }
+
+    /// What happened to a single-field write.
+    private enum FieldWrite {
+        case saved, missing, notEditable, failed
+    }
+
+    /// Applies one field's change to a fresh read of the row and saves it, so a stale cached copy never
+    /// overwrites a newer status or project (e.g. after a teardown) and a deleted row is never re-inserted
+    /// (`save` is an upsert). A task that is no longer editable is left alone and reported.
+    private func writeField(notEditableMessage: String, _ change: (inout ShotTask) -> Void) async -> FieldWrite {
+        let fresh: ShotTask
         do {
+            guard let row = try await services.tasks.task(id: taskID) else { return .missing }
+            fresh = row
+        } catch {
+            report(error)
+            return .failed
+        }
+        guard fresh.status.isEditable else {
+            task = fresh
+            lastError = notEditableMessage
+            return .notEditable
+        }
+        var updated = fresh
+        change(&updated)
+        updated.updatedAt = services.clock.now
+        return await save(updated) ? .saved : .failed
+    }
+
+    @discardableResult
+    private func writeNote(_ text: String) async -> FieldWrite {
+        await writeField(notEditableMessage: "Görev çalışırken not kaydedilemedi.") { task in
+            task.noteText = text
+            if !task.titleEditedByUser {
+                task.title = TitleMaker.title(noteText: text, transcript: firstTranscript, createdAt: task.createdAt)
+            }
+        }
+    }
+
+    @discardableResult
+    private func writeTitle(_ text: String) async -> FieldWrite {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return await writeField(notEditableMessage: "Görev çalışırken başlık kaydedilemedi.") { task in
+            if trimmed.isEmpty {
+                task.titleEditedByUser = false
+                task.title = TitleMaker.title(
+                    noteText: task.noteText, transcript: firstTranscript, createdAt: task.createdAt)
+            } else {
+                task.titleEditedByUser = true
+                task.title = trimmed
+            }
+        }
+    }
+
+    /// Writes the voice-note row from a fresh read; the auto title then follows the transcript when the
+    /// task has no written note, is not pinned and is still editable.
+    @discardableResult
+    private func writeTranscript(voiceNoteID: UUID, text: String) async -> FieldWrite {
+        do {
+            let notes = try await services.tasks.voiceNotes(taskID: taskID)
+            guard var note = notes.first(where: { $0.id == voiceNoteID }) else { return .missing }
+            note.transcript = text
+            note.editedByUser = true
+            note.transcriptState = .done
             try await services.tasks.save(note)
             voiceNotes = try await services.tasks.voiceNotes(taskID: taskID)
         } catch {
             report(error)
-            return
+            return .failed
         }
         syncTranscriptPolling()
-        // The auto title falls back to the transcript when there is no written note.
-        if var current = task, !current.titleEditedByUser,
-            current.noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if let fresh = try? await services.tasks.task(id: taskID), fresh.status.isEditable, !fresh.titleEditedByUser,
+            fresh.noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         {
-            current.title = TitleMaker.title(noteText: "", transcript: text, createdAt: current.createdAt)
-            current.updatedAt = services.clock.now
-            await save(current)
+            var updated = fresh
+            updated.title = TitleMaker.title(noteText: "", transcript: text, createdAt: fresh.createdAt)
+            updated.updatedAt = services.clock.now
+            await save(updated)
         }
+        return .saved
     }
 
     public func setMode(_ mode: TaskMode) async {
+        await commitDrafts()
         guard var current = task, current.status.isEditable else { return }
         current.mode = mode
         current.updatedAt = services.clock.now
@@ -325,6 +383,7 @@ public final class TaskDetailStore {
     }
 
     public func setModelOverride(_ model: String?) async {
+        await commitDrafts()
         guard var current = task, current.status.isEditable else { return }
         let trimmed = model?.trimmingCharacters(in: .whitespacesAndNewlines)
         current.modelOverride = (trimmed?.isEmpty ?? true) ? nil : trimmed
@@ -333,12 +392,13 @@ public final class TaskDetailStore {
     }
 
     public func setProject(_ projectID: UUID?) async {
+        await commitDrafts()
         guard var current = task, current.status.isEditable else { return }
         let now = services.clock.now
         guard let projectID else {
             // Clearing the project never strands the task (`ProjectAssignment`).
             do {
-                if let detached = try await ProjectAssignment.detach(taskID: taskID, services: services, now: now) {
+                if let detached = try await ProjectAssignment.detach(taskID: taskID, services: services) {
                     task = detached
                 }
             } catch {
@@ -361,8 +421,12 @@ public final class TaskDetailStore {
     }
 
     // MARK: - Dispatch
+    //
+    // Every action first commits the drafts: on macOS a click on a button does not take focus from a
+    // text view, so no focus-loss commit has run, and the task must not be handed on without the text.
 
     public func sendNow() async {
+        await commitDrafts()
         do {
             try await services.dispatcher.enqueue(taskID: taskID)
         } catch {
@@ -371,6 +435,7 @@ public final class TaskDetailStore {
     }
 
     public func schedule(at date: Date) async {
+        await commitDrafts()
         guard var current = task else { return }
         current.scheduledAt = date
         do {
@@ -384,6 +449,7 @@ public final class TaskDetailStore {
     }
 
     public func unschedule() async {
+        await commitDrafts()
         guard var current = task, current.status == .scheduled || current.status == .queued else { return }
         do {
             try current.transition(to: .ready, at: services.clock.now)
@@ -395,6 +461,7 @@ public final class TaskDetailStore {
     }
 
     public func cancel() async {
+        await commitDrafts()
         await services.dispatcher.cancel(taskID: taskID)
     }
 
@@ -408,6 +475,7 @@ public final class TaskDetailStore {
     /// Mirrors `LibraryStore.addToDailyQueue(taskIDs:)`; a queued task leaves the queue through the
     /// dispatcher, which owns the queue.
     public func addToDailyQueue() async {
+        await commitDrafts()
         guard var current = task, current.status != .ready else { return }
         guard current.projectID != nil else {
             lastError = "Günlük kuyruğa almak için önce bir proje seç."
@@ -443,6 +511,7 @@ public final class TaskDetailStore {
 
     /// "Yeniden çalıştır": failed/cancelled/done all have an edge to `queued`.
     public func retry() async {
+        await commitDrafts()
         do {
             try await services.dispatcher.enqueue(taskID: taskID)
         } catch {
@@ -495,6 +564,42 @@ public final class TaskDetailStore {
             noteText: task.noteText,
             transcripts: voiceNotes.compactMap(\.transcript))
         return PromptBuilder.build(input)
+    }
+
+    // MARK: - Diff (Plan 07)
+
+    public private(set) var diffText: String?
+    public private(set) var isLoadingDiff = false
+    public var isDiffPresented = false
+
+    /// Needs a diff provider, a HEAD recorded before the run, and a task that still points at a project.
+    public func canShowDiff(for run: Run) -> Bool {
+        services.diff != nil && run.gitHeadBefore != nil && project != nil
+    }
+
+    /// Loads the run's diff (`git diff <gitHeadBefore>` plus untracked files) and presents the sheet.
+    /// Any failure shows one Turkish explanation: git's raw (English) stderr never reaches the UI.
+    public func showDiff(runID: UUID) async {
+        await commitDrafts()
+        guard let provider = services.diff,
+            let run = runs.first(where: { $0.id == runID }),
+            let project
+        else { return }
+        isLoadingDiff = true
+        defer { isLoadingDiff = false }
+        do {
+            diffText = try await provider.diff(
+                at: project.path, since: run.gitHeadBefore,
+                maxBytes: DiffText.defaultMaxBytes)
+            isDiffPresented = true
+        } catch {
+            lastError = "Diff alınamadı: proje bir git deposu değil ya da git komutu başarısız oldu."
+        }
+    }
+
+    public func closeDiff() {
+        isDiffPresented = false
+        diffText = nil
     }
 
     // MARK: - Attachments
@@ -618,15 +723,20 @@ public final class TaskDetailStore {
     // MARK: - Plumbing
 
     /// Shows the change at once, then persists it; a failed save rolls the change back unless something
-    /// newer has replaced it meanwhile.
-    private func save(_ updated: ShotTask) async {
+    /// newer has replaced it meanwhile. Task-stream emissions are ignored while the write is in flight.
+    @discardableResult
+    private func save(_ updated: ShotTask) async -> Bool {
         let previous = task
         task = updated
+        localWritesInFlight += 1
+        defer { localWritesInFlight -= 1 }
         do {
             try await services.tasks.save(updated)
+            return true
         } catch {
             if task == updated { task = previous }
             report(error)
+            return false
         }
     }
 

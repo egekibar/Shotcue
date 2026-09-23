@@ -258,8 +258,16 @@ public final class LibraryStore {
 
     // MARK: - Bulk actions
 
+    /// Persists the inspector's uncommitted text before an action hands `ids` on: on macOS a click on a
+    /// button does not take focus from a text view, so no focus-loss commit has run yet.
+    private func flushInspectorDrafts(for ids: Set<UUID>) async {
+        guard let detail = detailStore, ids.contains(detail.taskID) else { return }
+        await detail.commitDrafts()
+    }
+
     /// "Ayrı ayrı gönder": every selected task becomes its own run.
     public func send(taskIDs: Set<UUID>) async {
+        await flushInspectorDrafts(for: taskIDs)
         for id in ordered(taskIDs) {
             do {
                 try await services.dispatcher.enqueue(taskID: id)
@@ -272,6 +280,7 @@ public final class LibraryStore {
     /// "Tek task olarak birleştir ve gönder": captures and voice notes of the other tasks move onto the
     /// first one (manual order), the extra rows are deleted, and a single run is enqueued.
     public func sendAsOne(taskIDs: Set<UUID>) async {
+        await flushInspectorDrafts(for: taskIDs)
         let ids = ordered(taskIDs)
         guard let primaryID = ids.first else { return }
         guard ids.count > 1 else { return await send(taskIDs: [primaryID]) }
@@ -320,11 +329,12 @@ public final class LibraryStore {
     /// "Projeye taşı". Coming out of the inbox the task also becomes `ready` (spec §7); going back to the
     /// inbox never strands it (`ProjectAssignment`).
     public func move(taskIDs: Set<UUID>, toProject projectID: UUID?) async {
+        await flushInspectorDrafts(for: taskIDs)
         let now = services.clock.now
         for id in ordered(taskIDs) {
             do {
                 guard let projectID else {
-                    _ = try await ProjectAssignment.detach(taskID: id, services: services, now: now)
+                    _ = try await ProjectAssignment.detach(taskID: id, services: services)
                     continue
                 }
                 guard var task = try await services.tasks.task(id: id), task.status.isEditable
@@ -344,6 +354,7 @@ public final class LibraryStore {
 
     /// "Zamanla". Fails loudly for project-less tasks: `inbox` has no edge to `scheduled`.
     public func schedule(taskIDs: Set<UUID>, at date: Date) async {
+        await flushInspectorDrafts(for: taskIDs)
         let now = services.clock.now
         for id in ordered(taskIDs) {
             do {
@@ -359,6 +370,7 @@ public final class LibraryStore {
 
     /// "Günlük kuyruğa al" = make sure the task is `ready`; the scheduler picks ready tasks up.
     public func addToDailyQueue(taskIDs: Set<UUID>) async {
+        await flushInspectorDrafts(for: taskIDs)
         let now = services.clock.now
         for id in ordered(taskIDs) {
             do {
@@ -392,6 +404,8 @@ public final class LibraryStore {
                 relPaths += captures.compactMap(\.thumbRelPath)
                 relPaths += notes.map(\.relPath)
                 relPaths += runs.map(\.logRelPath)
+                // Committing the inspector's text after the row is gone would re-insert it (upsert).
+                if detailStore?.taskID == id { detailStore?.discardDrafts() }
                 try await services.tasks.deleteTask(id: id)
                 deleted.insert(id)
                 await removeFiles(relPaths)
@@ -474,6 +488,7 @@ public final class LibraryStore {
     /// Manual-order drag & drop. `before` is the neighbour ABOVE the drop point, `after` the one BELOW;
     /// pass nil for the ends of the list.
     public func reorder(taskID: UUID, before: UUID?, after: UUID?) async {
+        await flushInspectorDrafts(for: [taskID])
         let beforeIndex = sortIndex(of: before)
         let afterIndex = sortIndex(of: after)
         do {
@@ -515,7 +530,6 @@ public final class LibraryStore {
     /// captures are never destroyed here. Refused while one of its tasks runs. The tasks are read from the
     /// repository, not the stream snapshot, so none is missed.
     public func deleteProject(id: UUID) async {
-        let now = services.clock.now
         do {
             let projectTasks = try await services.tasks.tasks(projectID: id)
             guard !projectTasks.contains(where: { $0.status == .running }) else {
@@ -523,7 +537,7 @@ public final class LibraryStore {
                 return
             }
             for task in projectTasks {
-                _ = try await ProjectAssignment.detach(taskID: task.id, services: services, now: now)
+                _ = try await ProjectAssignment.detach(taskID: task.id, services: services)
             }
             try await services.projects.deleteProject(id: id)
             if storedSelection == .project(id) { selection = .inbox }

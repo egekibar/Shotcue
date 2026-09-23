@@ -70,9 +70,51 @@ nonisolated final class GatedTaskRepository: TaskRepository, @unchecked Sendable
     func observeTasks(projectID: UUID?) -> AsyncStream<[ShotTask]> { base.observeTasks(projectID: projectID) }
 }
 
+/// Behaves like the real run coordinator where it matters to the stores: `cancel` moves a queued task to
+/// `ready` in the repository, stamped with the clock after advancing it (its write is later than anything
+/// the caller stamped before calling), and `enqueue` records the note the repository held at that moment.
+nonisolated final class RecordingDispatcher: TaskDispatcher, @unchecked Sendable {
+    let tasks: InMemoryTaskRepository
+    let clock: MutableClock
+    let enqueuedNotes = Locked<[String]>([])
+    let cancelled = Locked<[UUID]>([])
+
+    init(tasks: InMemoryTaskRepository, clock: MutableClock) {
+        self.tasks = tasks
+        self.clock = clock
+    }
+
+    func enqueue(taskID: UUID) async throws {
+        let note = try await tasks.task(id: taskID)?.noteText ?? "<missing>"
+        enqueuedNotes.withLock { $0.append(note) }
+    }
+
+    func cancel(taskID: UUID) async {
+        cancelled.withLock { $0.append(taskID) }
+        clock.advance(by: 5)
+        guard var task = try? await tasks.task(id: taskID), task.status == .queued else { return }
+        try? task.transition(to: .ready, at: clock.now)
+        try? await tasks.save(task)
+    }
+
+    func runQueueNow() async {}
+    func setPaused(_ paused: Bool) async {}
+    func isPaused() async -> Bool { false }
+    func liveEvents(runID: UUID) -> AsyncStream<RunEvent> { AsyncStream { $0.finish() } }
+}
+
 extension AppServices {
     /// The same services with a different task repository (e.g. a `GatedTaskRepository`).
     func replacingTasks(_ tasks: any TaskRepository) -> AppServices {
+        AppServices(
+            projects: projects, tasks: tasks, runs: runs, capture: capture, thumbnails: thumbnails,
+            permissions: permissions, recorder: recorder, transcriber: transcriber,
+            transcriptionQueue: transcriptionQueue, dispatcher: dispatcher, handoff: handoff,
+            fileStore: fileStore, clock: clock)
+    }
+
+    /// The same services with a different dispatcher (e.g. a `RecordingDispatcher`).
+    func replacingDispatcher(_ dispatcher: any TaskDispatcher) -> AppServices {
         AppServices(
             projects: projects, tasks: tasks, runs: runs, capture: capture, thumbnails: thumbnails,
             permissions: permissions, recorder: recorder, transcriber: transcriber,
