@@ -75,6 +75,13 @@ struct ClaudeArgumentsTests {
         #expect(env["HOME"] == NSHomeDirectory())
         #expect(env["PATH"] == "/Users/me/.local/bin:" + ClaudeArguments.systemPath)
     }
+
+    @Test func environmentTagsTheEntrypointSoClaudeDesktopListsTheRun() {
+        let env = ClaudeArguments.environment(
+            base: ["CLAUDE_CODE_ENTRYPOINT": "sdk-cli"], claudeDirectory: "/Users/me/.local/bin")
+        #expect(env["CLAUDE_CODE_ENTRYPOINT"] == ClaudeArguments.entrypoint)
+        #expect(!["cli", "sdk-cli", "sdk-ts", "sdk-py"].contains(ClaudeArguments.entrypoint))
+    }
 }
 
 @Suite("ClaudeLocator")
