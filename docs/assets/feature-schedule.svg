@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" role="img" aria-label="Scheduling">
+  <defs><linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A70F5"/><stop offset="1" stop-color="#5C38CC"/></linearGradient></defs>
+  <rect x="2" y="2" width="52" height="52" rx="14" fill="url(#p)"/>
+  <rect x="2.5" y="2.5" width="51" height="51" rx="13.5" fill="none" stroke="#FFFFFF" stroke-opacity=".16"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="28" cy="29" r="13"/>
+    <path d="M28 22 V29 L33 32 M22 13 L18 16 M34 13 L38 16"/>
+  </g>
+</svg>

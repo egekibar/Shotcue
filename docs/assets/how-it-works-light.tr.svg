@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="368" viewBox="0 0 1280 368" role="img" aria-labelledby="t d" lang="tr">
+  <title id="t">1. Yakala · 2. Not ekle · 3. Düzenle · 4. Claude'a gönder</title>
+  <desc id="d">Dört adım: kısayolla ekrandan bir bölge yakala, yazılı ya da sesli not ekle, görevleri proje klasörlerinde düzenle, Claude Code'a gönder.</desc>
+  <style>
+.card { fill: #FFFFFF; stroke: #E3E6EF; } .stage { fill: #F4F6FC; }
+.mini { fill: #FFFFFF; stroke: #E0E3EC; } .miniCard { fill: #F2F4F9; stroke: #E3E6EE; } .bar { fill: #DCE0EA; }
+.ink { fill: #1B1E2B; } .muted { fill: #5E6477; } .accent { fill: #4A70F5; } .accentStroke { stroke: #4A70F5; }
+.key { fill: #FFFFFF; stroke: #D8DBE5; } .keyShadow { fill: #CDD1DC; }
+.hop { fill: #FFFFFF; stroke: #E0E3EC; } .sel { fill: #4A70F5; fill-opacity: .10; } .row { fill: #4A70F5; fill-opacity: .12; }
+.thumbA { fill: #FFE7D8; } .thumbB { fill: #E0EAFF; } .thumbC { fill: #E0F5E6; } .thumbD { fill: #F0E6FF; }
+.term { fill: #10121B; stroke: #1F2331; }
+#cardShadow feDropShadow { flood-color: #1E2250; flood-opacity: .08; }
+  </style>
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4A70F5"/><stop offset="1" stop-color="#5C38CC"/></linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="6" stdDeviation="10"/></filter>
+  </defs>
+<g filter="url(#cardShadow)"><rect x="24.0" y="24.0" width="278.0" height="322.0" rx="20" class="card"/></g>
+<rect x="40.0" y="40.0" width="246" height="156" rx="14" class="stage"/>
+<rect x="54.0" y="52.0" width="24" height="24" rx="6" class="keyShadow"/><rect x="54.0" y="50.0" width="24" height="24" rx="6" class="key"/>
+<text x="66.0" y="67.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="middle" class="ink">⌃</text>
+<rect x="82.0" y="52.0" width="24" height="24" rx="6" class="keyShadow"/><rect x="82.0" y="50.0" width="24" height="24" rx="6" class="key"/>
+<text x="94.0" y="67.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="middle" class="ink">⇧</text>
+<rect x="110.0" y="52.0" width="24" height="24" rx="6" class="keyShadow"/><rect x="110.0" y="50.0" width="24" height="24" rx="6" class="key"/>
+<text x="122.0" y="67.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="middle" class="ink">2</text>
+<rect x="54.0" y="84.0" width="218" height="100" rx="8" class="mini"/>
+<circle cx="65.0" cy="94.0" r="3" fill="#FF5F57"/><circle cx="75.0" cy="94.0" r="3" fill="#FEBC2E"/><circle cx="85.0" cy="94.0" r="3" fill="#28C840"/>
+<rect x="66.0" y="112.0" width="70" height="7" rx="3.5" class="bar"/><rect x="66.0" y="126.0" width="50" height="7" rx="3.5" class="bar"/><rect x="66.0" y="140.0" width="62" height="7" rx="3.5" class="bar"/>
+<rect x="168.0" y="106.0" width="88" height="66" rx="6" class="miniCard"/>
+<rect x="178.0" y="116.0" width="44" height="6" rx="3" class="bar"/><rect x="178.0" y="130.0" width="68" height="9" rx="3" class="mini"/>
+<rect x="178.0" y="148.0" width="84" height="12" rx="4" fill="#FF8A4C"/>
+<rect x="158.0" y="98.0" width="112" height="82" class="sel"/>
+<rect x="158.0" y="98.0" width="112" height="82" fill="none" class="accentStroke" stroke-opacity=".7" stroke-width="1" stroke-dasharray="3 3"/>
+<path d="M170.0 98.0 H158.0 V110.0 M258.0 98.0 H270.0 V110.0 M170.0 180.0 H158.0 V168.0 M258.0 180.0 H270.0 V168.0" fill="none" stroke="url(#brand)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="58.0" cy="230.0" r="14" fill="url(#brand)"/>
+<text x="58.0" y="235.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle" fill="#FFFFFF">1</text>
+<text x="82.0" y="237.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" class="ink">Yakala</text>
+<text x="46.0" y="274.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">Herhangi bir uygulamada ⌃⇧2'ye</text>
+<text x="46.0" y="296.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">bas, ekranın kastettiğin</text>
+<text x="46.0" y="318.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">bölgesini seç.</text>
+<circle cx="322.0" cy="118.0" r="15" class="hop"/>
+<path d="M319.0 112.0 L325.0 118.0 L319.0 124.0" fill="none" class="accentStroke" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<g filter="url(#cardShadow)"><rect x="342.0" y="24.0" width="278.0" height="322.0" rx="20" class="card"/></g>
+<rect x="358.0" y="40.0" width="246" height="156" rx="14" class="stage"/>
+<rect x="372.0" y="54.0" width="218" height="62" rx="10" class="mini"/>
+<rect x="386.0" y="70.0" width="150" height="8" rx="4" class="bar"/><rect x="386.0" y="88.0" width="104" height="8" rx="4" class="bar"/>
+<rect x="495.0" y="85.0" width="1.8" height="14" class="accent"/>
+<rect x="372.0" y="136.0" width="40" height="40" rx="20" class="mini"/>
+<rect x="388.0" y="145.0" width="8" height="14" rx="4" class="accent"/>
+<path d="M384.0 155.0 A8 8 0 0 0 400.0 155.0 M392.0 163.0 V168.0" fill="none" class="accentStroke" stroke-width="2" stroke-linecap="round"/>
+<rect x="422.0" y="153.0" width="4" height="6.0" rx="2" class="accent"/>
+<rect x="429.0" y="150.0" width="4" height="12.0" rx="2" class="accent"/>
+<rect x="436.0" y="146.0" width="4" height="20.0" rx="2" class="accent"/>
+<rect x="443.0" y="149.0" width="4" height="14.0" rx="2" class="accent"/>
+<rect x="450.0" y="143.0" width="4" height="26.0" rx="2" class="accent"/>
+<rect x="457.0" y="147.0" width="4" height="18.0" rx="2" class="accent"/>
+<rect x="464.0" y="141.0" width="4" height="30.0" rx="2" class="accent"/>
+<rect x="471.0" y="148.0" width="4" height="16.0" rx="2" class="accent"/>
+<rect x="478.0" y="145.0" width="4" height="22.0" rx="2" class="accent"/>
+<rect x="485.0" y="151.0" width="4" height="10.0" rx="2" class="accent"/>
+<rect x="492.0" y="147.0" width="4" height="18.0" rx="2" class="accent"/>
+<rect x="499.0" y="152.0" width="4" height="8.0" rx="2" class="accent"/>
+<path d="M510.0 156.0 H528.0 M522.0 150.0 L528.0 156.0 L522.0 162.0" fill="none" class="accentStroke" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="538.0" y="144.0" width="52" height="8" rx="4" class="bar"/><rect x="538.0" y="160.0" width="36" height="8" rx="4" class="bar"/>
+<circle cx="376.0" cy="230.0" r="14" fill="url(#brand)"/>
+<text x="376.0" y="235.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle" fill="#FFFFFF">2</text>
+<text x="400.0" y="237.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" class="ink">Not ekle</text>
+<text x="364.0" y="274.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">Sorunu yaz ya da söyle.</text>
+<text x="364.0" y="296.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">Sesli notlar Mac'inde</text>
+<text x="364.0" y="318.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">yazıya dökülür.</text>
+<circle cx="640.0" cy="118.0" r="15" class="hop"/>
+<path d="M637.0 112.0 L643.0 118.0 L637.0 124.0" fill="none" class="accentStroke" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<g filter="url(#cardShadow)"><rect x="660.0" y="24.0" width="278.0" height="322.0" rx="20" class="card"/></g>
+<rect x="676.0" y="40.0" width="246" height="156" rx="14" class="stage"/>
+<rect x="690.0" y="54.0" width="72" height="128" rx="9" class="mini"/>
+<rect x="696.0" y="82.0" width="60" height="18" rx="5" class="row"/>
+<path d="M702.0 62.0 h5 l2 2 h7 v8 h-14 z" class="bar"/>
+<rect x="722.0" y="63.5" width="24" height="5" rx="2.5" class="bar"/>
+<path d="M702.0 87.0 h5 l2 2 h7 v8 h-14 z" class="accent"/>
+<rect x="722.0" y="88.5" width="28" height="5" rx="2.5" class="accent"/>
+<path d="M702.0 112.0 h5 l2 2 h7 v8 h-14 z" class="bar"/>
+<rect x="722.0" y="113.5" width="24" height="5" rx="2.5" class="bar"/>
+<rect x="702.0" y="148.0" width="14" height="10" rx="2" class="bar"/><rect x="722.0" y="150.5" width="22" height="5" rx="2.5" class="bar"/>
+<rect x="772.0" y="54.0" width="64" height="60" rx="7" class="mini"/>
+<rect x="776.0" y="58.0" width="56" height="34" rx="4" class="thumbA"/>
+<circle cx="825.0" cy="65.0" r="4" fill="#34C759"/>
+<rect x="778.0" y="99.0" width="40" height="5" rx="2.5" class="bar"/>
+<rect x="842.0" y="54.0" width="64" height="60" rx="7" class="mini"/>
+<rect x="846.0" y="58.0" width="56" height="34" rx="4" class="thumbB"/>
+<circle cx="895.0" cy="65.0" r="4" fill="#0A84FF"/>
+<rect x="848.0" y="99.0" width="40" height="5" rx="2.5" class="bar"/>
+<rect x="772.0" y="120.0" width="64" height="60" rx="7" class="mini"/>
+<rect x="776.0" y="124.0" width="56" height="34" rx="4" class="thumbC"/>
+<circle cx="825.0" cy="131.0" r="4" fill="#FF9F0A"/>
+<rect x="778.0" y="165.0" width="40" height="5" rx="2.5" class="bar"/>
+<rect x="842.0" y="120.0" width="64" height="60" rx="7" class="mini"/>
+<rect x="846.0" y="124.0" width="56" height="34" rx="4" class="thumbD"/>
+<circle cx="895.0" cy="131.0" r="4" fill="#BF5AF2"/>
+<rect x="848.0" y="165.0" width="40" height="5" rx="2.5" class="bar"/>
+<circle cx="694.0" cy="230.0" r="14" fill="url(#brand)"/>
+<text x="694.0" y="235.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle" fill="#FFFFFF">3</text>
+<text x="718.0" y="237.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" class="ink">Düzenle</text>
+<text x="682.0" y="274.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">Görevler proje klasörlerinde</text>
+<text x="682.0" y="296.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">toplanır. Sırala, zamanla ya da</text>
+<text x="682.0" y="318.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">günlük kuyruğa al.</text>
+<circle cx="958.0" cy="118.0" r="15" class="hop"/>
+<path d="M955.0 112.0 L961.0 118.0 L955.0 124.0" fill="none" class="accentStroke" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<g filter="url(#cardShadow)"><rect x="978.0" y="24.0" width="278.0" height="322.0" rx="20" class="card"/></g>
+<rect x="994.0" y="40.0" width="246" height="156" rx="14" class="stage"/>
+<rect x="1008.0" y="54.0" width="218" height="128" rx="10" class="term"/>
+<circle cx="1020.0" cy="66.0" r="3" fill="#3A3F52"/><circle cx="1030.0" cy="66.0" r="3" fill="#3A3F52"/><circle cx="1040.0" cy="66.0" r="3" fill="#3A3F52"/>
+<text x="1020.0" y="92.0" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5"><tspan fill="#8C93A8">$ </tspan><tspan fill="#E8EAF1">claude -p</tspan></text>
+<circle cx="1023.0" cy="108.5" r="2.4" fill="#6EA8FF"/>
+<text x="1031.0" y="112.0" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="11"><tspan fill="#6EA8FF">Read</tspan><tspan fill="#C5CAD8"> capture.png</tspan></text>
+<circle cx="1023.0" cy="125.5" r="2.4" fill="#6EA8FF"/>
+<text x="1031.0" y="129.0" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="11"><tspan fill="#6EA8FF">Edit</tspan><tspan fill="#C5CAD8"> LoginForm.tsx</tspan></text>
+<circle cx="1023.0" cy="142.5" r="2.4" fill="#6EA8FF"/>
+<text x="1031.0" y="146.0" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="11"><tspan fill="#6EA8FF">Bash</tspan><tspan fill="#C5CAD8"> npm test</tspan></text>
+<path d="M1019.0 162.0 L1022.0 165.0 L1027.0 159.0" fill="none" stroke="#4ADE80" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1031.0" y="166.0" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#4ADE80">bitti · $0.41</text>
+<circle cx="1012.0" cy="230.0" r="14" fill="url(#brand)"/>
+<text x="1012.0" y="235.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle" fill="#FFFFFF">4</text>
+<text x="1036.0" y="237.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" class="ink">Claude'a gönder</text>
+<text x="1000.0" y="274.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">Claude Code proje klasöründe</text>
+<text x="1000.0" y="296.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">arka planda çalışır. Canlı logu</text>
+<text x="1000.0" y="318.0" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" class="muted">izle, sonra diff'i incele.</text>
+</svg>

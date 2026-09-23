@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" role="img" aria-label="Voice notes">
+  <defs><linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A70F5"/><stop offset="1" stop-color="#5C38CC"/></linearGradient></defs>
+  <rect x="2" y="2" width="52" height="52" rx="14" fill="url(#p)"/>
+  <rect x="2.5" y="2.5" width="51" height="51" rx="13.5" fill="none" stroke="#FFFFFF" stroke-opacity=".16"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="23" y="13" width="10" height="18" rx="5"/>
+    <path d="M18 27 A10 10 0 0 0 38 27 M28 37 V42 M23 42 H33"/>
+  </g>
+</svg>
