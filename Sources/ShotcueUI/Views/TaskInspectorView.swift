@@ -322,7 +322,8 @@ public struct TaskInspectorView: View {
                         Text(model.isEmpty ? "Proje varsayılanı" : model).tag(model)
                     }
                 }
-                .frame(maxWidth: 240)
+                // Leading, like the Proje and Mod rows: a flexible frame centres its content by default.
+                .frame(maxWidth: 240, alignment: .leading)
                 .disabled(!store.isEditable)
             }
         }
