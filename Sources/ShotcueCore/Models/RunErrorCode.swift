@@ -12,4 +12,15 @@ public enum RunErrorCode {
     public static let voiceNoteFailed = "voice_note_failed"
     /// The task's voice notes could not be read, so the run could not prove it carries them (C1).
     public static let voiceNotesUnreadable = "voice_notes_unreadable"
+    /// The project runs in a new branch and `git switch -c` failed; claude was not started (I4).
+    public static let gitBranchFailed = "git_branch_failed"
+    /// The project stashes before a run and `git stash push` failed; claude was not started (I4).
+    public static let gitStashFailed = "git_stash_failed"
+
+    /// `code`, or `code: detail` when a raw detail (git's first stderr line, a path) helps the user; the detail is
+    /// shown as it is, never translated.
+    public static func compose(_ code: String, detail: String?) -> String {
+        let trimmed = detail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? code : "\(code): \(trimmed)"
+    }
 }

@@ -245,18 +245,30 @@ public actor RunCoordinator: TaskDispatcher {
             await failBeforeLaunch(&run, title: queued.title, error: refusal.code, message: refusal.message)
             return
         }
+        // Final review I4: the opt-in git safety net fails closed. When the user asked for a branch or a stash and
+        // that step fails, claude is not started — it would work on the current branch, on top of the changes the
+        // user wanted set aside. The branch name is unique per run, so a re-run never collides with an old branch.
         if project.runInBranch {
             do {
-                try await gitInspector.createBranch(GitOutputParser.branchName(for: taskID), at: project.path)
+                try await gitInspector.createBranch(
+                    GitOutputParser.branchName(taskID: taskID, runID: runID), at: project.path)
             } catch {
-                run.error = "branch: \(error)"
+                await failBeforeLaunch(
+                    &run, title: queued.title,
+                    error: RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: Self.gitDetail(error)),
+                    message: Self.gitBranchFailedMessage)
+                return
             }
         }
         if project.stashBeforeRun {
             do {
                 try await gitInspector.stashAll(at: project.path)
             } catch {
-                run.error = [run.error, "stash: \(error)"].compactMap { $0 }.joined(separator: " | ")
+                await failBeforeLaunch(
+                    &run, title: queued.title,
+                    error: RunErrorCode.compose(RunErrorCode.gitStashFailed, detail: Self.gitDetail(error)),
+                    message: Self.gitStashFailedMessage)
+                return
             }
         }
         let before = await gitInspector.snapshot(at: project.path)
@@ -497,6 +509,25 @@ public actor RunCoordinator: TaskDispatcher {
         "Sesli not yazıya dökülemedi; görev gönderilmedi. Transkripti elle yaz ya da yeniden çevir, sonra yeniden gönder."
 
     static let voiceNotesUnreadableMessage = "Sesli notlar okunamadı; görev gönderilmedi. Yeniden gönder."
+
+    static let gitBranchFailedMessage =
+        "Yeni git branch'i açılamadı; claude başlatılmadı. Projenin git durumunu düzelt ya da proje ayarlarında "
+        + "\"Her çalıştırmayı yeni branch'te başlat\"ı kapat."
+
+    static let gitStashFailedMessage =
+        "Değişiklikler stash'lenemedi; claude başlatılmadı. Projenin git durumunu düzelt ya da proje ayarlarında "
+        + "\"Çalıştırmadan önce değişiklikleri stash'le\"yi kapat."
+
+    /// The first line git printed (its stderr), which says what is wrong; otherwise the error's own description.
+    static func gitDetail(_ error: any Error) -> String {
+        let text: String
+        if case .commandFailed(_, _, let stderr) = error as? GitError {
+            text = stderr
+        } else {
+            text = String(describing: error)
+        }
+        return String((firstLine(text) ?? text).prefix(200))
+    }
 
     static func message(for error: any Error) -> String {
         guard let error = error as? ClaudeRunError else { return String(describing: error) }

@@ -144,13 +144,18 @@ public final class FakeGitInspector: GitInspector, @unchecked Sendable {
     public let snapshots: Locked<[String: GitSnapshot]>
     public let branches = Locked<[(name: String, path: String)]>([])
     public let stashes = Locked<[String]>([])
+    /// Set to make `createBranch` / `stashAll` fail (nothing is recorded then).
+    public let branchFailure = Locked<FakeError?>(nil)
+    public let stashFailure = Locked<FakeError?>(nil)
     public init(snapshots: [String: GitSnapshot] = [:]) { self.snapshots = Locked(snapshots) }
     public func snapshot(at path: String) async -> GitSnapshot? { snapshots.current[path] }
     public func createBranch(_ name: String, at path: String) async throws {
+        if let failure = branchFailure.current { throw failure }
         branches.withLock { $0.append((name, path)) }
         snapshots.withLock { $0[path]?.branch = name }
     }
     public func stashAll(at path: String) async throws {
+        if let failure = stashFailure.current { throw failure }
         stashes.withLock { $0.append(path) }
         snapshots.withLock { $0[path]?.isDirty = false }
     }

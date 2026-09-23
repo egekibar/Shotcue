@@ -677,11 +677,64 @@ struct RunCoordinatorTests {
         try await h.coordinator.enqueue(taskID: task.id)
         await waitUntil("run succeeded") { await h.runs(of: task.id).first?.state == .succeeded }
 
-        #expect(h.gitInspector.branches.current.map(\.name) == [GitOutputParser.branchName(for: task.id)])
+        let run = try #require(await h.runs(of: task.id).first)
+        let branch = GitOutputParser.branchName(taskID: task.id, runID: run.id)
+        #expect(h.gitInspector.branches.current.map(\.name) == [branch])
         #expect(h.gitInspector.branches.current.map(\.path) == [project.path])
         #expect(h.gitInspector.stashes.current == [project.path])
+        #expect(run.gitBranch == branch)
+
+        // Final review I4: running the task again makes a branch of its own instead of colliding.
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("second run succeeded") {
+            let runs = await h.runs(of: task.id)
+            return runs.count == 2 && runs.allSatisfy { $0.state == .succeeded }
+        }
+        let names = h.gitInspector.branches.current.map(\.name)
+        #expect(names.count == 2)
+        #expect(Set(names).count == 2)
+    }
+
+    /// Final review I4: with the git safety net turned on, a failing branch or stash step never lets claude start
+    /// (it would work on the current branch / on top of the uncommitted changes the user asked to set aside).
+    @Test(arguments: ["branch", "stash"])
+    func aFailingGitStepFailsBeforeLaunch(step: String) async throws {
+        let project = Project(
+            name: "crm", path: Harness.makeProjectDirectory("crm"), runInBranch: true, stashBeforeRun: true)
+        let task = ShotTask(projectID: project.id, title: "Git bozuk", status: .ready)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+        let gitError = FakeError("fatal: a branch named 'shotcue/x' already exists")
+        if step == "branch" {
+            h.gitInspector.branchFailure.set(gitError)
+        } else {
+            h.gitInspector.stashFailure.set(gitError)
+        }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        #expect(runner.specs.current.isEmpty)
+        #expect(await h.status(of: task.id) == .ready)
         let run = try #require(await h.runs(of: task.id).first)
-        #expect(run.gitBranch == GitOutputParser.branchName(for: task.id))
+        let code = step == "branch" ? RunErrorCode.gitBranchFailed : RunErrorCode.gitStashFailed
+        #expect(run.error?.hasPrefix(code) == true)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(notification.kind == .runFailed)
+        #expect(notification.taskID == task.id)
+    }
+
+    @Test func theGitFailureKeepsGitsOwnFirstLine() {
+        let error = GitError.commandFailed(
+            arguments: ["switch", "-c", "shotcue/x"], exitCode: 128,
+            stderr: "fatal: not a git repository (or any of the parent directories): .git\n")
+        #expect(
+            RunCoordinator.gitDetail(error) == "fatal: not a git repository (or any of the parent directories): .git")
+        #expect(
+            RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: RunCoordinator.gitDetail(error))
+                == "git_branch_failed: fatal: not a git repository (or any of the parent directories): .git")
+        #expect(RunErrorCode.compose(RunErrorCode.gitStashFailed, detail: "  ") == "git_stash_failed")
     }
 
     @Test func liveEventsStreamsAndFinishes() async throws {
