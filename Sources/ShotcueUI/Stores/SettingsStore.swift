@@ -161,7 +161,9 @@ public final class SettingsStore {
         set { withMutation(keyPath: \.extraSystemPrompt) { defaults.set(newValue, forKey: Key.extraSystemPrompt) } }
     }
 
-    /// "önümüzdeki 1 saat içinde zamanlanmış iş varsa uyanık tut" (spec §6.5).
+    /// Keeps the Mac from idle-sleeping while a run is in progress (`RunCoordinator` holds
+    /// `ProcessInfo.beginActivity(.idleSystemSleepDisabled)` for each run, spec §6.4). The spec's optional "keep the Mac
+    /// awake when a scheduled job is due within the hour" (§6.5) is not implemented in v1 (final review M5).
     public var keepAwake: Bool {
         get { bool(Key.keepAwake, default: true, keyPath: \.keepAwake) }
         set { setBool(newValue, Key.keepAwake, keyPath: \.keepAwake) }

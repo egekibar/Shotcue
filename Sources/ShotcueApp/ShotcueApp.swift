@@ -84,8 +84,10 @@ struct SettingsSceneRoot: View {
                 projects: status.projects,
                 // SettingsView shows nil as the red "bulunamadı — gönderme devre dışı" state.
                 claudeVersion: status.claudeFound ? status.claudeVersion : nil,
-                transcriberState: status.transcriberState,
-                onDownloadModel: { environment.downloadTranscriberModel() },
+                transcriberState: environment.transcriberModel.state,
+                // The one download flow (spec §6.2: explicit consent), shared with the quick panel and inspector.
+                onDownloadModel: { environment.transcriberModel.startDownload() },
+                modelDownloadSize: environment.transcriberModel.downloadSizeText,
                 inputDevices: status.inputDevices)
             Divider()
             DiagnosticsBar(

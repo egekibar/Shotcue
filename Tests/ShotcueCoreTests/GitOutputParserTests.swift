@@ -27,8 +27,13 @@ struct GitOutputParserTests {
         #expect(GitOutputParser.snapshot(revParseHead: "", statusPorcelain: "", branchShowCurrent: "") == nil)
     }
 
-    @Test func branchNameUsesShortTaskID() {
-        let id = UUID(uuidString: "3F2A9C40-7B18-4C6D-9E51-8A2B1D4F0C73")!
-        #expect(GitOutputParser.branchName(for: id) == "shotcue/3f2a9c40")
+    /// Final review I4: one branch per run, so re-running a task never hits "a branch named … already exists".
+    @Test func branchNameIsUniquePerRun() {
+        let taskID = UUID(uuidString: "3F2A9C40-7B18-4C6D-9E51-8A2B1D4F0C73")!
+        let runID = UUID(uuidString: "0A1B2C3D-4E5F-4061-8728-394A5B6C7D8E")!
+        #expect(GitOutputParser.branchName(taskID: taskID, runID: runID) == "shotcue/3f2a9c40-0a1b2c3d")
+        #expect(
+            GitOutputParser.branchName(taskID: taskID, runID: UUID())
+                != GitOutputParser.branchName(taskID: taskID, runID: runID))
     }
 }

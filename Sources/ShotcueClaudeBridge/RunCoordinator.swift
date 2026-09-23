@@ -1,5 +1,6 @@
 import Foundation
 import ShotcueCore
+import os
 
 /// Owns the run queue (spec §5.5, §6.4): at most one run per project, a global concurrency limit,
 /// git snapshots around every run, the NDJSON log, notifications and the live event stream.
@@ -28,9 +29,15 @@ public actor RunCoordinator: TaskDispatcher {
     /// Outside actor isolation so the nonisolated `liveEvents` and the runner's @Sendable
     /// event callback can reach it.
     private let broadcasters = LockBox<[UUID: RunEventBroadcaster]>([:])
+    /// The tasks with a run in flight, mirrored outside actor isolation: the app's quit path must decide
+    /// synchronously whether there are runs to stop (final review I2).
+    private let inFlightTaskIDs = LockBox<Set<UUID>>([])
 
     private var settings: RunSettings
     private var paused = false
+    /// Nothing starts until `resumeQueue()` (final review I1): at launch the app first marks the runs the last
+    /// session left behind, so no run can start before recovery and be taken for one of them.
+    private var queueHeld: Bool
     private var inFlight: [UUID: InFlight] = [:]
     /// Run ids cancelled while in flight but not launched yet (the git phase, for instance).
     private var pendingCancels: Set<UUID> = []
@@ -40,7 +47,7 @@ public actor RunCoordinator: TaskDispatcher {
         runner: any ClaudeRunner, taskRepository: any TaskRepository,
         projectRepository: any ProjectRepository, runRepository: any RunRepository,
         gitInspector: any GitInspector, fileStore: FileStore, notifier: any Notifier,
-        clock: any Clock, settings: RunSettings
+        clock: any Clock, settings: RunSettings, holdsQueueUntilResumed: Bool = false
     ) {
         self.runner = runner
         self.taskRepository = taskRepository
@@ -51,6 +58,7 @@ public actor RunCoordinator: TaskDispatcher {
         self.notifier = notifier
         self.clock = clock
         self.settings = settings
+        self.queueHeld = holdsQueueUntilResumed
         self.logWriter = RunLogWriter(fileStore: fileStore)
     }
 
@@ -93,6 +101,10 @@ public actor RunCoordinator: TaskDispatcher {
 
     public func isPaused() async -> Bool { paused }
 
+    /// The tasks whose run is in flight (from the git phase until its row is saved), readable synchronously.
+    /// Empty once every run's outcome is recorded.
+    public nonisolated var activeTaskIDs: Set<UUID> { inFlightTaskIDs.current }
+
     public nonisolated func liveEvents(runID: UUID) -> AsyncStream<RunEvent> {
         // Unknown, already finished, or from an earlier launch: an empty, already-finished stream.
         guard let broadcaster = broadcasters.withLock({ $0[runID] }) else {
@@ -103,15 +115,41 @@ public actor RunCoordinator: TaskDispatcher {
 
     // MARK: - App-facing extras
 
-    public func updateSettings(_ settings: RunSettings) { self.settings = settings }
+    /// Applies the Claude settings to the next runs, then starts whatever a raised limit now allows.
+    public func updateSettings(_ settings: RunSettings) async {
+        self.settings = settings
+        await pumpQueue()
+    }
 
-    /// Launch recovery (spec §8): runs left `starting`/`running` by a crash become `failed`.
+    /// Starts the queue (final review I1): tasks queued before a quit or crash, and anything queued since launch,
+    /// start now. The app calls it after `recoverInterruptedRuns()`, and only once `claude` is known to exist, so
+    /// with `claude` missing queued tasks stay queued instead of each failing with "not found".
+    public func resumeQueue() async {
+        queueHeld = false
+        await pumpQueue()
+    }
+
+    /// Launch recovery (spec §8): runs left `starting`/`running` by a crash become `failed`. A task left
+    /// `running` without any active run (a stale whole-row write, or a run row that was never saved) becomes
+    /// `failed` too, with a run row of its own that says so — otherwise it could be neither cancelled nor
+    /// deleted nor rerun. Returns how many runs were marked.
     public func recoverInterruptedRuns() async throws -> Int {
         let stale = try await runRepository.activeRuns()
-        let count = try await runRepository.markInterruptedRuns(at: clock.now)
+        var count = try await runRepository.markInterruptedRuns(at: clock.now)
         for run in stale {
             guard let task = try await taskRepository.task(id: run.taskID), task.status == .running else { continue }
             await apply(.failed, toTask: task.id)
+        }
+        let staleTaskIDs = Set(stale.map(\.taskID))
+        for task in try await taskRepository.tasks(status: .running) where !staleTaskIDs.contains(task.id) {
+            let now = clock.now
+            let runID = UUID()
+            let repair = Run(
+                id: runID, taskID: task.id, state: .failed, startedAt: now, finishedAt: now,
+                error: RunErrorCode.interrupted, logRelPath: fileStore.runLogRelPath(id: runID))
+            try await runRepository.save(repair)
+            await apply(.failed, toTask: task.id)
+            count += 1
         }
         return count
     }
@@ -119,7 +157,7 @@ public actor RunCoordinator: TaskDispatcher {
     // MARK: - Queue
 
     private func pumpQueue() async {
-        guard !paused else { return }
+        guard !paused, !queueHeld else { return }
         while true {
             let queued = ((try? await taskRepository.tasks(status: .queued)) ?? [])
                 .filter { inFlight[$0.id] == nil }
@@ -139,6 +177,7 @@ public actor RunCoordinator: TaskDispatcher {
         guard let projectID = task.projectID else { return false }
         let runID = UUID()
         inFlight[task.id] = InFlight(runID: runID, projectID: projectID)
+        inFlightTaskIDs.withLock { _ = $0.insert(task.id) }
         // Registered before anything can learn the run id; `perform` removes it on every exit.
         broadcasters.withLock { $0[runID] = RunEventBroadcaster() }
         Task { await self.execute(taskID: task.id, runID: runID) }
@@ -147,6 +186,7 @@ public actor RunCoordinator: TaskDispatcher {
 
     private func finishInFlight(_ taskID: UUID) async {
         inFlight[taskID] = nil
+        inFlightTaskIDs.withLock { _ = $0.remove(taskID) }
         await pumpQueue()
     }
 
@@ -177,12 +217,14 @@ public actor RunCoordinator: TaskDispatcher {
         let project: Project
         do {
             guard let found = try await projectRepository.project(id: projectID) else {
-                await failBeforeLaunch(&run, title: queued.title, message: Self.missingProjectRecordMessage)
+                await failBeforeLaunch(&run, title: queued.title, error: RunErrorCode.projectMissing)
                 return
             }
             project = found
         } catch {
-            await failBeforeLaunch(&run, title: queued.title, message: Self.unreadableProjectMessage(error))
+            await failBeforeLaunch(
+                &run, title: queued.title,
+                error: RunErrorCode.compose(RunErrorCode.projectUnreadable, detail: Self.detail(of: error)))
             return
         }
 
@@ -191,7 +233,9 @@ public actor RunCoordinator: TaskDispatcher {
         guard FileManager.default.fileExists(atPath: project.path, isDirectory: &isDirectory),
             isDirectory.boolValue
         else {
-            await failBeforeLaunch(&run, title: queued.title, message: Self.missingProjectMessage(path: project.path))
+            await failBeforeLaunch(
+                &run, title: queued.title,
+                error: RunErrorCode.compose(RunErrorCode.projectFolderMissing, detail: project.path))
             return
         }
 
@@ -199,18 +243,35 @@ public actor RunCoordinator: TaskDispatcher {
             await cancelBeforeLaunch(&run)
             return
         }
+        // Final review C1: the voice note is the main instruction channel, so claude never starts while one
+        // of the task's notes has no usable text. Checked before the git steps, so a refusal leaves the
+        // working tree as it was.
+        if let refusal = await voiceNoteRefusal(taskID: taskID) {
+            await failBeforeLaunch(&run, title: queued.title, error: refusal)
+            return
+        }
+        // Final review I4: the opt-in git safety net fails closed. When the user asked for a branch or a stash and
+        // that step fails, claude is not started — it would work on the current branch, on top of the changes the
+        // user wanted set aside. The branch name is unique per run, so a re-run never collides with an old branch.
         if project.runInBranch {
             do {
-                try await gitInspector.createBranch(GitOutputParser.branchName(for: taskID), at: project.path)
+                try await gitInspector.createBranch(
+                    GitOutputParser.branchName(taskID: taskID, runID: runID), at: project.path)
             } catch {
-                run.error = "branch: \(error)"
+                await failBeforeLaunch(
+                    &run, title: queued.title,
+                    error: RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: Self.gitDetail(error)))
+                return
             }
         }
         if project.stashBeforeRun {
             do {
                 try await gitInspector.stashAll(at: project.path)
             } catch {
-                run.error = [run.error, "stash: \(error)"].compactMap { $0 }.joined(separator: " | ")
+                await failBeforeLaunch(
+                    &run, title: queued.title,
+                    error: RunErrorCode.compose(RunErrorCode.gitStashFailed, detail: Self.gitDetail(error)))
+                return
             }
         }
         let before = await gitInspector.snapshot(at: project.path)
@@ -231,7 +292,7 @@ public actor RunCoordinator: TaskDispatcher {
         guard let running = await apply(.running, toTask: taskID) else {
             run.state = .cancelled
             run.finishedAt = clock.now
-            run.error = Self.taskChangedBeforeLaunchMessage
+            run.error = RunErrorCode.taskChangedBeforeLaunch
             try? await runRepository.save(run)
             return
         }
@@ -269,17 +330,35 @@ public actor RunCoordinator: TaskDispatcher {
         if let notification { await notifier.notify(notification) }
     }
 
-    /// The run never started (spec §8): the Run row says why, the task goes back to `ready` (the task
-    /// never entered `running`; fix the cause and resend) and the user is told.
-    private func failBeforeLaunch(_ run: inout Run, title: String, message: String) async {
+    /// The run never started (spec §8): the Run row keeps the machine code (`error`), the task goes back to
+    /// `ready` (the task never entered `running`; fix the cause and resend) and the user is told in Turkish
+    /// (`RunErrorText`, the same text the inspector shows).
+    private func failBeforeLaunch(_ run: inout Run, title: String, error: String) async {
         run.state = .failed
         run.finishedAt = clock.now
-        run.error = message
+        run.error = error
         let task = await apply(.ready, toTask: run.taskID)
         try? await runRepository.save(run)
         await notifier.notify(
             AppNotification(
-                kind: .runFailed, title: task?.title ?? title, body: message, taskID: run.taskID, runID: run.id))
+                kind: .runFailed, title: task?.title ?? title, body: RunErrorText.notificationBody(for: error),
+                taskID: run.taskID, runID: run.id))
+    }
+
+    /// The code of why the task's voice notes keep the run from starting, or nil when every note has usable
+    /// text. Notes that cannot be read also refuse: the run could not show that it carries them.
+    private func voiceNoteRefusal(taskID: UUID) async -> String? {
+        let notes: [VoiceNote]
+        do {
+            notes = try await taskRepository.voiceNotes(taskID: taskID)
+        } catch {
+            return RunErrorCode.voiceNotesUnreadable
+        }
+        switch VoiceNoteReadiness.of(notes) {
+        case .ready: return nil
+        case .pending: return RunErrorCode.voiceNotePending
+        case .failed: return RunErrorCode.voiceNoteFailed
+        }
     }
 
     /// Cancelled before claude was started: the Run row is cancelled, the task (never `running`) goes back
@@ -287,7 +366,7 @@ public actor RunCoordinator: TaskDispatcher {
     private func cancelBeforeLaunch(_ run: inout Run) async {
         run.state = .cancelled
         run.finishedAt = clock.now
-        run.error = "cancelled"
+        run.error = RunErrorCode.cancelledBeforeLaunch
         await apply(.ready, toTask: run.taskID)
         try? await runRepository.save(run)
     }
@@ -309,31 +388,34 @@ public actor RunCoordinator: TaskDispatcher {
                 let task = await apply(.done, toTask: run.taskID)
                 return AppNotification(
                     kind: .runDone, title: task?.title ?? title,
-                    body: Self.firstLine(result.result) ?? "Tamamlandı",
+                    body: Self.doneBody(summary: Self.firstLine(result.result), costUSD: result.totalCostUSD),
                     taskID: run.taskID, runID: run.id)
             }
+            // A limit stop or an execution error: claude's own subtype is the code (final review I6).
             run.state = .failed
-            run.error = result.subtype
+            run.error = RunErrorCode.isCode(result.subtype) ? result.subtype : RunErrorCode.executionError
             let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
                 kind: .runFailed, title: task?.title ?? title,
-                body: Self.message(for: result), taskID: run.taskID, runID: run.id)
+                body: RunErrorText.notificationBody(for: run.error, numTurns: run.numTurns),
+                taskID: run.taskID, runID: run.id)
 
         case .failure(let error):
             let claudeError = error as? ClaudeRunError
             if claudeError == .cancelled {
                 run.state = .cancelled
-                run.error = "cancelled"
+                run.error = RunErrorCode.cancelled
                 await apply(.cancelled, toTask: run.taskID)
                 return nil
             }
             run.state = .failed
-            run.error = Self.message(for: error)
+            run.error = Self.errorCode(for: error)
             if case .processFailed(let exitCode, _) = claudeError { run.exitCode = exitCode }
             let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
                 kind: .runFailed, title: task?.title ?? title,
-                body: Self.message(for: error), taskID: run.taskID, runID: run.id)
+                body: RunErrorText.notificationBody(for: run.error, exitCode: run.exitCode),
+                taskID: run.taskID, runID: run.id)
         }
     }
 
@@ -345,9 +427,10 @@ public actor RunCoordinator: TaskDispatcher {
                 absolutePath: fileStore.absoluteURL(for: capture.relPath).path,
                 label: index == 0 ? task.title : nil)
         }
+        // Only notes with usable text get here (`voiceNoteRefusal`); the user's own text counts.
         let transcripts =
             voiceNotes
-            .filter { $0.transcriptState == .done }
+            .filter(\.hasUsableText)
             .compactMap(\.transcript)
         let prompt = PromptBuilder.build(
             PromptInput(
@@ -381,10 +464,15 @@ public actor RunCoordinator: TaskDispatcher {
             try await taskRepository.save(task)
             return task
         } catch {
-            NSLog("%@", "Shotcue: task \(taskID.uuidString) could not move to \(status.rawValue): \(error)")
+            // A repository error's description can carry the row's values: private (final review I5).
+            Self.log.error(
+                "task \(taskID, privacy: .public) could not move to \(status.rawValue, privacy: .public): \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
+            )
             return nil
         }
     }
+
+    private static let log = Logger(subsystem: "com.shotcue.app", category: "runs")
 
     /// Unregisters first, then finishes: a later `liveEvents` finds nothing and gets a finished stream,
     /// and a subscriber that raced in is finished by the broadcaster itself.
@@ -403,48 +491,54 @@ public actor RunCoordinator: TaskDispatcher {
         return String(line.prefix(200))
     }
 
-    static func message(for result: ClaudeRunResult) -> String {
-        switch result.subtype {
-        case ClaudeRunResult.maxTurnsSubtype:
-            return "Tur limiti aşıldı (\(result.numTurns.map(String.init) ?? "?") tur)."
-        case ClaudeRunResult.maxBudgetSubtype:
-            return "Bütçe limiti aşıldı."
-        default:
-            return firstLine(result.result) ?? "Çalışma hata ile bitti (\(result.subtype))."
+    /// Spec §5.5: the "done" notification carries the one-line summary and the run's cost when the result has one
+    /// (final review M1).
+    static func doneBody(summary: String?, costUSD: Double?) -> String {
+        let text = summary ?? "Tamamlandı"
+        guard let costUSD else { return text }
+        return text + " · " + String(format: "$%.2f", costUSD)
+    }
+
+    /// The first line git printed (its stderr), which says what is wrong; otherwise the error's own description.
+    static func gitDetail(_ error: any Error) -> String {
+        let text: String
+        if case .commandFailed(_, _, let stderr) = error as? GitError {
+            text = stderr
+        } else {
+            text = String(describing: error)
         }
+        return String((firstLine(text) ?? text).prefix(200))
     }
 
-    static func missingProjectMessage(path: String) -> String {
-        "Proje klasörü bulunamadı: \(path). Ayarlar > Projeler'den yolu düzeltin."
+    /// An error's first line, as the raw detail under a code.
+    static func detail(of error: any Error) -> String {
+        let text = String(describing: error)
+        return String((firstLine(text) ?? text).prefix(200))
     }
 
-    static let missingProjectRecordMessage = "Proje bulunamadı. Görevi bir projeye atayıp yeniden gönderin."
-
-    static func unreadableProjectMessage(_ error: any Error) -> String {
-        "Proje okunamadı: \(error)"
-    }
-
-    static let taskChangedBeforeLaunchMessage =
-        "Görev, claude başlatılmadan önce değişti ya da silindi; çalıştırılmadı."
-
-    static func message(for error: any Error) -> String {
-        guard let error = error as? ClaudeRunError else { return String(describing: error) }
+    /// The code stored for a runner failure (final review I6); `RunErrorText` turns it into Turkish. The login
+    /// check keeps the spec §8 message for an expired session.
+    static func errorCode(for error: any Error) -> String {
+        guard let error = error as? ClaudeRunError else {
+            return RunErrorCode.compose(RunErrorCode.unknownError, detail: detail(of: error))
+        }
         switch error {
         case .notFound:
-            return "claude bulunamadı. Ayarlar > Claude'dan yolu kontrol edin."
-        case .launchFailed(let detail):
-            return "claude başlatılamadı: \(detail)"
-        case .processFailed(let exitCode, let stderr):
-            if stderr.lowercased().contains("not logged in") || stderr.lowercased().contains("login") {
-                return "claude ile tekrar giriş yapın."
+            return RunErrorCode.claudeNotFound
+        case .launchFailed(let reason):
+            return RunErrorCode.compose(RunErrorCode.claudeLaunchFailed, detail: firstLine(reason))
+        case .processFailed(_, let stderr):
+            let lowered = stderr.lowercased()
+            if lowered.contains("not logged in") || lowered.contains("login") {
+                return RunErrorCode.compose(RunErrorCode.claudeNotLoggedIn, detail: nil)
             }
-            return firstLine(stderr) ?? "claude \(exitCode) koduyla çıktı."
+            return RunErrorCode.compose(RunErrorCode.claudeFailed, detail: firstLine(stderr))
         case .timedOut:
-            return "Zaman aşımı. Çalışma durduruldu."
+            return RunErrorCode.timeout
         case .cancelled:
-            return "İptal edildi."
+            return RunErrorCode.cancelled
         case .noResult:
-            return "claude sonuç satırı üretmeden çıktı."
+            return RunErrorCode.noResult
         }
     }
 }

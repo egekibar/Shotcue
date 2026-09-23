@@ -384,9 +384,10 @@ struct TranscriptionCoordinatorTests {
         #expect(notes.first?.transcriptState == .done)
     }
 
-    @Test func aModelLoadFailureStopsTheRunAndLeavesTheRestPending() async throws {
-        // The note that hit the unloadable model is marked failed (spec §8); the others must wait as
-        // `pending` for the model instead of failing one after another.
+    @Test func aModelLoadFailureStopsTheRunAndLeavesEveryNotePending() async throws {
+        // Final review M8: a model that cannot be loaded is not the note's fault. Every note — the one that hit the
+        // failure included — waits as `pending` for the model, and the model's own `.failed` state carries the
+        // error (Settings and the inspector show it and offer the download).
         let repo = InMemoryTaskRepository()
         for index in 0..<3 {
             let task = ShotTask(
@@ -407,7 +408,8 @@ struct TranscriptionCoordinatorTests {
         for task in try await repo.allTasks() {
             for note in try await repo.voiceNotes(taskID: task.id) { states.append(note.transcriptState) }
         }
-        #expect(states == [.failed, .pending, .pending])
+        #expect(states == [.pending, .pending, .pending])
+        #expect(await transcriber.modelState() == .failed("model files missing"))
     }
 
     @Test func aRescanRequestedWhileTheModelCheckIsInFlightIsNotLost() async throws {

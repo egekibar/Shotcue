@@ -57,7 +57,9 @@ public protocol GitInspector: Sendable {
 
 /// Hands a finished (or pending) task to the terminal / Claude Desktop (spec §6.4).
 public protocol HandoffService: Sendable {
-    func openInTerminal(sessionID: String) throws
+    /// Resumes the session in Terminal from `projectPath`, the run's working directory: claude keeps sessions per
+    /// folder and the resumed session's tools must run in the project (final review M6).
+    func openInTerminal(sessionID: String, projectPath: String) throws
     func openInDesktop(sessionID: String) throws
     func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws
 }

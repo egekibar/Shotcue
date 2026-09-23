@@ -78,12 +78,21 @@ public struct TaskInspectorView: View {
                         Task { await store.retry() }
                     }
                     .buttonStyle(.glass)
+                    .disabled(store.isWaitingForTranscript)
                 }
                 Button("Şimdi gönder", systemImage: "paperplane.fill") {
                     Task { await store.sendNow() }
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(!store.canSend)
+            }
+            if store.isWaitingForTranscript {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Sesli not yazıya dökülüyor… Bitince görev gönderilecek.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         } else {
             Text("Görev yüklenemedi.").foregroundStyle(.secondary)
@@ -234,20 +243,30 @@ public struct TaskInspectorView: View {
         }
     }
 
+    /// A pending note says what it waits for: the queue ("çevriliyor") or the model ("model indirilmedi", with the
+    /// download one click away — spec §6.2).
     @ViewBuilder
     private func transcriptStateBadge(_ note: VoiceNote) -> some View {
-        switch note.transcriptState {
-        case .pending:
-            Label("çevriliyor", systemImage: "ellipsis.circle")
+        let status = store.transcriptStatus(for: note)
+        switch status {
+        case .transcribing, .modelDownloading:
+            Label(status.label ?? "", systemImage: "ellipsis.circle")
                 .font(.caption2).foregroundStyle(.orange)
-        case .failed:
-            Label("çevrilemedi", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption2).foregroundStyle(.red)
-        case .done:
-            if note.editedByUser {
-                Label("düzenlendi", systemImage: "pencil")
-                    .font(.caption2).foregroundStyle(.secondary)
+        case .waitingForModel, .modelUnavailable:
+            Label(status.label ?? "", systemImage: "arrow.down.circle")
+                .font(.caption2).foregroundStyle(.orange)
+            if let model = store.modelStore {
+                Button("Modeli indir (\(model.downloadSizeText))") { model.startDownload() }
+                    .font(.caption2)
             }
+        case .failed:
+            Label(status.label ?? "", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption2).foregroundStyle(.red)
+        case .edited:
+            Label(status.label ?? "", systemImage: "pencil")
+                .font(.caption2).foregroundStyle(.secondary)
+        case .done:
+            EmptyView()
         }
     }
 
@@ -310,10 +329,10 @@ public struct TaskInspectorView: View {
 
     @ViewBuilder
     private var schedulingSection: some View {
-        if let task = store.task {
+        if store.task != nil {
             VStack(alignment: .leading, spacing: 8) {
                 sectionTitle("ZAMANLAMA")
-                if let scheduledAt = task.scheduledAt {
+                if let scheduledAt = store.scheduledFor {
                     HStack(spacing: 8) {
                         Label(Formatting.dateAndTime(scheduledAt), systemImage: "clock")
                             .font(.callout)
@@ -412,11 +431,27 @@ public struct TaskInspectorView: View {
                         .lineLimit(3)
                         .foregroundStyle(.primary)
                 }
-                if let error = run.error, !error.isEmpty {
-                    Text(error)
+                // Final review I6: the row keeps a machine code; it is read in Turkish, with what to do about it
+                // (spec §8: after a limit stop, raise the limit) and the raw detail or unknown code underneath.
+                if let failure = RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns) {
+                    Text(failure.message)
                         .font(.caption)
                         .lineLimit(2)
                         .foregroundStyle(.red)
+                    if let suggestion = failure.suggestion {
+                        Text(suggestion)
+                            .font(.caption)
+                            .lineLimit(3)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let detail = failure.detail {
+                        Text(detail)
+                            .font(.caption2.monospaced())
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.tertiary)
+                            .textSelection(.enabled)
+                    }
                 }
             }
             .padding(8)

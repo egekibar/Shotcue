@@ -24,6 +24,12 @@ public final class TaskDetailStore {
     public var scheduleDate: Date
     public var isSchedulePresented = false
     public var lastError: String?
+    /// A send is waiting for a voice note's transcript (final review C1); the header says so.
+    public private(set) var isWaitingForTranscript = false
+
+    /// How long a send waits for a pending transcript, and how often it looks. Internal so tests can shorten them.
+    @ObservationIgnored var transcriptWaitTimeout: Duration = TranscriptGate.defaultTimeout
+    @ObservationIgnored var transcriptWaitPollInterval: Duration = .milliseconds(500)
 
     @ObservationIgnored private let services: AppServices
     @ObservationIgnored private var streams: [Task<Void, Never>] = []
@@ -48,9 +54,14 @@ public final class TaskDetailStore {
     /// Whether the pending-transcript poll is running (test hook).
     var isPollingTranscripts: Bool { transcriptPollTask != nil }
 
-    public init(services: AppServices, taskID: UUID) {
+    /// The shared transcription model (spec §6.2): a pending note says whether it waits for the model and offers
+    /// the download (final review C1 (c)). Nil: pending notes read "çevriliyor".
+    public let modelStore: TranscriberModelStore?
+
+    public init(services: AppServices, taskID: UUID, modelStore: TranscriberModelStore? = nil) {
         self.services = services
         self.taskID = taskID
+        self.modelStore = modelStore
         self.scheduleDate = services.clock.now.addingTimeInterval(3600)
     }
 
@@ -76,6 +87,7 @@ public final class TaskDetailStore {
                 for await list in runStream {
                     guard let self else { return }
                     self.runs = list.sorted { $0.startedAt > $1.startedAt }
+                    self.refreshResumableRun()
                     self.syncLiveSubscription()
                 }
             })
@@ -119,6 +131,7 @@ public final class TaskDetailStore {
             captures = try await services.tasks.captures(taskID: taskID)
             voiceNotes = try await services.tasks.voiceNotes(taskID: taskID)
             runs = try await services.runs.runs(taskID: taskID).sorted { $0.startedAt > $1.startedAt }
+            refreshResumableRun()
             projects = try await services.projects.allProjects()
             if let scheduled = task?.scheduledAt { scheduleDate = scheduled }
             syncLiveSubscription()
@@ -126,6 +139,7 @@ public final class TaskDetailStore {
         } catch {
             report(error)
         }
+        await modelStore?.refresh()
     }
 
     /// Re-reads captures and voice notes, which the task stream does not carry.
@@ -157,6 +171,8 @@ public final class TaskDetailStore {
                     guard !Task.isCancelled else { return }
                     self.voiceNotes = notes
                 }
+                // The model can finish downloading, or fail to load, while a note waits for it.
+                await self.modelStore?.refresh()
                 self.syncTranscriptPolling()
             }
         }
@@ -175,8 +191,18 @@ public final class TaskDetailStore {
 
     public var latestRun: Run? { runs.first }
 
-    /// The claude session id to resume: `run.id` doubles as `--session-id` (spec §6.3).
-    public var sessionID: String? { latestRun?.id.uuidString }
+    /// The run a resume opens (final review M4): the newest one that actually started claude. Runs refused or
+    /// cancelled before launch (C1, I4, claude not found) have no session. Kept in step with `runs`, so the file
+    /// checks behind it run when the runs change, not on every render.
+    public private(set) var resumableRun: Run?
+
+    /// The claude session id to resume: `run.id` doubles as `--session-id` (spec §6.3). nil disables the
+    /// "Terminalde devam et" / "Desktop'ta aç" buttons.
+    public var sessionID: String? { resumableRun?.id.uuidString }
+
+    private func refreshResumableRun() {
+        resumableRun = services.fileStore.latestLaunchedRun(in: runs)
+    }
 
     /// What `RunLogView` renders: the live stream while the selected run is the live one, otherwise the
     /// selected run's replay (which keeps an ended live run's events on screen).
@@ -193,13 +219,25 @@ public final class TaskDetailStore {
     public var isEditable: Bool { task?.status.isEditable ?? false }
 
     public var canSend: Bool {
-        guard let task else { return false }
+        guard let task, !isWaitingForTranscript else { return false }
         return task.projectID != nil && task.status.canTransition(to: .queued)
+    }
+
+    /// The date the task is scheduled for, only while it is `scheduled` (final review I3): a row that kept an old
+    /// date after it ran (rows written before the fix) shows the "Tarih seç…" / "Günlük kuyruğa al" controls again.
+    public var scheduledFor: Date? {
+        guard let task, task.status == .scheduled else { return nil }
+        return task.scheduledAt
     }
 
     public var canCancel: Bool {
         guard let task else { return false }
         return task.status == .running || task.status == .queued || task.status == .scheduled
+    }
+
+    /// What the note's transcript waits for: "model indirilmedi" rather than an endless "çevriliyor" (spec §6.2).
+    public func transcriptStatus(for note: VoiceNote) -> VoiceNoteStatus {
+        VoiceNoteStatus.of(note, model: modelStore?.state)
     }
 
     public var firstTranscript: String? {
@@ -264,6 +302,9 @@ public final class TaskDetailStore {
             break
         }
     }
+
+    /// Text typed into the inspector that is not saved yet; the quit path commits it (final review I2).
+    public var hasUncommittedDrafts: Bool { !drafts.isEmpty }
 
     /// Commits every field with uncommitted edits (e.g. when the inspector goes away).
     public func commitDrafts() async {
@@ -427,10 +468,33 @@ public final class TaskDetailStore {
 
     public func sendNow() async {
         await commitDrafts()
-        do {
-            try await services.dispatcher.enqueue(taskID: taskID)
-        } catch {
-            report(error)
+        await sendWhenTranscribed()
+    }
+
+    /// Final review C1: the task goes to the dispatcher only with usable text for every voice note. A pending
+    /// transcript is waited for (bounded, `isWaitingForTranscript` on screen) while the model can produce it;
+    /// otherwise `lastError` says why nothing was sent.
+    private func sendWhenTranscribed() async {
+        guard !isWaitingForTranscript else { return }
+        let gate = TranscriptGate(
+            services: services, timeout: transcriptWaitTimeout, pollInterval: transcriptWaitPollInterval)
+        var decision = await gate.decide(taskID: taskID)
+        if decision == .wait {
+            isWaitingForTranscript = true
+            decision = await gate.waitForTranscripts(of: [taskID])[taskID] ?? .refuse(TranscriptGate.timeoutMessage)
+            isWaitingForTranscript = false
+        }
+        switch decision {
+        case .send:
+            do {
+                try await services.dispatcher.enqueue(taskID: taskID)
+            } catch {
+                report(error)
+            }
+        case .refuse(let message):
+            lastError = message
+        case .wait:
+            lastError = TranscriptGate.timeoutMessage
         }
     }
 
@@ -512,21 +576,26 @@ public final class TaskDetailStore {
     /// "Yeniden çalıştır": failed/cancelled/done all have an edge to `queued`.
     public func retry() async {
         await commitDrafts()
-        do {
-            try await services.dispatcher.enqueue(taskID: taskID)
-        } catch {
-            report(error)
-        }
+        await sendWhenTranscribed()
     }
 
     // MARK: - Handoff
 
+    /// Resumes the session in Terminal from the task's project folder, where the run worked (final review M6).
     public func openInTerminal() async {
         guard let sessionID else {
             lastError = "Devam ettirilecek bir oturum yok."
             return
         }
-        do { try services.handoff.openInTerminal(sessionID: sessionID) } catch { report(error) }
+        guard let projectPath = project?.path else {
+            lastError = "Oturum proje klasöründen devam ettirilir; görevin bir projesi yok."
+            return
+        }
+        do {
+            try services.handoff.openInTerminal(sessionID: sessionID, projectPath: projectPath)
+        } catch {
+            report(error)
+        }
     }
 
     public func openInDesktop() async {

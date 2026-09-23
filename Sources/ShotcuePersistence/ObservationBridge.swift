@@ -20,10 +20,14 @@ enum ObservationBridge {
                 } catch {
                     // A failing observation (database closed, schema gone, corrupt row) ends
                     // the stream; UI stores treat a finished stream as "no more updates".
-                    // Log it so the failure is not silent; cancellation is the normal end.
+                    // Log it so the failure is not silent; cancellation is the normal end. Only the error's type is
+                    // public: a row-decoding error's description carries the row's values (titles, notes,
+                    // transcripts), which must never reach the public unified log (final review I5).
                     if !(error is CancellationError) {
                         Logger(subsystem: "com.shotcue.app", category: "persistence")
-                            .error("observation failed: \(String(describing: error), privacy: .public)")
+                            .error(
+                                "observation failed: \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
+                            )
                     }
                     continuation.finish()
                 }

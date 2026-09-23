@@ -52,11 +52,9 @@ public actor WhisperKitTranscriber: Transcriber {
         case .ready:
             return .ready
         case .notDownloaded:
-            var isDirectory: ObjCBool = false
-            let exists = FileManager.default.fileExists(
-                atPath: modelFolderURL.path,
-                isDirectory: &isDirectory)
-            return exists && isDirectory.boolValue ? .ready : .notDownloaded
+            // The three CoreML bundles, not the folder alone: an interrupted download leaves the folder behind
+            // (final review M8).
+            return WhisperKitEngine.hasRequiredBundles(in: modelFolderURL) ? .ready : .notDownloaded
         }
     }
 

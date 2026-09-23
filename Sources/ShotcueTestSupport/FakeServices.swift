@@ -144,13 +144,18 @@ public final class FakeGitInspector: GitInspector, @unchecked Sendable {
     public let snapshots: Locked<[String: GitSnapshot]>
     public let branches = Locked<[(name: String, path: String)]>([])
     public let stashes = Locked<[String]>([])
+    /// Set to make `createBranch` / `stashAll` fail (nothing is recorded then).
+    public let branchFailure = Locked<FakeError?>(nil)
+    public let stashFailure = Locked<FakeError?>(nil)
     public init(snapshots: [String: GitSnapshot] = [:]) { self.snapshots = Locked(snapshots) }
     public func snapshot(at path: String) async -> GitSnapshot? { snapshots.current[path] }
     public func createBranch(_ name: String, at path: String) async throws {
+        if let failure = branchFailure.current { throw failure }
         branches.withLock { $0.append((name, path)) }
         snapshots.withLock { $0[path]?.branch = name }
     }
     public func stashAll(at path: String) async throws {
+        if let failure = stashFailure.current { throw failure }
         stashes.withLock { $0.append(path) }
         snapshots.withLock { $0[path]?.isDirty = false }
     }
@@ -173,7 +178,9 @@ public final class FakeNotifier: Notifier, @unchecked Sendable {
 public final class FakeHandoffService: HandoffService, @unchecked Sendable {
     public let actions = Locked<[String]>([])
     public init() {}
-    public func openInTerminal(sessionID: String) throws { actions.withLock { $0.append("terminal:\(sessionID)") } }
+    public func openInTerminal(sessionID: String, projectPath: String) throws {
+        actions.withLock { $0.append("terminal:\(sessionID)@\(projectPath)") }
+    }
     public func openInDesktop(sessionID: String) throws { actions.withLock { $0.append("desktop:\(sessionID)") } }
     public func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws {
         actions.withLock { $0.append("composer:\(projectPath):\(files.count)") }
@@ -186,9 +193,14 @@ public final class FakeTaskDispatcher: TaskDispatcher, @unchecked Sendable {
     public let cancelledTasks = Locked<[UUID]>([])
     public let runQueueCalls = Locked(0)
     public let paused = Locked(false)
+    /// Set to make `enqueue` fail (nothing is recorded then), e.g. the app's "claude missing" refusal.
+    public let enqueueError = Locked<FakeError?>(nil)
     private let broadcasters = Locked<[UUID: Broadcaster<RunEvent>]>([:])
     public init() {}
-    public func enqueue(taskID: UUID) async throws { enqueued.withLock { $0.append(taskID) } }
+    public func enqueue(taskID: UUID) async throws {
+        if let error = enqueueError.current { throw error }
+        enqueued.withLock { $0.append(taskID) }
+    }
     public func cancel(taskID: UUID) async { cancelledTasks.withLock { $0.append(taskID) } }
     public func runQueueNow() async { runQueueCalls.withLock { $0 += 1 } }
     public func setPaused(_ value: Bool) async { paused.set(value) }

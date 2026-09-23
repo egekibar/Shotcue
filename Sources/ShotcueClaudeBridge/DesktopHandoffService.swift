@@ -4,11 +4,16 @@ import ShotcueCore
 
 public enum HandoffError: Error, Equatable, Sendable {
     case openFailed(String)
+    /// A session id that is not a UUID never reaches a shell script (final review M6).
+    case invalidSessionID(String)
 }
 
 /// Hands a session to the terminal or to Claude Desktop (spec §6.4, research 04 §3).
 /// Deep links never auto-send: they fill the composer, the user presses Enter.
 public struct DesktopHandoffService: HandoffService {
+    /// Opens a file or URL; `NSWorkspace.shared.open` in the app, a recorder in tests.
+    public typealias Opener = @Sendable (URL) -> Bool
+
     /// Claude Desktop silently truncates `q` at 14 336 characters; we stay below it.
     public static let composerPromptLimit = 14_000
 
@@ -17,22 +22,29 @@ public struct DesktopHandoffService: HandoffService {
     /// `code/new` keeps the project context; `cowork/new` is the fallback when file
     /// attachments matter (research 04 §3.3-5).
     public let composerRoute: String
+    private let open: Opener
 
-    public init(claudeExecutable: URL, fileStore: FileStore, composerRoute: String = "code/new") {
+    public init(
+        claudeExecutable: URL, fileStore: FileStore, composerRoute: String = "code/new",
+        open: @escaping Opener = { NSWorkspace.shared.open($0) }
+    ) {
         self.claudeExecutable = claudeExecutable
         self.fileStore = fileStore
         self.composerRoute = composerRoute
+        self.open = open
     }
 
-    public func openInTerminal(sessionID: String) throws {
+    public func openInTerminal(sessionID: String, projectPath: String) throws {
+        guard let session = UUID(uuidString: sessionID) else { throw HandoffError.invalidSessionID(sessionID) }
         let url = try Self.writeResumeCommand(
-            claudeExecutable: claudeExecutable, sessionID: sessionID, fileStore: fileStore)
-        guard NSWorkspace.shared.open(url) else { throw HandoffError.openFailed(url.path) }
+            claudeExecutable: claudeExecutable, sessionID: session.uuidString.lowercased(),
+            projectPath: projectPath, fileStore: fileStore)
+        guard open(url) else { throw HandoffError.openFailed(url.path) }
     }
 
     public func openInDesktop(sessionID: String) throws {
         let url = Self.resumeURL(sessionID: sessionID)
-        guard NSWorkspace.shared.open(url) else { throw HandoffError.openFailed(url.absoluteString) }
+        guard open(url) else { throw HandoffError.openFailed(url.absoluteString) }
     }
 
     public func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws {
@@ -40,17 +52,19 @@ public struct DesktopHandoffService: HandoffService {
         let url = Self.composerURL(
             route: composerRoute, prompt: payload.text,
             projectPath: projectPath, files: payload.files)
-        guard NSWorkspace.shared.open(url) else { throw HandoffError.openFailed(url.absoluteString) }
+        guard open(url) else { throw HandoffError.openFailed(url.absoluteString) }
     }
 
-    // MARK: - File preparation (tested against a temporary FileStore, never reaches NSWorkspace)
+    // MARK: - File preparation (tested against a temporary FileStore)
 
     /// Writes `runs/<sessionID>-resume.command` with mode 755 and returns its URL.
-    static func writeResumeCommand(claudeExecutable: URL, sessionID: String, fileStore: FileStore) throws -> URL {
+    static func writeResumeCommand(
+        claudeExecutable: URL, sessionID: String, projectPath: String, fileStore: FileStore
+    ) throws -> URL {
         let relPath = "\(FileStore.runsDir)/\(sessionID)-resume.command"
         try fileStore.ensureParentDirectory(for: relPath)
         let url = fileStore.absoluteURL(for: relPath)
-        try commandFileContents(claudeExecutable: claudeExecutable, sessionID: sessionID)
+        try commandFileContents(claudeExecutable: claudeExecutable, sessionID: sessionID, projectPath: projectPath)
             .write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
         return url
@@ -69,10 +83,19 @@ public struct DesktopHandoffService: HandoffService {
         return (longPromptNotice(path: url.path), files + [url.path])
     }
 
-    // MARK: - Pure parts (unit tested without touching NSWorkspace)
+    // MARK: - Pure parts (unit tested without opening anything)
 
-    public static func commandFileContents(claudeExecutable: URL, sessionID: String) -> String {
-        "#!/bin/zsh\n\"\(claudeExecutable.path)\" --resume \(sessionID)\n"
+    /// `cd` into the project first (claude keeps sessions per folder, and the resumed session's tools must run
+    /// there), then resume. Every path is single-quoted; the session id is a validated UUID.
+    public static func commandFileContents(claudeExecutable: URL, sessionID: String, projectPath: String) -> String {
+        "#!/bin/zsh\n"
+            + "cd -- \(shellQuoted(projectPath)) || exit 1\n"
+            + "\(shellQuoted(claudeExecutable.path)) --resume \(sessionID)\n"
+    }
+
+    /// `text` as one zsh word: single quotes, each embedded `'` written as `'\''`.
+    public static func shellQuoted(_ text: String) -> String {
+        "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     public static func longPromptNotice(path: String) -> String {
@@ -98,6 +121,8 @@ public struct DesktopHandoffService: HandoffService {
         items.append(URLQueryItem(name: "folder", value: projectPath))
         items += files.map { URLQueryItem(name: "file", value: $0) }
         components.queryItems = items
+        // URLComponents leaves `+` as it is, and a query decoder reads it as a space (final review M6).
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         return components.url ?? URL(string: "claude://code/new")!
     }
 }

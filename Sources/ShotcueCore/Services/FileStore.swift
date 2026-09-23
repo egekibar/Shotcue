@@ -53,4 +53,22 @@ public struct FileStore: Sendable {
             at: absoluteURL(for: relPath).deletingLastPathComponent(),
             withIntermediateDirectories: true)
     }
+
+    // MARK: - Resumable runs (final review M4)
+
+    /// claude wrote at least one event for the run: the run log exists and is not empty. The log is written from
+    /// the first event on (claude's `init` carries the session id), so a run without one never started a session.
+    public func hasRunLog(_ run: Run, fileManager: FileManager = .default) -> Bool {
+        let attributes = try? fileManager.attributesOfItem(atPath: absoluteURL(for: run.logRelPath).path)
+        return ((attributes?[.size] as? NSNumber)?.intValue ?? 0) > 0
+    }
+
+    /// The run "Terminalde devam et" / "Desktop'ta aç" resume: the newest one that actually started claude — still
+    /// running, or finished with events in its log. Runs refused or cancelled before launch, claude not found, and
+    /// launch-recovery rows have no session (`--resume` would say "No conversation found") and are skipped.
+    public func latestLaunchedRun(in runs: [Run], fileManager: FileManager = .default) -> Run? {
+        runs.sorted { $0.startedAt > $1.startedAt }.first { run in
+            run.state == .running || (run.isFinished && hasRunLog(run, fileManager: fileManager))
+        }
+    }
 }

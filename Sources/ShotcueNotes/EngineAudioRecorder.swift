@@ -68,7 +68,7 @@ public actor EngineAudioRecorder: AudioRecorder {
         // A write or recovery error ended the audio early: the file keeps what was written before it.
         if let error = issues.firstError {
             audioLog.error(
-                "Recording \(destination.lastPathComponent, privacy: .public) kept \(finished.duration, privacy: .public) s after an error: \(String(describing: error), privacy: .public)"
+                "Recording \(destination.lastPathComponent, privacy: .private) kept \(finished.duration, privacy: .public) s after an error: \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
             )
         }
         return RecordingInfo(fileURL: destination, duration: finished.duration)
@@ -85,7 +85,7 @@ public actor EngineAudioRecorder: AudioRecorder {
     private func applyInputDevice() -> InputDeviceError? {
         guard let inputDeviceUID, let problem = selectInputDevice(uid: inputDeviceUID) else { return nil }
         audioLog.warning(
-            "Input device not used (\(String(describing: problem), privacy: .public)); recording with the default input"
+            "Input device not used (\(String(describing: problem), privacy: .private)); recording with the default input"
         )
         return problem
     }
@@ -162,7 +162,8 @@ public actor EngineAudioRecorder: AudioRecorder {
         } catch {
             issues.recordRecoveryError(error)
             audioLog.error(
-                "Recording stopped after an audio configuration change: \(String(describing: error), privacy: .public)")
+                "Recording stopped after an audio configuration change: \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
+            )
         }
     }
 }
@@ -254,7 +255,8 @@ struct TapSink: Sendable {
         } catch {
             issues.recordWriteError(error)
             audioLog.error(
-                "Recording write failed, later audio is not archived: \(String(describing: error), privacy: .public)")
+                "Recording write failed, later audio is not archived: \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
+            )
         }
     }
 }

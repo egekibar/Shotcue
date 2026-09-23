@@ -43,6 +43,21 @@ struct DraftFlushTests {
         f.store.stop()
     }
 
+    /// Final review I2: the quit path asks whether the inspector holds text that was never committed.
+    @MainActor
+    @Test func uncommittedDraftsAreVisibleToTheQuitPath() async throws {
+        let f = await inspected()
+        defer { f.bundle.cleanUp() }
+        #expect(f.store.hasUncommittedDrafts == false)
+        f.store.editTitle("yarım başlık")
+        #expect(f.store.hasUncommittedDrafts)
+
+        await f.store.commitDrafts()
+        #expect(f.store.hasUncommittedDrafts == false)
+        #expect(try await f.bundle.tasks.task(id: f.task.id)?.title == "yarım başlık")
+        f.store.stop()
+    }
+
     @MainActor
     @Test func everyInspectorActionFlushesTheDraftsFirst() async throws {
         let later = t0.addingTimeInterval(7200)

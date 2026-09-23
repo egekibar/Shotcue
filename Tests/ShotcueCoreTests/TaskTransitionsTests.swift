@@ -46,6 +46,37 @@ struct TaskTransitionsTests {
         #expect(t.updatedAt == now.addingTimeInterval(1))
     }
 
+    /// Final review I3: the date only means something while the task is `scheduled`. A scheduled task that ran and
+    /// failed (or was cancelled) must not carry the old date: the inspector keyed its schedule UI off it, and a later
+    /// →scheduled step would pass the date check with a stale value.
+    @Test(arguments: [TaskStatus.failed, .cancelled, .done])
+    func everyStepAwayFromScheduledClearsTheDate(end: TaskStatus) throws {
+        var t = ShotTask(projectID: UUID(), title: "x", status: .ready)
+        t.scheduledAt = now.addingTimeInterval(3600)
+        try t.transition(to: .scheduled, at: now)
+        #expect(t.scheduledAt == now.addingTimeInterval(3600))
+
+        try t.transition(to: .queued, at: now)
+        #expect(t.scheduledAt == nil)
+        try t.transition(to: .running, at: now)
+        try t.transition(to: end, at: now)
+        #expect(t.scheduledAt == nil)
+
+        // Rescheduling sets a new date as part of the →scheduled step.
+        let next = now.addingTimeInterval(7200)
+        t.scheduledAt = next
+        try t.transition(to: .scheduled, at: now)
+        #expect(t.status == .scheduled)
+        #expect(t.scheduledAt == next)
+    }
+
+    @Test func aDateSetOutsideScheduledIsDroppedByTheNextStep() throws {
+        var t = ShotTask(projectID: UUID(), title: "x", status: .ready)
+        t.scheduledAt = now
+        try t.transition(to: .queued, at: now)
+        #expect(t.scheduledAt == nil)
+    }
+
     @Test func runningIsNotEditable() {
         #expect(TaskStatus.running.isEditable == false)
         #expect(TaskStatus.allCases.filter { $0 != .running }.allSatisfy { $0.isEditable })

@@ -27,6 +27,9 @@ public struct QuickPanelView: View {
             }
             noteEditor
             recordingRow
+            if store.showsModelNotice, let model = store.modelStore {
+                modelNotice(model)
+            }
             if let error = store.lastError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
@@ -226,6 +229,40 @@ public struct QuickPanelView: View {
                 Text("cihaz içi transkripsiyon")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Spec §6.2: a recording made without the model is kept and waits; the panel says so and offers the download
+    /// (its size shown, started only by this click) instead of promising an on-device transcript.
+    @ViewBuilder
+    private func modelNotice(_ model: TranscriberModelStore) -> some View {
+        HStack(spacing: 8) {
+            switch model.state {
+            case .downloading(let progress):
+                ProgressView(value: progress) {
+                    Text("Transkripsiyon modeli indiriliyor… %\(Int((progress * 100).rounded()))")
+                        .font(.caption)
+                }
+                .progressViewStyle(.linear)
+            case .failed:
+                Label("Model yüklenemedi; kayıt saklandı, yazıya dökülmeyi bekliyor.", systemImage: "arrow.down.circle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Spacer(minLength: 6)
+                Button("Modeli yeniden indir (\(model.downloadSizeText))") { model.startDownload() }
+                    .buttonStyle(.glass)
+                    .font(.caption)
+            default:
+                Label(
+                    "Model indirilmedi; kayıt saklandı, model inince yazıya dökülür.", systemImage: "arrow.down.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                Spacer(minLength: 6)
+                Button("Modeli indir (\(model.downloadSizeText))") { model.startDownload() }
+                    .buttonStyle(.glass)
+                    .font(.caption)
             }
         }
     }

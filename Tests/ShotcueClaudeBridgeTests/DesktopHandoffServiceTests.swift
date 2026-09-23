@@ -1,11 +1,12 @@
 import Foundation
 import ShotcueCore
+import ShotcueTestSupport
 import Testing
 
 @testable import ShotcueClaudeBridge
 
-/// Only the static helpers are exercised here: `openInTerminal`, `openDesktopComposer` and `openInDesktop`
-/// end in `NSWorkspace.shared.open`, which would launch Terminal / Claude Desktop from a test process.
+/// `openInTerminal`, `openDesktopComposer` and `openInDesktop` end in the injected opener; the tests pass one that only
+/// records, so nothing launches Terminal or Claude Desktop from a test process.
 @Suite("DesktopHandoffService")
 struct DesktopHandoffServiceTests {
     let claude = URL(fileURLWithPath: "/Users/me/.local/bin/claude")
@@ -88,27 +89,84 @@ struct DesktopHandoffServiceTests {
         #expect(short.files.isEmpty)
     }
 
-    @Test func commandFileContentsResumeTheSession() {
+    /// Final review M6: the resumed session needs the project as its working directory (claude keeps sessions per
+    /// folder, and its tools must run there), and nothing in the file may be read by the shell as code.
+    @Test func commandFileContentsCdIntoTheProjectAndQuoteEverything() {
         let script = DesktopHandoffService.commandFileContents(
-            claudeExecutable: claude, sessionID: "3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73")
-        #expect(script == "#!/bin/zsh\n\"/Users/me/.local/bin/claude\" --resume 3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73\n")
+            claudeExecutable: URL(fileURLWithPath: "/Users/me/my tools/claude"),
+            sessionID: "3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73",
+            projectPath: "/Users/me/it's a project")
+        #expect(
+            script
+                == "#!/bin/zsh\n"
+                + "cd -- '/Users/me/it'\\''s a project' || exit 1\n"
+                + "'/Users/me/my tools/claude' --resume 3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73\n")
         #expect(!script.contains("--bare"))
+        #expect(DesktopHandoffService.shellQuoted("a'b") == "'a'\\''b'")
+        #expect(DesktopHandoffService.shellQuoted("$(rm -rf ~)") == "'$(rm -rf ~)'")
     }
 
-    @Test func openInTerminalWritesAnExecutableCommandFile() throws {
+    @Test func openInTerminalWritesTheCommandFileAndOpensIt() throws {
         let store = try makeStore()
         defer { try? FileManager.default.removeItem(at: store.rootURL) }
-        let sessionID = "3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73"
-        // `openInTerminal` writes the file through this helper before it calls NSWorkspace.open.
-        let written = try DesktopHandoffService.writeResumeCommand(
-            claudeExecutable: claude, sessionID: sessionID, fileStore: store)
+        let opened = Locked<[URL]>([])
+        let service = DesktopHandoffService(
+            claudeExecutable: claude, fileStore: store,
+            open: { url in
+                opened.withLock { $0.append(url) }
+                return true
+            })
+        // Any spelling of the id is accepted; the file carries the lowercase one the run started with.
+        try service.openInTerminal(sessionID: "3F2A9C40-7B18-4C6D-9E51-8A2B1D4F0C73", projectPath: "/tmp/proje")
 
+        let sessionID = "3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73"
         let url = store.absoluteURL(for: "runs/\(sessionID)-resume.command")
-        #expect(written == url)
+        #expect(opened.current == [url])
         let text = try String(contentsOf: url, encoding: .utf8)
-        #expect(text == DesktopHandoffService.commandFileContents(claudeExecutable: claude, sessionID: sessionID))
+        #expect(
+            text
+                == DesktopHandoffService.commandFileContents(
+                    claudeExecutable: claude, sessionID: sessionID, projectPath: "/tmp/proje"))
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         let permissions = try #require(attributes[.posixPermissions] as? NSNumber)
         #expect(permissions.int16Value == 0o755)
+    }
+
+    @Test func aSessionIDThatIsNotAUUIDIsRefusedBeforeAnythingIsWritten() throws {
+        let store = try makeStore()
+        defer { try? FileManager.default.removeItem(at: store.rootURL) }
+        let opened = Locked(0)
+        let service = DesktopHandoffService(
+            claudeExecutable: claude, fileStore: store,
+            open: { _ in
+                opened.withLock { $0 += 1 }
+                return true
+            })
+        #expect(throws: HandoffError.invalidSessionID("x; rm -rf ~")) {
+            try service.openInTerminal(sessionID: "x; rm -rf ~", projectPath: "/tmp/proje")
+        }
+        #expect(opened.current == 0)
+        let runs = store.absoluteURL(for: FileStore.runsDir).path
+        #expect(((try? FileManager.default.contentsOfDirectory(atPath: runs)) ?? []).isEmpty)
+    }
+
+    @Test func aFailedOpenIsReported() throws {
+        let store = try makeStore()
+        defer { try? FileManager.default.removeItem(at: store.rootURL) }
+        let service = DesktopHandoffService(claudeExecutable: claude, fileStore: store, open: { _ in false })
+        #expect(throws: HandoffError.self) {
+            try service.openInTerminal(sessionID: "3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73", projectPath: "/tmp/p")
+        }
+    }
+
+    /// Final review M6: `+` would read as a space on the receiving side; it is percent-encoded.
+    @Test func composerURLPercentEncodesPlus() throws {
+        let url = DesktopHandoffService.composerURL(
+            route: "code/new", prompt: "C++ ve a+b", projectPath: "/tmp/a+b", files: ["/tmp/x+y.png"])
+        #expect(url.absoluteString.contains("q=C%2B%2B%20ve%20a%2Bb"))
+        #expect(url.absoluteString.contains("folder=/tmp/a%2Bb"))
+        #expect(url.absoluteString.contains("file=/tmp/x%2By.png"))
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(components.queryItems?.first?.value == "C++ ve a+b")
     }
 }

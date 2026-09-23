@@ -84,6 +84,50 @@ struct SchedulerDriverTests {
         #expect(dispatcher.enqueued.current == [first.id, second.id])
     }
 
+    /// Final review M2: a day's queue is not used up when nothing could be enqueued (claude missing, say): the next
+    /// tick tries again, and the failure is logged once per project per day instead of every 30 s.
+    @Test func aDailyQueueThatEnqueuedNothingTriesAgainAndLogsOncePerDay() async throws {
+        let project = Project(
+            name: "crm", path: "/tmp/crm", dailyTime: DailyTime(hour: 9, minute: 30), dailyEnabled: true)
+        let task = ShotTask(projectID: project.id, title: "bir", status: .ready, sortIndex: 1)
+        let dispatcher = FakeTaskDispatcher()
+        dispatcher.enqueueError.set(FakeError("claude bulunamadı"))
+        let clock = MutableClock(now)
+        let (subject, projects) = driver(tasks: [task], projects: [project], clock: clock, dispatcher: dispatcher)
+
+        await subject.tick()
+        clock.advance(by: 30)
+        await subject.tick()
+        clock.advance(by: 30)
+        await subject.tick()
+        #expect(try await projects.project(id: project.id)?.dailyLastFiredAt == nil)
+        #expect(await subject.dailyFailureReports == 1)
+
+        // Still failing the next day: one more report, not one per tick.
+        clock.advance(by: 24 * 3600)
+        await subject.tick()
+        await subject.tick()
+        #expect(await subject.dailyFailureReports == 2)
+
+        // claude is back: the next tick fires the day's queue and only now stamps it.
+        dispatcher.enqueueError.set(nil)
+        await subject.tick()
+        #expect(dispatcher.enqueued.current == [task.id])
+        #expect(try await projects.project(id: project.id)?.dailyLastFiredAt == clock.now)
+    }
+
+    @Test func aDailyQueueWithNothingToRunIsStampedForTheDay() async throws {
+        let project = Project(
+            name: "crm", path: "/tmp/crm", dailyTime: DailyTime(hour: 9, minute: 30), dailyEnabled: true)
+        let dispatcher = FakeTaskDispatcher()
+        let (subject, projects) = driver(
+            tasks: [], projects: [project], clock: MutableClock(now), dispatcher: dispatcher)
+
+        await subject.tick()
+        #expect(try await projects.project(id: project.id)?.dailyLastFiredAt == now)
+        #expect(await subject.dailyFailureReports == 0)
+    }
+
     @Test func disabledDailyQueueNeverFires() async throws {
         let project = Project(
             name: "crm", path: "/tmp/crm", dailyTime: DailyTime(hour: 9, minute: 0),

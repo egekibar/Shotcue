@@ -105,7 +105,8 @@ struct QuickPanelStoreTests {
         #expect(saved.durationSec == 3.5)
         #expect(saved.editedByUser == false)
         #expect(saved.relPath == f.bundle.services.fileStore.audioRelPath(id: saved.id))
-        #expect(f.bundle.transcriptionQueue.enqueued.current == [saved.id])
+        // Handed to the queue without waiting for the transcription itself.
+        #expect(await waitUntil("enqueued") { f.bundle.transcriptionQueue.enqueued.current == [saved.id] })
         f.bundle.cleanUp()
     }
 
@@ -211,7 +212,7 @@ struct QuickPanelStoreTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(closed.current == 1)
         #expect(try await f.bundle.services.tasks.voiceNotes(taskID: f.task.id).count == 1)
-        #expect(f.bundle.transcriptionQueue.enqueued.current.count == 1)
+        #expect(await waitUntil("enqueued") { f.bundle.transcriptionQueue.enqueued.current.count == 1 })
         f.bundle.cleanUp()
     }
 
@@ -294,6 +295,29 @@ struct QuickPanelStoreTests {
             await waitUntil("note saved") {
                 f.store.voiceNotes.count == 1
             })
+        f.bundle.cleanUp()
+    }
+
+    /// Final review I2: the quit path asks whether the panel holds unsaved text or audio, and finishes a recording in
+    /// progress so its file is closed and its voice-note row exists.
+    @MainActor
+    @Test func unsavedWorkIsReportedAndARecordingIsFinishedForQuitting() async throws {
+        let f = try await fixture()
+        #expect(f.store.hasUnsavedWork == false)
+        f.store.noteText = "yazdım ama kaydetmedim"
+        #expect(f.store.hasUnsavedWork)
+        f.store.noteText = "   "
+        #expect(f.store.hasUnsavedWork == false)
+
+        await f.store.toggleRecording()
+        #expect(f.store.hasUnsavedWork)
+        await f.store.stopRecordingIfNeeded()
+        #expect(f.store.isRecording == false)
+        #expect(try await f.bundle.services.tasks.voiceNotes(taskID: f.task.id).count == 1)
+        #expect(f.store.hasUnsavedWork == false)
+        // A second call has nothing left to do.
+        await f.store.stopRecordingIfNeeded()
+        #expect(try await f.bundle.services.tasks.voiceNotes(taskID: f.task.id).count == 1)
         f.bundle.cleanUp()
     }
 

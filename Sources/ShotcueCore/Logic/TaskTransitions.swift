@@ -29,6 +29,10 @@ extension TaskStatus {
 
 extension ShotTask {
     /// The only sanctioned way to change `status`. Also maintains `scheduledAt` and `updatedAt`.
+    ///
+    /// `scheduledAt` only means something while the task is `scheduled`: a caller that schedules sets the date right
+    /// before the →scheduled step, and every step to any other status clears it (final review I3) — so a scheduled
+    /// task that later fails or is cancelled carries no stale date.
     public mutating func transition(to next: TaskStatus, at now: Date) throws(TaskStateError) {
         guard status.canTransition(to: next) else {
             throw .invalidTransition(from: status, to: next)
@@ -39,7 +43,7 @@ extension ShotTask {
         if next == .scheduled, scheduledAt == nil {
             throw .scheduledDateRequired
         }
-        if next == .ready || next == .inbox || next == .done {
+        if next != .scheduled {
             scheduledAt = nil
         }
         status = next

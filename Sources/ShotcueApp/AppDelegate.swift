@@ -17,6 +17,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         NSApp.setActivationPolicy(.accessory)
         environment.activationPolicy.install()
 
+        // Final review I2: SIGTERM (`pkill`, `make install`) takes the quit path instead of killing the process.
+        environment.termination.installSignalHandler()
+
         // The notifier owns the category/action identifiers (Plan 04); the app only routes taps.
         UNUserNotificationCenter.current().delegate = self
         environment.notifier.registerCategories()
@@ -32,6 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // Spec §8 then §6.5, in this order: runs interrupted by the last quit are failed first, then the
         // scheduler starts. It owns its 30 s DispatchSourceTimer and the NSWorkspace.didWakeNotification
         // observer; its first timer pass is `interval` away, so launch asks for one immediate reconcile.
+        // Final review I1: the coordinator holds its queue until here, so no run can start before recovery;
+        // then the queue resumes — tasks queued before the quit start again — but only once `claude` is known
+        // to exist (the same wait as `ClaudeGatedDispatcher`): without it, queued tasks stay queued.
         Task { @MainActor in
             do {
                 let recovered = try await environment.runCoordinator.recoverInterruptedRuns()
@@ -44,6 +50,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
             await environment.scheduler.start()
             await environment.scheduler.tick()
+            if await environment.claude.executable() != nil {
+                await environment.runCoordinator.resumeQueue()
+            } else {
+                AppLog.app.notice("claude missing: the run queue stays held, queued tasks stay queued")
+            }
         }
 
         // Voice notes recorded while the model was missing get transcribed now. This can take minutes
@@ -63,6 +74,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if LaunchFlags.shouldOpenLibrary {
             environment.windowOpener.openLibrary()
         }
+    }
+
+    /// Final review I2: runs in flight are stopped (after a confirmation when the user quit) and unsaved text and
+    /// audio are kept before AppKit terminates; with nothing to stop or save it terminates at once.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        AppBootstrap.environment.termination.applicationShouldTerminate()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -124,8 +141,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 environment.status.lastError = "Devam edilecek oturum bulunamadı."
                 return
             }
+            // The session resumes from the task's project folder, where the run worked (final review M6).
+            guard let projectPath = await Self.projectPath(taskID: taskID, environment: environment) else {
+                environment.status.lastError = "Oturum proje klasöründen devam ettirilir; görevin bir projesi yok."
+                return
+            }
             do {
-                try environment.services.handoff.openInTerminal(sessionID: sessionID)
+                try environment.services.handoff.openInTerminal(sessionID: sessionID, projectPath: projectPath)
             } catch {
                 environment.status.lastError = "Terminal açılamadı: \(error.localizedDescription)"
             }
@@ -149,15 +171,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return UUID(uuidString: string)
     }
 
-    /// The notification's run, or the task's newest one. The spelling `--resume` needs is applied by
-    /// `ClaudeHandoff`, the same as for the Inspector's resume buttons.
+    /// The notification's run (RUN_DONE: claude ran it), or the task's newest run that actually started claude
+    /// (final review M4, the Inspector's rule). The spelling `--resume` needs is applied by `ClaudeHandoff`, the
+    /// same as for the Inspector's resume buttons.
     private static func sessionID(
         runID: UUID?, taskID: UUID?, environment: AppEnvironment
     ) async -> String? {
         if let runID { return runID.uuidString }
         guard let taskID else { return nil }
         let runs = (try? await environment.services.runs.runs(taskID: taskID)) ?? []
-        return runs.max(by: { $0.startedAt < $1.startedAt })?.id.uuidString
+        return environment.fileStore.latestLaunchedRun(in: runs)?.id.uuidString
+    }
+
+    /// The folder of the task's project; nil when the task or its project is gone.
+    private static func projectPath(taskID: UUID?, environment: AppEnvironment) async -> String? {
+        guard let taskID, let task = try? await environment.services.tasks.task(id: taskID),
+            let projectID = task.projectID,
+            let project = try? await environment.services.projects.project(id: projectID)
+        else { return nil }
+        return project.path
     }
 
     /// Banners while Shotcue is frontmost, too — a finished run is the whole point of the app.

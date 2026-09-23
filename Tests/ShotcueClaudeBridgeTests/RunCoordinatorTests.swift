@@ -86,6 +86,44 @@ final class GatedGitInspector: GitInspector, @unchecked Sendable {
     func stashAll(at path: String) async throws { try await base.stashAll(at: path) }
 }
 
+/// Every `run` parks on one gate until the test opens it; `started` lists the runs that reached claude.
+final class GatedClaudeRunner: ClaudeRunner, @unchecked Sendable {
+    let gate = Gate()
+    let started = Locked<[UUID]>([])
+    func run(_ spec: RunSpec, onEvent: @escaping @Sendable (RunEvent) -> Void) async throws -> ClaudeRunResult {
+        started.withLock { $0.append(spec.runID) }
+        await gate.wait()
+        return ClaudeRunResult(subtype: "success", isError: false)
+    }
+    func cancel(runID: UUID) async {}
+    func version() async throws -> String { "gated" }
+}
+
+/// Parks every run until it is cancelled, then ends it the way `ProcessClaudeRunner` does: `.cancelled`.
+final class CancellableClaudeRunner: ClaudeRunner, @unchecked Sendable {
+    private let waiting = Locked<[UUID: CheckedContinuation<Void, Never>]>([:])
+    private let cancelledEarly = Locked<Set<UUID>>([])
+    let started = Locked<[UUID]>([])
+    func run(_ spec: RunSpec, onEvent: @escaping @Sendable (RunEvent) -> Void) async throws -> ClaudeRunResult {
+        started.withLock { $0.append(spec.runID) }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resumeNow = cancelledEarly.withLock { $0.contains(spec.runID) }
+            if resumeNow {
+                continuation.resume()
+            } else {
+                waiting.withLock { $0[spec.runID] = continuation }
+            }
+        }
+        throw ClaudeRunError.cancelled
+    }
+    func cancel(runID: UUID) async {
+        cancelledEarly.withLock { _ = $0.insert(runID) }
+        let continuation = waiting.withLock { $0.removeValue(forKey: runID) }
+        continuation?.resume()
+    }
+    func version() async throws -> String { "cancellable" }
+}
+
 /// The in-memory project repository, except that `project(id:)` parks on a gate.
 final class GatedProjectRepository: ProjectRepository, @unchecked Sendable {
     let base: InMemoryProjectRepository
@@ -127,9 +165,11 @@ struct Harness {
     let root: URL
 
     /// `snapshotGate` / `projectGate` park the coordinator's git snapshots / project lookups on that gate.
+    /// `holdsQueue` builds the coordinator the way the app does: nothing starts before `resumeQueue()`.
     init(
         projects: [Project], tasks: [ShotTask], runs: [Run] = [], runner: any ClaudeRunner,
-        settings: RunSettings = RunSettings(keepAwake: false), snapshotGate: Gate? = nil, projectGate: Gate? = nil
+        settings: RunSettings = RunSettings(keepAwake: false), snapshotGate: Gate? = nil, projectGate: Gate? = nil,
+        holdsQueue: Bool = false
     ) {
         clock = MutableClock()
         projectRepository = InMemoryProjectRepository(projects)
@@ -152,7 +192,7 @@ struct Harness {
             runner: runner, taskRepository: taskRepository,
             projectRepository: coordinatorProjects, runRepository: runRepository,
             gitInspector: coordinatorGit, fileStore: fileStore,
-            notifier: notifier, clock: clock, settings: settings)
+            notifier: notifier, clock: clock, settings: settings, holdsQueueUntilResumed: holdsQueue)
     }
 
     func cleanUp() { try? FileManager.default.removeItem(at: root) }
@@ -204,7 +244,8 @@ struct RunCoordinatorTests {
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.kind == .runDone)
         #expect(notification.title == "Buton rengi")
-        #expect(notification.body == "Özet satırı")
+        // Spec §5.5: title + one-line summary + cost (final review M1).
+        #expect(notification.body == "Özet satırı · $0.42")
         #expect(notification.taskID == task.id)
         #expect(notification.runID == run.id)
 
@@ -214,6 +255,20 @@ struct RunCoordinatorTests {
         let replayed = log.split(separator: "\n", omittingEmptySubsequences: true)
             .compactMap { StreamJSONParser.parse(line: String($0)) }
         #expect(replayed == [.assistantText("bakıyorum"), .toolUse(name: "Read", summary: "Read a.png")])
+    }
+
+    @Test func aDoneNotificationWithoutACostOrSummaryStaysShort() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Sessiz", status: .ready)
+        let runner = FakeClaudeRunner(outcome: .success(ClaudeRunResult(subtype: "success", isError: false)))
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run succeeded") { await h.runs(of: task.id).first?.state == .succeeded }
+        #expect(h.notifier.sent.current.first?.body == "Tamamlandı")
+        #expect(RunCoordinator.doneBody(summary: nil, costUSD: 1.5) == "Tamamlandı · $1.50")
+        #expect(RunCoordinator.doneBody(summary: "Bitti.", costUSD: 0.004) == "Bitti. · $0.00")
     }
 
     @Test func limitResultFailsTheTaskAndNotifies() async throws {
@@ -237,7 +292,9 @@ struct RunCoordinatorTests {
         #expect(await h.status(of: task.id) == .failed)
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.kind == .runFailed)
-        #expect(notification.body == "Tur limiti aşıldı (30 tur).")
+        // Final review I6: the Turkish text comes from the one mapping, with the §8 limit hint.
+        #expect(notification.body == RunErrorText.notificationBody(for: RunErrorCode.maxTurns, numTurns: 30))
+        #expect(notification.body.contains("tur limitini artırıp"))
     }
 
     @Test func cancelledRunnerErrorMapsToCancelledWithoutANotification() async throws {
@@ -265,8 +322,39 @@ struct RunCoordinatorTests {
 
         let run = try #require(await h.runs(of: task.id).first)
         #expect(run.exitCode == 1)
-        #expect(run.error == "claude ile tekrar giriş yapın.")
+        #expect(run.error == RunErrorCode.claudeNotLoggedIn)
+        #expect(h.notifier.sent.current.first?.body.contains("claude ile tekrar giriş yapın.") == true)
         #expect(h.notifier.sent.current.first?.kind == .runFailed)
+    }
+
+    /// Final review I6: the run row keeps a machine code (plus the raw detail worth showing); the notification says it
+    /// in Turkish through `RunErrorText`.
+    @Test(
+        arguments: zip(
+            [
+                ClaudeRunError.timedOut, .notFound, .noResult, .launchFailed("posix_spawn failed"),
+                .processFailed(exitCode: 2, stderr: "boom\nsecond line"),
+            ],
+            [
+                RunErrorCode.timeout, RunErrorCode.claudeNotFound, RunErrorCode.noResult,
+                "claude_launch_failed: posix_spawn failed", "claude_failed: boom",
+            ]))
+    func runnerErrorsAreStoredAsCodes(error: ClaudeRunError, stored: String) async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Kod", status: .ready)
+        let h = Harness(projects: [project], tasks: [task], runner: ErrorClaudeRunner(error))
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        let run = try #require(await h.runs(of: task.id).first)
+        #expect(run.error == stored)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(
+            notification.body
+                == RunErrorText.notificationBody(for: run.error, exitCode: run.exitCode, numTurns: run.numTurns))
+        #expect(!notification.body.contains("_"))
     }
 
     @Test func cancelForwardsToTheRunnerWhileRunningAndUnqueuesOtherwise() async throws {
@@ -311,6 +399,7 @@ struct RunCoordinatorTests {
         // It never ran, so it is ready to be sent again.
         #expect(await h.status(of: task.id) == .ready)
         #expect(h.notifier.sent.current.isEmpty)
+        #expect(await h.runs(of: task.id).first?.error == RunErrorCode.cancelledBeforeLaunch)
     }
 
     @Test func editsMadeDuringARunSurviveItsEnd() async throws {
@@ -527,7 +616,7 @@ struct RunCoordinatorTests {
         #expect(spec.systemPromptAppend.hasSuffix("\n\nTürkçe cevap ver."))
     }
 
-    @Test func promptCarriesCaptureAbsolutePathsAndTranscripts() async throws {
+    @Test func promptCarriesCaptureAbsolutePathsAndEveryUsableTranscript() async throws {
         let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
         let task = ShotTask(projectID: project.id, title: "Filtre bozuk", noteText: "Son 7 gün yanlış.", status: .ready)
         let runner = successRunner()
@@ -548,11 +637,12 @@ struct RunCoordinatorTests {
                 taskID: task.id, relPath: "audio/a.m4a", durationSec: 3,
                 transcript: "tarih filtresi çalışmıyor",
                 transcriptState: .done))
+        // The transcriber gave up on this one, but the user typed its text: that text is the note.
         try await h.taskRepository.save(
             VoiceNote(
                 taskID: task.id, relPath: "audio/b.m4a", durationSec: 3,
-                transcript: "bu henüz yazıya dökülmedi",
-                transcriptState: .pending))
+                transcript: "elle yazılan sesli not",
+                transcriptState: .failed, editedByUser: true))
 
         try await h.coordinator.enqueue(taskID: task.id)
         await waitUntil("spec captured") { !runner.specs.current.isEmpty }
@@ -563,8 +653,67 @@ struct RunCoordinatorTests {
         #expect(prompt.contains("- \(firstPath)  (Filtre bozuk)"))
         #expect(prompt.contains("- \(secondPath)"))
         #expect(prompt.contains("tarih filtresi çalışmıyor"))
-        #expect(!prompt.contains("bu henüz yazıya dökülmedi"))
+        #expect(prompt.contains("elle yazılan sesli not"))
         #expect(prompt.contains("Son 7 gün yanlış."))
+    }
+
+    /// Final review C1: the voice note is the main instruction channel. A note still waiting for its
+    /// transcript, or one that failed with no text from the user, keeps claude from starting at all.
+    @Test(
+        arguments: zip(
+            [TranscriptState.pending, .failed],
+            [RunErrorCode.voiceNotePending, RunErrorCode.voiceNoteFailed]))
+    func aVoiceNoteWithoutUsableTextNeverStartsClaude(state: TranscriptState, code: String) async throws {
+        let project = Project(
+            name: "crm", path: Harness.makeProjectDirectory("crm"), runInBranch: true, stashBeforeRun: true)
+        let task = ShotTask(projectID: project.id, title: "Sesli görev", status: .ready)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+        try await h.taskRepository.save(
+            VoiceNote(
+                taskID: task.id, relPath: "audio/a.m4a", durationSec: 4,
+                transcript: "bitmemiş", transcriptState: state))
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        #expect(runner.specs.current.isEmpty)
+        // It never ran, so it is ready to be sent again once the note has text.
+        #expect(await h.status(of: task.id) == .ready)
+        let run = try #require(await h.runs(of: task.id).first)
+        #expect(run.error == code)
+        #expect(run.finishedAt != nil)
+        // Refused before the git steps: the working tree is left exactly as it was.
+        #expect(h.gitInspector.branches.current.isEmpty)
+        #expect(h.gitInspector.stashes.current.isEmpty)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(notification.kind == .runFailed)
+        #expect(notification.taskID == task.id)
+        #expect(notification.runID == run.id)
+        #expect(notification.body.contains("Sesli not"))
+    }
+
+    @Test func aTranscriptThatFinishedLetsTheNextSendRun() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Sesli görev", status: .ready)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+        var note = VoiceNote(taskID: task.id, relPath: "audio/a.m4a", durationSec: 4, transcriptState: .pending)
+        try await h.taskRepository.save(note)
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("refused") { await h.runs(of: task.id).first?.state == .failed }
+        #expect(runner.specs.current.isEmpty)
+
+        note.transcript = "artık yazıya döküldü"
+        note.transcriptState = .done
+        try await h.taskRepository.save(note)
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("ran") { await h.status(of: task.id) == .done }
+        #expect(runner.specs.current.count == 1)
+        #expect(runner.specs.current.first?.prompt.contains("artık yazıya döküldü") == true)
     }
 
     @Test func branchAndStashSettingsCallTheInspector() async throws {
@@ -577,11 +726,64 @@ struct RunCoordinatorTests {
         try await h.coordinator.enqueue(taskID: task.id)
         await waitUntil("run succeeded") { await h.runs(of: task.id).first?.state == .succeeded }
 
-        #expect(h.gitInspector.branches.current.map(\.name) == [GitOutputParser.branchName(for: task.id)])
+        let run = try #require(await h.runs(of: task.id).first)
+        let branch = GitOutputParser.branchName(taskID: task.id, runID: run.id)
+        #expect(h.gitInspector.branches.current.map(\.name) == [branch])
         #expect(h.gitInspector.branches.current.map(\.path) == [project.path])
         #expect(h.gitInspector.stashes.current == [project.path])
+        #expect(run.gitBranch == branch)
+
+        // Final review I4: running the task again makes a branch of its own instead of colliding.
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("second run succeeded") {
+            let runs = await h.runs(of: task.id)
+            return runs.count == 2 && runs.allSatisfy { $0.state == .succeeded }
+        }
+        let names = h.gitInspector.branches.current.map(\.name)
+        #expect(names.count == 2)
+        #expect(Set(names).count == 2)
+    }
+
+    /// Final review I4: with the git safety net turned on, a failing branch or stash step never lets claude start
+    /// (it would work on the current branch / on top of the uncommitted changes the user asked to set aside).
+    @Test(arguments: ["branch", "stash"])
+    func aFailingGitStepFailsBeforeLaunch(step: String) async throws {
+        let project = Project(
+            name: "crm", path: Harness.makeProjectDirectory("crm"), runInBranch: true, stashBeforeRun: true)
+        let task = ShotTask(projectID: project.id, title: "Git bozuk", status: .ready)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+        let gitError = FakeError("fatal: a branch named 'shotcue/x' already exists")
+        if step == "branch" {
+            h.gitInspector.branchFailure.set(gitError)
+        } else {
+            h.gitInspector.stashFailure.set(gitError)
+        }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        #expect(runner.specs.current.isEmpty)
+        #expect(await h.status(of: task.id) == .ready)
         let run = try #require(await h.runs(of: task.id).first)
-        #expect(run.gitBranch == GitOutputParser.branchName(for: task.id))
+        let code = step == "branch" ? RunErrorCode.gitBranchFailed : RunErrorCode.gitStashFailed
+        #expect(run.error?.hasPrefix(code) == true)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(notification.kind == .runFailed)
+        #expect(notification.taskID == task.id)
+    }
+
+    @Test func theGitFailureKeepsGitsOwnFirstLine() {
+        let error = GitError.commandFailed(
+            arguments: ["switch", "-c", "shotcue/x"], exitCode: 128,
+            stderr: "fatal: not a git repository (or any of the parent directories): .git\n")
+        #expect(
+            RunCoordinator.gitDetail(error) == "fatal: not a git repository (or any of the parent directories): .git")
+        #expect(
+            RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: RunCoordinator.gitDetail(error))
+                == "git_branch_failed: fatal: not a git repository (or any of the parent directories): .git")
+        #expect(RunErrorCode.compose(RunErrorCode.gitStashFailed, detail: "  ") == "git_stash_failed")
     }
 
     @Test func liveEventsStreamsAndFinishes() async throws {
@@ -669,6 +871,118 @@ struct RunCoordinatorTests {
         #expect(try await h.runRepository.activeRuns().isEmpty)
     }
 
+    /// Final review I1: tasks queued before a quit or crash start again after launch recovery, and only then.
+    @Test func queuedTasksFromTheLastSessionStartOnceTheQueueIsResumed() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let leftOver = ShotTask(projectID: project.id, title: "Dünden kalan", status: .queued, sortIndex: 1)
+        let fresh = ShotTask(projectID: project.id, title: "Yeni", status: .ready, sortIndex: 2)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [leftOver, fresh], runner: runner, holdsQueue: true)
+        defer { h.cleanUp() }
+
+        _ = try await h.coordinator.recoverInterruptedRuns()
+        // Held until the app resumes it: nothing may start before recovery, whatever pumps meanwhile.
+        try await h.coordinator.enqueue(taskID: fresh.id)
+        await h.coordinator.updateSettings(RunSettings(maxConcurrent: 3, keepAwake: false))
+        await h.coordinator.setPaused(false)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(runner.specs.current.isEmpty)
+        #expect(await h.status(of: leftOver.id) == .queued)
+
+        await h.coordinator.resumeQueue()
+        await waitUntil("both ran") {
+            let left = await h.status(of: leftOver.id)
+            let new = await h.status(of: fresh.id)
+            return left == .done && new == .done
+        }
+        #expect(runner.specs.current.count == 2)
+    }
+
+    /// Final review I1 (+ the reviewer's "task stuck running"): a task left `running` with no active run (a
+    /// stale whole-row write, or a run row that never got saved) can be neither cancelled nor deleted nor rerun.
+    @Test func recoveryFailsARunningTaskThatHasNoActiveRun() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let stuck = ShotTask(projectID: project.id, title: "Takılı", status: .running)
+        let finishedRun = Run(
+            taskID: stuck.id, state: .succeeded, startedAt: Date(timeIntervalSince1970: 10),
+            finishedAt: Date(timeIntervalSince1970: 20), logRelPath: "runs/old.jsonl")
+        let h = Harness(projects: [project], tasks: [stuck], runs: [finishedRun], runner: successRunner())
+        defer { h.cleanUp() }
+
+        #expect(try await h.coordinator.recoverInterruptedRuns() == 1)
+
+        #expect(await h.status(of: stuck.id) == .failed)
+        let runs = await h.runs(of: stuck.id)
+        #expect(runs.count == 2)
+        // The old run keeps its own outcome; the repair is a run row of its own that says why.
+        #expect(runs.first { $0.id == finishedRun.id }?.state == .succeeded)
+        let repair = try #require(runs.first { $0.id != finishedRun.id })
+        #expect(repair.state == .failed)
+        #expect(repair.error == "interrupted")
+        #expect(repair.finishedAt != nil)
+        #expect(try await h.runRepository.activeRuns().isEmpty)
+        // Failed goes through `transition`: the task can be rerun.
+        #expect(TaskStatus.failed.canTransition(to: .queued))
+    }
+
+    /// Final review I1: raising the concurrency limit starts what now fits, without waiting for another send.
+    @Test func updateSettingsStartsWhatTheNewLimitAllows() async throws {
+        let first = Project(name: "a", path: Harness.makeProjectDirectory("a"))
+        let second = Project(name: "b", path: Harness.makeProjectDirectory("b"))
+        let a = ShotTask(projectID: first.id, title: "a", status: .ready, sortIndex: 1)
+        let b = ShotTask(projectID: second.id, title: "b", status: .ready, sortIndex: 2)
+        let runner = GatedClaudeRunner()
+        let h = Harness(
+            projects: [first, second], tasks: [a, b], runner: runner,
+            settings: RunSettings(maxConcurrent: 1, keepAwake: false))
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: a.id)
+        try await h.coordinator.enqueue(taskID: b.id)
+        await waitUntil("one run started") { runner.started.current.count == 1 }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(runner.started.current.count == 1)
+
+        await h.coordinator.updateSettings(RunSettings(maxConcurrent: 2, keepAwake: false))
+        await waitUntil("the second run started") { runner.started.current.count == 2 }
+        runner.gate.open()
+        await waitUntil("both done") {
+            let first = await h.status(of: a.id)
+            let second = await h.status(of: b.id)
+            return first == .done && second == .done
+        }
+    }
+
+    /// Final review I2: the quit path reads the runs in flight synchronously, pauses the queue, cancels them and
+    /// waits until none is left — without the queue starting the next task in the freed slot.
+    @Test func pausingThenCancellingStopsTheRunsWithoutStartingQueuedOnes() async throws {
+        let first = Project(name: "a", path: Harness.makeProjectDirectory("a"))
+        let second = Project(name: "b", path: Harness.makeProjectDirectory("b"))
+        let running = ShotTask(projectID: first.id, title: "çalışan", status: .ready, sortIndex: 1)
+        let waiting = ShotTask(projectID: second.id, title: "bekleyen", status: .ready, sortIndex: 2)
+        let runner = CancellableClaudeRunner()
+        let h = Harness(
+            projects: [first, second], tasks: [running, waiting], runner: runner,
+            settings: RunSettings(maxConcurrent: 1, keepAwake: false))
+        defer { h.cleanUp() }
+        #expect(h.coordinator.activeTaskIDs.isEmpty)
+
+        try await h.coordinator.enqueue(taskID: running.id)
+        try await h.coordinator.enqueue(taskID: waiting.id)
+        await waitUntil("claude started") { runner.started.current.count == 1 }
+        #expect(h.coordinator.activeTaskIDs == [running.id])
+
+        await h.coordinator.setPaused(true)
+        for taskID in h.coordinator.activeTaskIDs { await h.coordinator.cancel(taskID: taskID) }
+        await waitUntil("settled") { h.coordinator.activeTaskIDs.isEmpty }
+
+        #expect(await h.status(of: running.id) == .cancelled)
+        #expect(await h.runs(of: running.id).first?.state == .cancelled)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(runner.started.current.count == 1)
+        #expect(await h.status(of: waiting.id) == .queued)
+    }
+
     @Test func missingProjectDirectoryFailsBeforeTheRunnerIsCalled() async throws {
         let project = Project(name: "taşınmış", path: "/tmp/shotcue-does-not-exist-\(UUID().uuidString)")
         let task = ShotTask(projectID: project.id, title: "Kayıp proje", status: .ready)
@@ -683,7 +997,7 @@ struct RunCoordinatorTests {
         // The task never ran, so it returns to `ready` instead of `failed`.
         #expect(await h.status(of: task.id) == .ready)
         let run = try #require(await h.runs(of: task.id).first)
-        #expect(run.error == RunCoordinator.missingProjectMessage(path: project.path))
+        #expect(run.error == RunErrorCode.compose(RunErrorCode.projectFolderMissing, detail: project.path))
         #expect(h.notifier.sent.current.first?.kind == .runFailed)
     }
 
@@ -708,7 +1022,7 @@ struct RunCoordinatorTests {
         let runs = await h.runs(of: orphan.id)
         #expect(runs.count == 1)
         #expect(runs.first?.state == .failed)
-        #expect(runs.first?.error == RunCoordinator.missingProjectRecordMessage)
+        #expect(runs.first?.error == RunErrorCode.projectMissing)
         #expect(h.notifier.sent.current.contains { $0.kind == .runFailed && $0.taskID == orphan.id })
     }
 

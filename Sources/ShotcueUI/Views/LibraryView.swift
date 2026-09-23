@@ -34,7 +34,12 @@ public struct LibraryView: View {
                 .navigationSubtitle("\(store.sortedTasks.count) öğe")
                 .searchable(text: $bindable.searchText, placement: .toolbar, prompt: "Başlık, not, transkript")
                 .toolbar { toolbarContent }
-                .safeAreaInset(edge: .bottom) { selectionBar }
+                .safeAreaInset(edge: .bottom) {
+                    VStack(spacing: 0) {
+                        transcriptWaitBanner
+                        selectionBar
+                    }
+                }
                 .inspector(isPresented: $bindable.isInspectorPresented) { inspector }
         }
         .task { store.start() }
@@ -371,6 +376,26 @@ public struct LibraryView: View {
                 Label("Detay", systemImage: "sidebar.trailing")
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
+        }
+    }
+
+    /// A send waiting for a voice note's transcript (final review C1).
+    @ViewBuilder
+    private var transcriptWaitBanner: some View {
+        if !store.waitingForTranscriptIDs.isEmpty {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(
+                    store.waitingForTranscriptIDs.count == 1
+                        ? "Sesli not yazıya dökülüyor… Bitince görev gönderilecek."
+                        : "Sesli notlar yazıya dökülüyor… Bitince \(store.waitingForTranscriptIDs.count) görev gönderilecek."
+                )
+                .font(.callout)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .glassEffect(in: .capsule)
+            .padding(.top, 8)
         }
     }
 

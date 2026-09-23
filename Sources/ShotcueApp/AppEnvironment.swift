@@ -27,12 +27,16 @@ final class AppEnvironment {
     let libraryStore: LibraryStore
     let menuBarStore: MenuBarStore
     let permissionsStore: PermissionsStore
+    /// The transcription model's state and its one download flow (Settings, quick panel, inspector).
+    let transcriberModel: TranscriberModelStore
 
     let windowOpener: WindowOpener
     let activationPolicy: ActivationPolicyController
     let quickPanel: QuickPanelController
     let onboarding: OnboardingWindowController
     let captureFlow: CaptureFlowController
+    /// Quit / SIGTERM: stop the runs, keep unsaved work (final review I2).
+    let termination: TerminationController
 
     /// Where `claude` is; resolved without blocking launch (checked by the runner, handoff, diagnostics).
     let claude: ClaudeExecutableLocator
@@ -99,7 +103,9 @@ final class AppEnvironment {
             fileStore: fileStore,
             notifier: notifier,
             clock: clock,
-            settings: AppSettingsBridge.runSettings(from: snapshot))
+            settings: AppSettingsBridge.runSettings(from: snapshot),
+            // Final review I1: nothing starts before launch recovery; `AppDelegate` resumes the queue after it.
+            holdsQueueUntilResumed: true)
         self.runCoordinator = runCoordinator
         // Every sender (UI stores through AppServices, the quick panel, the scheduler) goes through this:
         // with `claude` missing, sends are refused up front (spec §8).
@@ -139,8 +145,12 @@ final class AppEnvironment {
         // 8. Stores (Plan 05) and the shared image cache.
         let thumbnails = ThumbnailCache(fileStore: fileStore)
         self.thumbnails = thumbnails
+        let transcriberModel = TranscriberModelStore(
+            transcriber: transcriber, transcriptionQueue: transcription, modelName: snapshot.sttModel)
+        self.transcriberModel = transcriberModel
         self.libraryStore = LibraryStore(
             services: services,
+            modelStore: transcriberModel,
             renumber: { projectID in
                 try await PersistenceMaintenance.renumberSortIndexes(in: database, projectID: projectID)
             })
@@ -166,7 +176,16 @@ final class AppEnvironment {
             settings: settings)
         let quickPanel = QuickPanelController(
             makeStore: { taskID in
-                let store = QuickPanelStore(services: services, settings: settings)
+                let store = QuickPanelStore(services: services, settings: settings, modelStore: transcriberModel)
+                // ⌘⇧↩ with a transcript on its way closes the panel at once (final review C1); a send that then
+                // cannot go out is reported like any other failed run.
+                store.onSendFailure = { title, message, taskID in
+                    status.lastError = message
+                    Task {
+                        await notifier.notify(
+                            AppNotification(kind: .runFailed, title: title, body: message, taskID: taskID))
+                    }
+                }
                 // `capture(taskID:)` loads the row, the thumbnail and the projects; the panel shows at once
                 // and fills in as soon as the load lands.
                 Task { await store.capture(taskID: taskID) }
@@ -190,6 +209,9 @@ final class AppEnvironment {
             permissionsStore: permissionsStore,
             quickPanel: quickPanel,
             onboarding: onboarding)
+        self.termination = TerminationController(
+            runCoordinator: runCoordinator, dispatcher: dispatcher, libraryStore: libraryStore,
+            quickPanel: quickPanel)
     }
 
     // MARK: - Settings application
@@ -289,7 +311,7 @@ final class AppEnvironment {
 
     /// `claude --version`, transcriber model state, project list, input devices and login item status.
     func refreshStatus() {
-        let transcriber = services.transcriber
+        let transcriberModel = transcriberModel
         let projectRepository = services.projects
         Task { @MainActor in
             let version = await diagnostics.claudeVersion()
@@ -297,7 +319,7 @@ final class AppEnvironment {
             status.claudeFound = version.found
             AppLog.app.notice(
                 "claude \(version.found ? "found" : "missing", privacy: .public): \(version.text, privacy: .public)")
-            status.transcriberState = await transcriber.modelState()
+            await transcriberModel.refresh()
             status.projects = (try? await projectRepository.allProjects()) ?? []
         }
         status.inputDevices = AudioDeviceCatalog.inputDevices()
@@ -341,35 +363,6 @@ final class AppEnvironment {
         status.loginItemStatusText = LoginItemManager.statusText
     }
 
-    /// Settings > Ses > "Modeli indir" (explicit consent, spec §6.2). The transcriber reports its progress
-    /// through `modelState()`, so it is mirrored into the status every half second while the download runs;
-    /// the poll is awaited before the final state is written, so a late poll cannot overwrite `.ready`.
-    func downloadTranscriberModel() {
-        if case .downloading = status.transcriberState { return }
-        status.transcriberState = .downloading(progress: 0)
-        let transcriber = services.transcriber
-        Task { @MainActor in
-            let progressPoll = Task { @MainActor in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .milliseconds(500))
-                    let state = await transcriber.modelState()
-                    if !Task.isCancelled, case .downloading = state { status.transcriberState = state }
-                }
-            }
-            do {
-                try await transcriber.downloadModel()
-                progressPoll.cancel()
-                await progressPoll.value
-                status.transcriberState = await transcriber.modelState()
-                await services.transcriptionQueue.processPending()
-            } catch {
-                progressPoll.cancel()
-                await progressPoll.value
-                status.transcriberState = .failed(error.localizedDescription)
-            }
-        }
-    }
-
     func runDiagnostics() {
         guard !status.diagnosticsRunning else { return }
         status.diagnosticsRunning = true
@@ -377,7 +370,7 @@ final class AppEnvironment {
             defer { status.diagnosticsRunning = false }
             do {
                 let url = try await diagnostics.writeReport(
-                    transcriberState: status.transcriberState,
+                    transcriberState: transcriberModel.state,
                     loginItemStatus: LoginItemManager.statusText,
                     hotKeyLabel: settings.hotKey.label)
                 NSWorkspace.shared.open(url)

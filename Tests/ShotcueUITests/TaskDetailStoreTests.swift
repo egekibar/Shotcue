@@ -146,6 +146,25 @@ struct TaskDetailStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// Final review I3: the schedule controls follow the status. A failed task that kept an old date (a row written
+    /// before the fix) offers "Tarih seç…" again instead of a date and a "Kaldır" that does nothing.
+    @MainActor
+    @Test func theScheduleControlsFollowTheStatusNotTheDate() async throws {
+        let f = try await fixture(status: .failed)
+        var stale = try #require(try await f.bundle.services.tasks.task(id: f.task.id))
+        stale.scheduledAt = t0.addingTimeInterval(-3600)
+        try await f.bundle.services.tasks.save(stale)
+        await f.store.reload()
+        #expect(f.store.scheduledFor == nil)
+
+        let when = t0.addingTimeInterval(7200)
+        await f.store.schedule(at: when)
+        #expect(f.store.task?.status == .scheduled)
+        #expect(f.store.scheduledFor == when)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func handoffUsesTheLatestRunIdAsTheSessionId() async throws {
         let f = try await fixture(status: .done)
@@ -154,6 +173,8 @@ struct TaskDetailStoreTests {
             finishedAt: t0.addingTimeInterval(84), numTurns: 11, costUSD: 0.4137,
             resultText: "Fixed the button color.", subtype: "success",
             logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        // claude wrote events for it: the run started a session (final review M4).
+        try f.bundle.writeFile(run.logRelPath, contents: "{\"type\":\"system\",\"subtype\":\"init\"}\n")
         try await f.bundle.services.runs.save(run)
         _ = await waitUntil("runs") { f.store.runs.count == 1 }
 
@@ -162,12 +183,76 @@ struct TaskDetailStoreTests {
         await f.store.openInDesktop()
         #expect(
             f.bundle.handoff.actions.current == [
-                "terminal:\(run.id.uuidString)",
+                // Final review M6: Terminal resumes from the project folder.
+                "terminal:\(run.id.uuidString)@/tmp/acme-web",
                 "desktop:\(run.id.uuidString)",
             ])
 
         await f.store.openComposer()
         #expect(f.bundle.handoff.actions.current.last == "composer:/tmp/acme-web:1")
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    /// Final review M4: resume opens the newest run that actually started claude; a newer run refused before
+    /// launch (C1, I4) has no session and is skipped.
+    @MainActor
+    @Test func resumeSkipsRunsThatNeverStartedClaude() async throws {
+        let f = try await fixture(status: .ready)
+        let launched = Run(
+            taskID: f.task.id, state: .succeeded, startedAt: t0, finishedAt: t0.addingTimeInterval(30),
+            logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try f.bundle.writeFile(launched.logRelPath, contents: "{\"type\":\"system\",\"subtype\":\"init\"}\n")
+        let refused = Run(
+            taskID: f.task.id, state: .failed, startedAt: t0.addingTimeInterval(60),
+            finishedAt: t0.addingTimeInterval(60), error: RunErrorCode.voiceNotePending,
+            logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try await f.bundle.services.runs.save(launched)
+        try await f.bundle.services.runs.save(refused)
+        _ = await waitUntil("runs") { f.store.runs.count == 2 }
+
+        #expect(f.store.latestRun?.id == refused.id)
+        #expect(f.store.sessionID == launched.id.uuidString)
+        await f.store.openInTerminal()
+        #expect(f.bundle.handoff.actions.current.first?.hasPrefix("terminal:\(launched.id.uuidString)") == true)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    /// Final review M6: without a project there is no folder to resume the session from.
+    @MainActor
+    @Test func terminalResumeNeedsTheTasksProjectFolder() async throws {
+        let f = try await fixture(status: .done)
+        let run = Run(
+            taskID: f.task.id, state: .succeeded, startedAt: t0, finishedAt: t0.addingTimeInterval(30),
+            logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try f.bundle.writeFile(run.logRelPath, contents: "{\"type\":\"system\",\"subtype\":\"init\"}\n")
+        try await f.bundle.services.runs.save(run)
+        _ = await waitUntil("runs") { f.store.runs.count == 1 }
+        await f.store.setProject(nil)
+        _ = await waitUntil("detached") { f.store.task?.projectID == nil }
+
+        await f.store.openInTerminal()
+        #expect(f.bundle.handoff.actions.current.isEmpty)
+        #expect(f.store.lastError?.contains("proje klasöründen") == true)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func resumeIsOffWhenNoRunStartedClaude() async throws {
+        let f = try await fixture(status: .ready)
+        let refused = Run(
+            taskID: f.task.id, state: .failed, startedAt: t0, finishedAt: t0,
+            error: RunErrorCode.gitBranchFailed, logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try await f.bundle.services.runs.save(refused)
+        _ = await waitUntil("runs") { f.store.runs.count == 1 }
+
+        #expect(f.store.sessionID == nil)
+        await f.store.openInTerminal()
+        await f.store.openInDesktop()
+        #expect(f.bundle.handoff.actions.current.isEmpty)
+        #expect(f.store.lastError == "Devam ettirilecek bir oturum yok.")
         f.store.stop()
         f.bundle.cleanUp()
     }

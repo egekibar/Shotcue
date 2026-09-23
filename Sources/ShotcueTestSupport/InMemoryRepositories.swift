@@ -123,7 +123,7 @@ public final class InMemoryRunRepository: RunRepository, @unchecked Sendable {
         storage.withLock { dict in
             for (id, var run) in dict where run.state == .starting || run.state == .running {
                 run.state = .failed
-                run.error = "interrupted"
+                run.error = RunErrorCode.interrupted
                 run.finishedAt = now
                 dict[id] = run
                 count += 1

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import ShotcueCore
+import os
 
 /// Drives the library window (spec §5.3): sidebar counts, the filtered/sorted content list, multi
 /// selection and every bulk action in the bottom bar.
@@ -29,6 +30,12 @@ public final class LibraryStore {
     /// taskID -> total voice-note seconds, for the "0:04 🎙" badge on a card.
     public private(set) var voiceSeconds: [UUID: Double] = [:]
     public private(set) var isPaused = false
+    /// Tasks whose send waits for a voice note's transcript (final review C1); the bottom bar says so.
+    public private(set) var waitingForTranscriptIDs: Set<UUID> = []
+
+    /// How long a send waits for pending transcripts, and how often it looks. Internal so tests can shorten them.
+    @ObservationIgnored var transcriptWaitTimeout: Duration = TranscriptGate.defaultTimeout
+    @ObservationIgnored var transcriptWaitPollInterval: Duration = .milliseconds(500)
 
     public var sortOrder: SortOrder = .newest
     public var viewMode: ViewMode = .grid
@@ -79,8 +86,9 @@ public final class LibraryStore {
     @ObservationIgnored private let services: AppServices
     @ObservationIgnored private let renumber: Renumber
     @ObservationIgnored private var allTasks: [ShotTask] = []
-    /// Non-nil while a search is active; the filter then runs over these rows instead of `allTasks`.
-    @ObservationIgnored private var searchResults: [ShotTask]?
+    /// Non-nil while a search is active: the ids the repository matched. The filter then runs over the live
+    /// `allTasks` rows with these ids, so status chips and titles keep updating (final review M9).
+    @ObservationIgnored private var searchResultIDs: Set<UUID>?
     @ObservationIgnored private var streams: [Task<Void, Never>] = []
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var decorationTask: Task<Void, Never>?
@@ -89,13 +97,18 @@ public final class LibraryStore {
     @ObservationIgnored private var storedSearchText = ""
     @ObservationIgnored private var storedSelectedIDs: Set<UUID> = []
 
+    /// Handed to every inspector store, so a pending voice note can say it waits for the model (C1 (c)).
+    @ObservationIgnored private let modelStore: TranscriberModelStore?
+
     /// `renumber` defaults to a no-op so the store works (and tests) without the persistence module.
     /// Plan 06 passes `PersistenceMaintenance.renumberSortIndexes`.
     public init(
         services: AppServices,
+        modelStore: TranscriberModelStore? = nil,
         renumber: @escaping Renumber = { _ in }
     ) {
         self.services = services
+        self.modelStore = modelStore
         self.renumber = renumber
         self.scheduleDate = services.clock.now.addingTimeInterval(3600)
     }
@@ -229,7 +242,7 @@ public final class LibraryStore {
         searchTask?.cancel()
         let query = storedSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            searchResults = nil
+            searchResultIDs = nil
             recompute()
             return
         }
@@ -243,14 +256,14 @@ public final class LibraryStore {
     private func performSearch() async {
         let query = storedSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            searchResults = nil
+            searchResultIDs = nil
             recompute()
             return
         }
         do {
-            searchResults = try await services.tasks.search(query)
+            searchResultIDs = Set(try await services.tasks.search(query).map(\.id))
         } catch {
-            searchResults = []
+            searchResultIDs = []
             report(error)
         }
         recompute()
@@ -268,13 +281,64 @@ public final class LibraryStore {
     /// "Ayrı ayrı gönder": every selected task becomes its own run.
     public func send(taskIDs: Set<UUID>) async {
         await flushInspectorDrafts(for: taskIDs)
-        for id in ordered(taskIDs) {
-            do {
-                try await services.dispatcher.enqueue(taskID: id)
-            } catch {
-                report(error)
+        await sendWhenTranscribed(ordered(taskIDs))
+    }
+
+    private func transcriptGate() -> TranscriptGate {
+        TranscriptGate(services: services, timeout: transcriptWaitTimeout, pollInterval: transcriptWaitPollInterval)
+    }
+
+    /// Final review C1: each task goes to the dispatcher only with usable text for every voice note. Tasks that
+    /// can go out are enqueued at once; tasks waiting for a transcript (the model is ready) are enqueued once it
+    /// lands, bounded, with `waitingForTranscriptIDs` on screen; the rest are refused in `lastError`.
+    private func sendWhenTranscribed(_ ids: [UUID]) async {
+        let gate = transcriptGate()
+        var problems: [String] = []
+        var waiting: [UUID] = []
+        for id in ids {
+            switch await gate.decide(taskID: id) {
+            case .send:
+                if let problem = await enqueue(id, among: ids.count) { problems.append(problem) }
+            case .refuse(let message):
+                problems.append(problemLine(message, taskID: id, among: ids.count))
+            case .wait:
+                waiting.append(id)
             }
         }
+        if !waiting.isEmpty {
+            waitingForTranscriptIDs.formUnion(waiting)
+            let outcomes = await gate.waitForTranscripts(of: waiting)
+            waitingForTranscriptIDs.subtract(waiting)
+            for id in waiting {
+                switch outcomes[id] ?? .refuse(TranscriptGate.timeoutMessage) {
+                case .send:
+                    if let problem = await enqueue(id, among: ids.count) { problems.append(problem) }
+                case .refuse(let message):
+                    problems.append(problemLine(message, taskID: id, among: ids.count))
+                case .wait:
+                    problems.append(problemLine(TranscriptGate.timeoutMessage, taskID: id, among: ids.count))
+                }
+            }
+        }
+        if !problems.isEmpty { lastError = problems.joined(separator: "\n") }
+    }
+
+    /// Enqueues one task; the problem line when the dispatcher refused it.
+    private func enqueue(_ id: UUID, among count: Int) async -> String? {
+        do {
+            try await services.dispatcher.enqueue(taskID: id)
+            return nil
+        } catch let stateError as TaskStateError {
+            return problemLine(Self.message(for: stateError), taskID: id, among: count)
+        } catch {
+            return problemLine(error.localizedDescription, taskID: id, among: count)
+        }
+    }
+
+    /// With several tasks in one send, each problem names its task.
+    private func problemLine(_ message: String, taskID: UUID, among count: Int) -> String {
+        guard count > 1, let title = allTasks.first(where: { $0.id == taskID })?.title else { return message }
+        return "“\(title)”: \(message)"
     }
 
     /// "Tek task olarak birleştir ve gönder": captures and voice notes of the other tasks move onto the
@@ -284,6 +348,19 @@ public final class LibraryStore {
         let ids = ordered(taskIDs)
         guard let primaryID = ids.first else { return }
         guard ids.count > 1 else { return await send(taskIDs: [primaryID]) }
+        // C1: a note that can never be sent (failed, or no model for a pending one) is refused before anything
+        // moves, so the tasks stay as they were. A transcript on its way is waited for after the merge.
+        let gate = transcriptGate()
+        var refusals: [String] = []
+        for id in ids {
+            if case .refuse(let message) = await gate.decide(taskID: id) {
+                refusals.append(problemLine(message, taskID: id, among: ids.count))
+            }
+        }
+        guard refusals.isEmpty else {
+            lastError = refusals.joined(separator: "\n")
+            return
+        }
         do {
             guard var primary = try await services.tasks.task(id: primaryID) else { return }
             guard primary.status.isEditable else { return }
@@ -320,10 +397,11 @@ public final class LibraryStore {
             primary.updatedAt = services.clock.now
             try await services.tasks.save(primary)
             selectedTaskIDs = [primaryID]
-            try await services.dispatcher.enqueue(taskID: primaryID)
         } catch {
             report(error)
+            return
         }
+        await sendWhenTranscribed([primaryID])
     }
 
     /// "Projeye taşı". Coming out of the inbox the task also becomes `ready` (spec §7); going back to the
@@ -480,6 +558,9 @@ public final class LibraryStore {
         else { return nil }
         return url
     }
+
+    /// Paths are personal data: they never reach the public unified log (final review I5).
+    nonisolated static let fileLog = Logger(subsystem: "com.shotcue.app", category: "files")
 
     nonisolated static let removableFolders: Set<String> = [
         FileStore.capturesDir, FileStore.thumbsDir, FileStore.audioDir, FileStore.runsDir,
@@ -641,7 +722,10 @@ public final class LibraryStore {
     // MARK: - Recomputation
 
     private func recompute() {
-        let base = searchResults ?? allTasks
+        // During a search the matched ids are mapped onto the live rows (final review M9): a result whose status or
+        // title changed shows the change, a deleted one disappears. Rows created after the search are not matched
+        // until the next search.
+        let base = searchResultIDs.map { ids in allTasks.filter { ids.contains($0.id) } } ?? allTasks
         tasks = filtered(base)
         counts = makeCounts(allTasks)
         let visible = Set(tasks.map(\.id))
@@ -679,7 +763,7 @@ public final class LibraryStore {
         }
         guard detailStore?.taskID != id else { return }
         dropDetailStore()
-        let store = TaskDetailStore(services: services, taskID: id)
+        let store = TaskDetailStore(services: services, taskID: id, modelStore: modelStore)
         detailStore = store
         detailStartTask = Task { await store.start() }
     }
@@ -740,23 +824,26 @@ public final class LibraryStore {
             if let url = Self.removableURL(for: relPath, in: services.fileStore) {
                 urls.append(url)
             } else {
-                NSLog("Shotcue: not deleting unexpected path '%@'", relPath)
+                Self.fileLog.error("not deleting unexpected path '\(relPath, privacy: .private)'")
             }
         }
         guard !urls.isEmpty else { return }
+        let log = Self.fileLog
         await Task.detached(priority: .utility) {
             let fileManager = FileManager.default
             for url in urls {
                 var isDirectory: ObjCBool = false
                 guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
                 guard !isDirectory.boolValue else {
-                    NSLog("Shotcue: not deleting directory '%@'", url.path)
+                    log.error("not deleting directory '\(url.path, privacy: .private)'")
                     continue
                 }
                 do {
                     try fileManager.removeItem(at: url)
                 } catch {
-                    NSLog("Shotcue: could not delete '%@': %@", url.path, error.localizedDescription)
+                    log.error(
+                        "could not delete '\(url.path, privacy: .private)': \(error.localizedDescription, privacy: .private)"
+                    )
                 }
             }
         }.value

@@ -230,6 +230,25 @@ final class QuickPanelController {
         }
     }
 
+    /// Unsaved text or audio in the panel on screen (final review I2: quitting must not drop it).
+    var hasUnsavedWork: Bool { store?.hasUnsavedWork ?? false }
+
+    /// Quit (final review I2): the panel's store is retired the way a new capture retires it, and awaited — a typed
+    /// note is kept as a project-less inbox draft unless Esc was pressed (`save()` also stores a recording in
+    /// flight), a recording in progress is always stopped and stored. The panel is hidden first.
+    func retireForTermination() async {
+        guard let retiring = store else { return }
+        let keepsNote =
+            !escapePressed && !retiring.noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        tearDown()
+        if keepsNote {
+            retiring.selectedProjectID = nil
+            _ = await retiring.save()
+        } else {
+            await retiring.stopRecordingIfNeeded()
+        }
+    }
+
     private func tearDown() {
         keyMonitor.remove()
         panel?.onCancel = nil

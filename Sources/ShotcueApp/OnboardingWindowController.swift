@@ -120,7 +120,9 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         do {
             try relauncher.run()
         } catch {
-            AppLog.app.error("relaunch failed: \(String(describing: error), privacy: .public)")
+            AppLog.app.error(
+                "relaunch failed: \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
+            )
             return
         }
         AppLog.app.notice("relaunching after the Screen Recording grant")
