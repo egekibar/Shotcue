@@ -54,7 +54,7 @@ Shotcue, "şurası bozuk, düzelt" demeyi [Claude Code](https://github.com/anthr
     <td width="33%" valign="top">
       <img src="docs/assets/feature-capture.svg" width="44" alt=""><br>
       <b>Tek tuşla yakalama</b><br>
-      Herhangi bir uygulamada <b>⌃⇧2</b>, macOS'un kendi bölge seçimini başlatır. Hızlı panel işinin üstünde süzülür; seni çalıştığın uygulamadan koparmaz.
+      Herhangi bir uygulamada <b>⌃⇧2</b> (ya da kaydettiğin kısayol), macOS'un kendi bölge seçimini başlatır. Hızlı panel işinin üstünde süzülür; seni çalıştığın uygulamadan koparmaz.
     </td>
     <td width="33%" valign="top">
       <img src="docs/assets/feature-voice.svg" width="44" alt=""><br>
@@ -71,17 +71,17 @@ Shotcue, "şurası bozuk, düzelt" demeyi [Claude Code](https://github.com/anthr
     <td width="33%" valign="top">
       <img src="docs/assets/feature-claude.svg" width="44" alt=""><br>
       <b>Headless Claude Code</b><br>
-      Her görev, proje klasöründe <code>claude -p</code> olarak Claude aboneliğinle çalışır; API anahtarı gerekmez. Her çalışmanın tur sayısı, maliyeti ve sonucu kaydedilir.
+      Her görev, proje klasöründe <code>claude -p</code> olarak Claude aboneliğinle ve seçtiğin modelle çalışır; API anahtarı gerekmez. Her çalışmanın tur sayısı, maliyeti ve sonucu kaydedilir.
     </td>
     <td width="33%" valign="top">
       <img src="docs/assets/feature-schedule.svg" width="44" alt=""><br>
       <b>Şimdi, sonra ya da her gün</b><br>
-      Hemen gönder, bir tarih ve saate zamanla ya da görevleri projenin günlük kuyruğuna al. Bir projede aynı anda en fazla bir çalışma.
+      Hemen gönder, bir tarih ve saate zamanla ya da görevleri projenin günlük kuyruğuna al. Çalışmalar, belirlediğin sınıra kadar yan yana yürür.
     </td>
     <td width="33%" valign="top">
       <img src="docs/assets/feature-review.svg" width="44" alt=""><br>
       <b>İncele ve devam et</b><br>
-      Canlı logu izle, çalışmanın git diff'ini oku, bildirim al; oturuma Terminal'de ya da Claude Desktop'ta devam et.
+      Canlı logu izle, değişen kodu dosya dosya karşılaştır, bildirim al; oturuma Terminal'de ya da Claude Desktop'ta devam et.
     </td>
   </tr>
 </table>
@@ -101,7 +101,7 @@ flowchart TB
     B --> C["Hızlı panel<br/>not · sesli not · proje · mod"]
     C -- "⌘↩ Kaydet" --> D[("Kütüphane<br/>projeler · gelen · sıra")]
     C -- "⌘⇧↩ Kaydet ve gönder" --> E
-    D -- "Şimdi gönder · Zamanla… · günlük kuyruk" --> E["Çalışma kuyruğu<br/>proje başına bir çalışma"]
+    D -- "Şimdi gönder · Zamanla… · günlük kuyruk" --> E["Çalışma kuyruğu<br/>sınıra kadar yan yana"]
     E --> F["Proje klasöründe claude -p<br/>Claude aboneliğinle"]
     F --> G["Canlı log · maliyet · git diff<br/>bildirim"]
     G -.-> H["Devam et: claude --resume<br/>Terminal ya da Claude Desktop"]
@@ -109,7 +109,7 @@ flowchart TB
 
 - **Yakalama**, macOS'un kendi `screencapture -i -s` aracını kullanır: bir dikdörtgen çizersin, Esc iptal eder. PNG, 512 px'lik bir küçük resimle saklanır ve gelen kutusunda bir görev olur.
 - **Prompt**; ekran görüntülerinin tam yollarını, notunu, sesli not transkriptini ve proje klasörünü içerir. Claude'dan önce ekran görüntülerini okuması ve üç satırlık bir özet, değiştirdiği dosyalar ve yapamadıklarıyla bitirmesi istenir. *Uygula* modunda test eklemesi ya da güncellemesi, commit ve push yapmaması; *Analiz* modunda hiçbir dosyayı değiştirmemesi söylenir.
-- **Çalışma**, `--output-format stream-json`, `--session-id <çalışma kimliği>` (devam ettirilebilsin diye), `--add-dir <captures klasörü>` (Claude ekran görüntülerini okuyabilsin diye) ve Ayarlar'daki yetki modu, tur sınırı ve bütçeyle başlatılan `claude -p`'dir. Çalışma dizini proje klasörüdür. `ANTHROPIC_API_KEY` ortamdan çıkarılır; böylece çalışma Claude Code oturumunu kullanır.
+- **Çalışma**, `--output-format stream-json`, `--session-id <çalışma kimliği>` (devam ettirilebilsin diye), `--add-dir <captures klasörü>` (Claude ekran görüntülerini okuyabilsin diye) ve Ayarlar'daki yetki modu, tur sınırı ve bütçeyle (seçildiyse model ve effort'la da) başlatılan `claude -p`'dir. Çalışma dizini proje klasörüdür. `ANTHROPIC_API_KEY` ortamdan çıkarılır; böylece çalışma Claude Code oturumunu kullanır. `CLAUDE_CODE_ENTRYPOINT=shotcue` çalışmayı etiketler; böylece Claude Desktop oturumu diğer Claude Code oturumlarınla birlikte listeler.
 
 ## Gereksinimler
 
@@ -166,6 +166,8 @@ Herhangi bir yerde **⌃⇧2**'ye bas ve bir bölge seç (Esc iptal eder). Hızl
 
 Görevin başlığı notun (yoksa transkriptin) ilk cümlesidir; detay panelinde düzenlersen senin başlığın sabitlenir. Ayarlar → Genel'den her yakalamanın panoya da kopyalanmasını açabilirsin.
 
+**Kendi kısayolun:** Ayarlar → Genel'de *Kısayol*'un yanındaki **Kaydet**'e tıkla ve kombinasyona bas. ⌘, ⌃ ya da ⌥ içermeli (F5 gibi bir F tuşu tek başına da olur); Esc iptal eder, **Varsayılan** ⌃⇧2'ye döner. Kombinasyon kaydedilemezse (başka bir uygulama kullanıyor olabilir) Shotcue öncekini korur ve bunu Ayarlar'ın en altında söyler.
+
 ### Kütüphane
 
 **Kütüphane**'yi menü çubuğundan aç. Kenar çubuğu projelerini görev sayılarıyla, gelen kutusunu (*Gelen*) ve her durum için bir filtreyi (*Durum*) listeler.
@@ -180,7 +182,7 @@ Görevin başlığı notun (yoksa transkriptin) ilk cümlesidir; detay panelinde
 
 | Nerede | Tuşlar | İşlev |
 |---|---|---|
-| Her yerde | <kbd>⌃</kbd><kbd>⇧</kbd><kbd>2</kbd> | Bölge yakala (varsayılan; Ayarlar → Genel → *Kısayol*'dan değiştirilir) |
+| Her yerde | <kbd>⌃</kbd><kbd>⇧</kbd><kbd>2</kbd> | Bölge yakala (varsayılan; kendi kombinasyonunu Ayarlar → Genel → *Kısayol*'da kaydet) |
 | Hızlı panel | <kbd>⌘</kbd><kbd>↩</kbd> | Kaydet |
 | Hızlı panel | <kbd>⌘</kbd><kbd>⇧</kbd><kbd>↩</kbd> | Kaydet ve gönder |
 | Hızlı panel | <kbd>Esc</kbd> | Kapat; yakalama gelen kutusunda kalır |
@@ -194,7 +196,7 @@ Görevin başlığı notun (yoksa transkriptin) ilk cümlesidir; detay panelinde
 
 ## Claude Code'a gönderme
 
-- **Şimdi:** paneldeki *Kaydet ve gönder*, detay panelindeki ya da kartın sağ tık menüsündeki **Şimdi gönder**, ya da seçim çubuğunun gönder düğmeleri. Görev kuyruğa girer; kuyruk görevleri manuel sırayla başlatır: proje başına en fazla bir, toplamda en fazla *Eş zamanlı çalışma* (varsayılan 2).
+- **Şimdi:** paneldeki *Kaydet ve gönder*, detay panelindeki ya da kartın sağ tık menüsündeki **Şimdi gönder**, ya da seçim çubuğunun gönder düğmeleri. Görev kuyruğa girer; kuyruk görevleri manuel sırayla, aynı anda en fazla *Eş zamanlı çalışma* (varsayılan 2) kadar başlatır. Aynı projenin görevleri de yan yana çalışır; projede bir güvenlik ağı açıksa sırayla çalışırlar, çünkü yeni bir branch ya da stash, çalışan bir görevin altındaki çalışma ağacını değiştirirdi.
 - **Sonra:** **Zamanla…** bir tarih ve saat seçer; görev *Zamanlandı* olarak bekler.
 - **Günlük kuyruk:** proje ayarlarında *Her gün kuyruğu çalıştır*'ı aç ve bir saat seç. O saatte projenin tüm *Hazır* görevleri manuel sırayla kuyruğa alınır. **Günlük kuyruğa al** bir görevi bunun için hazır yapar.
 - **Menü çubuğu:** son beş görev ve durumları, **Kuyruğu şimdi çalıştır** (hazır görevlerin hepsini şimdi kuyruğa al) ve **Duraklat / Sürdür**.
@@ -204,7 +206,7 @@ Zamanlamalar 30 saniyede bir ve Mac uykudan uyandığında kontrol edilir; uykud
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/inspector-dark.png">
-    <img src="docs/assets/inspector-light.png" width="400" alt="Detay panelinin alt yarısı: proje ve mod, zamanlama düğmeleri, maliyeti, tur sayısı, süresi ve özetiyle başarılı bir çalışma, yeniden oynatılan çalışma logu ve Terminalde devam et, Desktop'ta aç, Diff'i göster ve Desktop composer'da aç düğmeleri.">
+    <img src="docs/assets/inspector-light.png" width="400" alt="Detay panelinin alt yarısı: proje, mod ve model seçici, zamanlama düğmeleri, maliyeti, tur sayısı, süresi ve özetiyle başarılı bir çalışma, yeniden oynatılan çalışma logu ve Terminalde devam et, Desktop'ta aç, Diff'i göster ve Desktop composer'da aç düğmeleri.">
   </picture>
 </p>
 
@@ -216,7 +218,7 @@ Detay panelinin aktarım (*Aktarım*) düğmeleri:
 |---|---|
 | **Terminalde devam et** | Terminal'i proje klasöründe açar ve `claude --resume <oturum>` çalıştırır |
 | **Desktop'ta aç** | Oturumu Claude Desktop'ta açar (`claude://code/resume?session=…`) |
-| **Diff'i göster** | Çalışmanın başladığı commit'e göre `git diff`'i ve izlenmeyen dosyaları düz metin olarak gösterir |
+| **Diff'i göster** | Kod karşılaştırma ekranını açar: solda durum rozetleri ve +/− sayılarıyla değişen dosyalar, sağda seçili dosyanın eski ve yeni satır numaralı diff'i. Çalışmanın başladığı commit'le karşılaştırır; izlenmeyen dosyalar eklenmiş olarak görünür. *Dosyayı kopyala* ve *Tümünü kopyala* bir dosyanın ya da tüm yamanın metnini kopyalar |
 | **Desktop composer'da aç** | Claude Desktop'ın yazma alanını Shotcue'nun göndereceği prompt'la açar; göndermeye sen basarsın |
 
 ## Ayarlar
@@ -228,12 +230,13 @@ Claude sekmesi (Ayarlar → Claude) her çalışmaya uygulanır:
 | *Maksimum tur* | 50 | 1–500 |
 | *Bütçe (USD)* (çalışma başına, `--max-budget-usd`) | 5 $ | 0,10–100 |
 | *Zaman aşımı* | 30 dk | 1–480 dk |
-| *Eş zamanlı çalışma* | 2 | 1–8 |
+| *Eş zamanlı çalışma* | 2 | 1–20 |
 | *Yetki modu* (yalnızca *Uygula*) | `bypassPermissions` | ya da `acceptEdits`, `dontAsk` |
-| *Model* · *Effort* | Claude Code'un varsayılanı | proje ve görev başına da ayarlanır |
+| *Model* | Claude Code'un varsayılanı | `fable`, `opus`, `sonnet` ya da `haiku`; proje ve görev başına da seçilir |
+| *Effort* | Claude Code'un varsayılanı | proje başına da ayarlanır |
 | *Ek sistem talimatı* | boş | Shotcue'nun kendi talimatından sonra eklenir |
 
-*Analiz* görevleri her zaman `dontAsk` ve salt okunur bir araç listesiyle (Read, Glob, Grep, WebFetch, WebSearch ve `git log/diff/status/show`) çalışır. Görevin model seçimi projenin modelinden, projenin modeli de varsayılandan önce gelir. Diğer sekmelerde kısayol, panoya kopyalama, oturum açılışında başlatma, *Görev çalışırken Mac'i uyanık tut* (varsayılan açık), depolama klasörü, transkripsiyon dili ve modeli, mikrofon ve izinler bulunur.
+*Analiz* görevleri her zaman `dontAsk` ve salt okunur bir araç listesiyle (Read, Glob, Grep, WebFetch, WebSearch ve `git log/diff/status/show`) çalışır. Görevin model seçimi projenin modelinden, projenin modeli de varsayılandan önce gelir. Diğer sekmelerde kısayol kaydedici, panoya kopyalama, oturum açılışında başlatma, *Görev çalışırken Mac'i uyanık tut* (varsayılan açık), depolama klasörü, transkripsiyon dili ve modeli, mikrofon ve izinler bulunur.
 
 ## Güvenlik
 
@@ -241,7 +244,7 @@ Claude sekmesi (Ayarlar → Claude) her çalışmaya uygulanır:
 > **Çalışmalar gözetimsizdir ve varsayılan olarak `--permission-mode bypassPermissions` kullanır.** *Uygula* modunda Claude Code, proje klasöründe sormadan dosya düzenleyebilir ve komut çalıştırabilir; sen yokken zamanlamayla başlayan çalışmalar dahil. Commit ve push yapmaması söylenir, ama bu bir talimattır, sandbox değildir.
 >
 > - Shotcue'yu önce bir **deneme deposunda** dene.
-> - Projenin güvenlik ağlarını aç: **Her çalıştırmayı yeni branch'te başlat** (her çalışma yeni bir `shotcue/<görev>-<çalışma>` dalında başlar) ve **Çalıştırmadan önce değişiklikleri stash'le** (her çalışmadan önce `git stash push -u`). Bu git adımlarından biri başarısız olursa çalışma başlamaz.
+> - Projenin güvenlik ağlarını aç: **Her çalıştırmayı yeni branch'te başlat** (her çalışma yeni bir `shotcue/<görev>-<çalışma>` dalında başlar) ve **Çalıştırmadan önce değişiklikleri stash'le** (her çalışmadan önce `git stash push -u`). Bu git adımlarından biri başarısız olursa çalışma başlamaz. Bir güvenlik ağı açıkken projenin görevleri sırayla çalışır; ikisi de kapalıyken aynı klasörde birden çok çalışma aynı anda dosya düzenleyebilir.
 > - Sınırları dar tut (tur, bütçe, zaman aşımı) ve yalnızca açıklama istediğinde *Analiz* kullan.
 > - Daha temkinli olmak için Ayarlar → Claude → *Yetki modu*'nu `acceptEdits` ya da `dontAsk` yap.
 
@@ -267,7 +270,7 @@ make dmg     # arm64 release paketi → dist/Shotcue-<sürüm>.dmg (+ .sha256)
 make cert    # bir kez: kendinden imzalı "Shotcue Dev" kod imzalama kimliği
 ```
 
-- `make bundle` ve `make run`, anahtar zincirinde **Shotcue Dev** kimliği varsa onunla imzalar (`make cert`, ardından Anahtar Zinciri Erişimi'nde kod imzalama için *Her Zaman Güven*); böylece macOS izinleri yeniden derlemeler arasında korur. Kimlik yoksa ad-hoc imzaya düşer. `make run`, çalışan Shotcue'yu değiştirmeden önce kapatır.
+- `make bundle` ve `make run`, anahtar zincirinde **Shotcue Dev** kimliği varsa onunla imzalar (`make cert`, ardından Anahtar Zinciri Erişimi'nde kod imzalama için *Her Zaman Güven*); böylece macOS'un izinleri yeniden derlemeler arasında koruması beklenir. Kimlik yoksa ad-hoc imzaya düşer. `make run`, çalışan Shotcue'yu değiştirmeden önce kapatır.
 - `make format` ve `make lint`, swift-format'ı `xcrun` üzerinden çalıştırır; `make reset-tcc` Shotcue'nun Ekran Kaydı ve Mikrofon izinlerini sıfırlar; `make shot` çalışan uygulamanın pencerelerinin ekran görüntüsünü alır (terminalinin Ekran Kaydı izni olmalı).
 - README ekran görüntüleri, gerçek SwiftUI görünümlerinden kurgusal örnek verilerle ekran dışında çizilir: `SHOTCUE_README_SHOTS=docs/assets make test FILTER='ReadmeScreenshot'`.
 - Bağımlılıklar (SwiftPM): [GRDB.swift](https://github.com/groue/GRDB.swift) 7.11 ve [argmax-oss-swift](https://github.com/argmaxinc/argmax-oss-swift) (WhisperKit) 1.1.
@@ -288,7 +291,7 @@ flowchart TB
     Bridge --> Core
 ```
 
-- **ShotcueCore**: yalnızca Foundation. Modeller (`ShotTask`, `Project`, `Run`, …), tüm servis protokolleri, görev durum makinesi, prompt üretici, zamanlayıcı kuralları ve stream-json ayrıştırıcı.
+- **ShotcueCore**: yalnızca Foundation. Modeller (`ShotTask`, `Project`, `Run`, …), tüm servis protokolleri, görev durum makinesi, prompt üretici, zamanlayıcı kuralları, stream-json ve unified diff ayrıştırıcıları.
 - **ShotcuePersistence**: SQLite (WAL) üzerinde GRDB: migration'lar, repository'ler ve Türkçeye duyarlı arama.
 - **ShotcueCapture**: `screencapture` sarmalayıcısı, küçük resimler, izin kontrolleri ve Carbon global kısayolu.
 - **ShotcueNotes**: AVAudioEngine kaydedici (AAC `.m4a`), WhisperKit transkripsiyonu ve arka plan kuyruğu.
@@ -302,7 +305,7 @@ Tasarım spec'i (`docs/superpowers/specs/`), uygulama planları (`docs/superpowe
 
 - Arayüz yalnızca Türkçedir.
 - Yalnızca Apple Silicon ve macOS 26 ya da üstü.
-- Notarize değil ve ad-hoc imzalı: ilk açılışta Gatekeeper uyarısı ve her güncellemeden sonra izin istekleri beklenir. Bu tür derlemelerde *Oturum açılışında başlat* kullanılamıyor görünebilir; durumu Ayarlar'ın en altındaki şerit gösterir.
+- Notarize değil ve ad-hoc imzalı: ilk açılışta Gatekeeper uyarısı ve her güncellemeden sonra izin istekleri beklenir. Bu tür derlemelerde *Oturum açılışında başlat* kullanılamıyor görünebilir; durumu Ayarlar'ın en altındaki şerit gösterir, o durumda Shotcue'yu Sistem Ayarları → Genel → Giriş Öğeleri'nden elle ekleyebilirsin.
 - Yalnızca bölge yakalama (macOS'un `screencapture` aracı): pencere seçimi, işaretleme ya da gizleme yok. Panel başına bir yakalama; birden çok görseli birlikte göndermek için görevleri birleştir.
 - Zamanlamalar ve günlük kuyruk yalnızca Shotcue açıkken ve Mac uyanıkken çalışır.
 - Transkripsiyon tek dille çalışır (Türkçe ya da İngilizce); model ilk seferde büyük bir indirmedir.

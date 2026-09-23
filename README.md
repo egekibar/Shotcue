@@ -54,7 +54,7 @@ Shotcue turns "this looks wrong, fix it" into a task for [Claude Code](https://g
     <td width="33%" valign="top">
       <img src="docs/assets/feature-capture.svg" width="44" alt=""><br>
       <b>Capture in one keystroke</b><br>
-      <b>⌃⇧2</b> in any app starts macOS's own region selection. The quick panel floats over your work without pulling you out of the app you were in.
+      <b>⌃⇧2</b> in any app (or a shortcut you record) starts macOS's own region selection. The quick panel floats over your work without pulling you out of the app you were in.
     </td>
     <td width="33%" valign="top">
       <img src="docs/assets/feature-voice.svg" width="44" alt=""><br>
@@ -71,17 +71,17 @@ Shotcue turns "this looks wrong, fix it" into a task for [Claude Code](https://g
     <td width="33%" valign="top">
       <img src="docs/assets/feature-claude.svg" width="44" alt=""><br>
       <b>Headless Claude Code</b><br>
-      Each task runs as <code>claude -p</code> in its project folder with your Claude subscription, no API key. Turns, cost and the result are recorded per run.
+      Each task runs as <code>claude -p</code> in its project folder with your Claude subscription, no API key, on the model you pick. Turns, cost and the result are recorded per run.
     </td>
     <td width="33%" valign="top">
       <img src="docs/assets/feature-schedule.svg" width="44" alt=""><br>
       <b>Now, later or daily</b><br>
-      Send right away, schedule a date and time, or put tasks on a project's daily queue. At most one run per project at a time.
+      Send right away, schedule a date and time, or put tasks on a project's daily queue. Runs go side by side, up to a limit you set.
     </td>
     <td width="33%" valign="top">
       <img src="docs/assets/feature-review.svg" width="44" alt=""><br>
       <b>Review and continue</b><br>
-      Watch the live log, read the run's git diff, get a notification, and resume the session in Terminal or Claude Desktop.
+      Watch the live log, compare the changed code file by file, get a notification, and resume the session in Terminal or Claude Desktop.
     </td>
   </tr>
 </table>
@@ -101,7 +101,7 @@ flowchart TB
     B --> C["Quick panel<br/>note · voice note · project · mode"]
     C -- "⌘↩ Kaydet" --> D[("Library<br/>projects · inbox · order")]
     C -- "⌘⇧↩ Kaydet ve gönder" --> E
-    D -- "Şimdi gönder · Zamanla… · daily queue" --> E["Run queue<br/>one run per project"]
+    D -- "Şimdi gönder · Zamanla… · daily queue" --> E["Run queue<br/>side by side, up to the limit"]
     E --> F["claude -p in the project folder<br/>on your Claude subscription"]
     F --> G["Live log · cost · git diff<br/>notification"]
     G -.-> H["Continue: claude --resume<br/>in Terminal or Claude Desktop"]
@@ -109,7 +109,7 @@ flowchart TB
 
 - **Capture** uses macOS's own `screencapture -i -s`: you drag a rectangle, Esc cancels. The PNG is stored with a 512 px thumbnail and becomes a task in the inbox.
 - **The prompt** lists the absolute paths of the screenshots, your note and the voice-note transcript, and the project folder. Claude is told to read the screenshots first and to finish with a three-line summary, the files it changed and anything it could not do. In *Uygula* (implement) mode it should add or update tests and must not commit or push; in *Analiz* (analyze) mode it must not change any file.
-- **The run** is `claude -p` with `--output-format stream-json`, `--session-id <run id>` (so it can be resumed), `--add-dir <captures folder>` (so Claude can read the screenshots), plus the permission mode, turn limit and budget from Settings. The working directory is the project folder. `ANTHROPIC_API_KEY` is removed from the environment, so the run uses your Claude Code login.
+- **The run** is `claude -p` with `--output-format stream-json`, `--session-id <run id>` (so it can be resumed), `--add-dir <captures folder>` (so Claude can read the screenshots), plus the permission mode, turn limit and budget from Settings and, when one is chosen, the model and effort. The working directory is the project folder. `ANTHROPIC_API_KEY` is removed from the environment, so the run uses your Claude Code login; `CLAUDE_CODE_ENTRYPOINT=shotcue` tags it, so Claude Desktop lists the session with your other Claude Code sessions.
 
 ## Requirements
 
@@ -166,6 +166,8 @@ Press **⌃⇧2** anywhere and drag over a region (Esc cancels). The quick panel
 
 The task's title is the first sentence of the note (or of the transcript); edit it in the inspector to pin your own. Ayarlar → Genel can also copy every capture to the clipboard.
 
+**Your own shortcut:** in Ayarlar → Genel, click **Kaydet** next to *Kısayol* and press the combination. It needs ⌘, ⌃ or ⌥ (a function key such as F5 also works on its own); Esc cancels, and **Varsayılan** goes back to ⌃⇧2. If the combination cannot be registered (another app may own it), Shotcue keeps the previous one and says so at the bottom of Settings.
+
 ### Library
 
 Open **Kütüphane** (library) from the menu bar. The sidebar lists your projects with task counts, the inbox (*Gelen*) and one filter per status (*Durum*).
@@ -180,7 +182,7 @@ Open **Kütüphane** (library) from the menu bar. The sidebar lists your project
 
 | Where | Keys | Action |
 |---|---|---|
-| Anywhere | <kbd>⌃</kbd><kbd>⇧</kbd><kbd>2</kbd> | Capture a region (default; change it in Ayarlar → Genel → *Kısayol*) |
+| Anywhere | <kbd>⌃</kbd><kbd>⇧</kbd><kbd>2</kbd> | Capture a region (default; record your own in Ayarlar → Genel → *Kısayol*) |
 | Quick panel | <kbd>⌘</kbd><kbd>↩</kbd> | Save (*Kaydet*) |
 | Quick panel | <kbd>⌘</kbd><kbd>⇧</kbd><kbd>↩</kbd> | Save and send (*Kaydet ve gönder*) |
 | Quick panel | <kbd>Esc</kbd> | Close; the capture stays in the inbox |
@@ -194,7 +196,7 @@ Open **Kütüphane** (library) from the menu bar. The sidebar lists your project
 
 ## Sending to Claude Code
 
-- **Now:** *Kaydet ve gönder* in the panel, **Şimdi gönder** in the inspector or a card's context menu, or the send buttons of the selection bar. The task is queued; the queue starts tasks in manual order, at most one per project and at most *Eş zamanlı çalışma* (concurrent runs, default 2) overall.
+- **Now:** *Kaydet ve gönder* in the panel, **Şimdi gönder** in the inspector or a card's context menu, or the send buttons of the selection bar. The task is queued; the queue starts tasks in manual order, up to *Eş zamanlı çalışma* (concurrent runs, default 2) at a time. Tasks of one project run side by side too, unless the project has a safety net on: then they run one at a time, because a new branch or a stash would pull the working tree out from under a running task.
 - **Later:** **Zamanla…** picks a date and time; the task waits as *Zamanlandı* (scheduled).
 - **Daily queue:** in a project's settings, turn on *Her gün kuyruğu çalıştır* and pick a time. At that time every *Hazır* (ready) task of the project is queued, in manual order. **Günlük kuyruğa al** marks a task ready for it.
 - **Menu bar:** the last five tasks with their status, **Kuyruğu şimdi çalıştır** (queue every ready task now) and **Duraklat / Sürdür** (pause or resume the queue).
@@ -204,7 +206,7 @@ Schedules are checked every 30 seconds and when the Mac wakes; a slot missed dur
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/inspector-dark.png">
-    <img src="docs/assets/inspector-light.png" width="400" alt="The inspector's lower half: project and mode, scheduling buttons, a successful run with its cost, turns, duration and summary, the replayed run log, and the Terminalde devam et, Desktop'ta aç, Diff'i göster and Desktop composer'da aç buttons.">
+    <img src="docs/assets/inspector-light.png" width="400" alt="The inspector's lower half: project, mode and the model picker, scheduling buttons, a successful run with its cost, turns, duration and summary, the replayed run log, and the Terminalde devam et, Desktop'ta aç, Diff'i göster and Desktop composer'da aç buttons.">
   </picture>
 </p>
 
@@ -216,7 +218,7 @@ The inspector's hand-off buttons (*Aktarım*):
 |---|---|
 | **Terminalde devam et** | Opens Terminal in the project folder and runs `claude --resume <session>` |
 | **Desktop'ta aç** | Opens the session in Claude Desktop (`claude://code/resume?session=…`) |
-| **Diff'i göster** | Shows `git diff` against the commit the run started from, plus untracked files, as plain text |
+| **Diff'i göster** | Opens a code comparison: the changed files with status badges and +/− counts on the left, the selected file's diff with old and new line numbers on the right. It compares against the commit the run started from; untracked files show as added. *Dosyayı kopyala* and *Tümünü kopyala* copy one file's patch or all of it |
 | **Desktop composer'da aç** | Opens Claude Desktop's composer with the same prompt Shotcue would send; you press send |
 
 ## Settings
@@ -228,12 +230,13 @@ The Claude tab (Ayarlar → Claude) applies to every run:
 | *Maksimum tur* (max turns) | 50 | 1–500 |
 | *Bütçe (USD)* (budget per run, `--max-budget-usd`) | $5 | 0.10–100 |
 | *Zaman aşımı* (timeout) | 30 min | 1–480 min |
-| *Eş zamanlı çalışma* (concurrent runs) | 2 | 1–8 |
+| *Eş zamanlı çalışma* (concurrent runs) | 2 | 1–20 |
 | *Yetki modu* (permission mode, *Uygula* only) | `bypassPermissions` | or `acceptEdits`, `dontAsk` |
-| *Model* · *Effort* | Claude Code's default | per project and per task too |
+| *Model* | Claude Code's default | `fable`, `opus`, `sonnet` or `haiku`; per project and per task too |
+| *Effort* | Claude Code's default | per project too |
 | *Ek sistem talimatı* (extra system prompt) | empty | appended to Shotcue's own instructions |
 
-*Analiz* tasks always run with `dontAsk` and a read-only tool list (Read, Glob, Grep, WebFetch, WebSearch and `git log/diff/status/show`). A task's model override wins over the project's model, which wins over the default. The other tabs hold the shortcut, clipboard copy, launch at login, *Görev çalışırken Mac'i uyanık tut* (keep the Mac awake while a run is going, on by default), the storage folder, the transcription language and model, the microphone, and the permissions.
+*Analiz* tasks always run with `dontAsk` and a read-only tool list (Read, Glob, Grep, WebFetch, WebSearch and `git log/diff/status/show`). A task's model override wins over the project's model, which wins over the default. The other tabs hold the shortcut recorder, clipboard copy, launch at login, *Görev çalışırken Mac'i uyanık tut* (keep the Mac awake while a run is going, on by default), the storage folder, the transcription language and model, the microphone, and the permissions.
 
 ## Safety
 
@@ -241,7 +244,7 @@ The Claude tab (Ayarlar → Claude) applies to every run:
 > **Runs are unattended and use `--permission-mode bypassPermissions` by default.** In *Uygula* mode Claude Code can edit files and run commands in the project folder without asking, including runs that start from a schedule while you are away. It is told not to commit or push, but that is an instruction, not a sandbox.
 >
 > - Try Shotcue on a **test repository** first.
-> - Turn on the project's safety nets: **Her çalıştırmayı yeni branch'te başlat** (every run starts on a new branch, `shotcue/<task>-<run>`) and **Çalıştırmadan önce değişiklikleri stash'le** (`git stash push -u` before every run). If either git step fails, the run does not start.
+> - Turn on the project's safety nets: **Her çalıştırmayı yeni branch'te başlat** (every run starts on a new branch, `shotcue/<task>-<run>`) and **Çalıştırmadan önce değişiklikleri stash'le** (`git stash push -u` before every run). If either git step fails, the run does not start. With a safety net on, the project's tasks run one at a time; with both off, several runs can edit the same folder at once.
 > - Keep the limits tight (turns, budget, timeout) and use *Analiz* when you only want an explanation.
 > - For more caution, set Ayarlar → Claude → *Yetki modu* to `acceptEdits` or `dontAsk`.
 
@@ -267,7 +270,7 @@ make dmg     # arm64 release bundle → dist/Shotcue-<version>.dmg (+ .sha256)
 make cert    # once: a self-signed "Shotcue Dev" code-signing identity
 ```
 
-- `make bundle` and `make run` sign with the **Shotcue Dev** identity when your keychain has it (`make cert`, then *Always Trust* for code signing in Keychain Access), so macOS keeps the permissions across rebuilds; otherwise they fall back to ad-hoc signing. `make run` stops a running Shotcue before replacing it.
+- `make bundle` and `make run` sign with the **Shotcue Dev** identity when your keychain has it (`make cert`, then *Always Trust* for code signing in Keychain Access), so macOS should keep the permissions across rebuilds; otherwise they fall back to ad-hoc signing. `make run` stops a running Shotcue before replacing it.
 - `make format` and `make lint` run swift-format through `xcrun`; `make reset-tcc` resets Shotcue's Screen Recording and Microphone grants; `make shot` screenshots the running app's windows (your terminal needs Screen Recording).
 - The README screenshots are rendered offscreen from the real SwiftUI views with fictional sample data: `SHOTCUE_README_SHOTS=docs/assets make test FILTER='ReadmeScreenshot'`.
 - Dependencies (SwiftPM): [GRDB.swift](https://github.com/groue/GRDB.swift) 7.11 and [argmax-oss-swift](https://github.com/argmaxinc/argmax-oss-swift) (WhisperKit) 1.1.
@@ -288,7 +291,7 @@ flowchart TB
     Bridge --> Core
 ```
 
-- **ShotcueCore**: Foundation only. Models (`ShotTask`, `Project`, `Run`, …), every service protocol, the task state machine, the prompt builder, the scheduler rules and the stream-json parser.
+- **ShotcueCore**: Foundation only. Models (`ShotTask`, `Project`, `Run`, …), every service protocol, the task state machine, the prompt builder, the scheduler rules, and the stream-json and unified-diff parsers.
 - **ShotcuePersistence**: GRDB on SQLite (WAL): migrations, repositories and the Turkish-aware search.
 - **ShotcueCapture**: the `screencapture` wrapper, thumbnails, permission checks and the Carbon global hot key.
 - **ShotcueNotes**: the AVAudioEngine recorder (AAC `.m4a`), the WhisperKit transcriber and its background queue.
@@ -302,7 +305,7 @@ The design spec (`docs/superpowers/specs/`), the implementation plans (`docs/sup
 
 - The interface is Turkish only.
 - Apple Silicon and macOS 26 or later only.
-- Not notarized and ad-hoc signed: expect the Gatekeeper prompt on first launch and the permission prompts after each update. *Oturum açılışında başlat* (launch at login) may report itself unavailable for such builds; the strip at the bottom of Settings shows its state.
+- Not notarized and ad-hoc signed: expect the Gatekeeper prompt on first launch and the permission prompts after each update. *Oturum açılışında başlat* (launch at login) may report itself unavailable for such builds; the strip at the bottom of Settings shows its state, and then you can add Shotcue by hand under System Settings → General → Login Items.
 - Region capture only (macOS's `screencapture`): no window picking, annotation or redaction. One capture per panel; merge tasks to send several images together.
 - Schedules and the daily queue run only while Shotcue is running and the Mac is awake.
 - Transcription uses one language at a time (Turkish or English); the model is a large download the first time.

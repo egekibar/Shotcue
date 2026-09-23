@@ -13,8 +13,8 @@ First public release. macOS 26 or later on Apple Silicon; the UI is in Turkish.
 
 ### Added
 
-- Region capture with a global hotkey through macOS's own selection tool (`screencapture`); the hotkey is chosen
-  from a preset list in Settings.
+- Region capture with a global hotkey through macOS's own selection tool (`screencapture`). The default is `⌃⇧2`;
+  Settings records any other combination with ⌘, ⌃ or ⌥ (a function key also works alone).
 - Quick panel after each capture: a typed note, voice notes, project and mode (Analyze / Implement) pickers,
   Save (`⌘↩`), Save and send (`⌘⇧↩`) and Schedule.
 - On-device transcription of voice notes with WhisperKit (Turkish by default, English selectable). The model
@@ -25,13 +25,20 @@ First public release. macOS 26 or later on Apple Silicon; the UI is in Turkish.
   and the live run log.
 - Headless Claude Code runs (`claude -p`) in the project folder with your Claude subscription (no API key): live
   log, result summary, turns, estimated cost and a notification when a run ends. Limits per run for turns, budget
-  and time; at most one run per project at a time, with a global concurrency limit.
+  and time. Runs go side by side up to a global concurrency limit (2 by default, up to 20), tasks of one project
+  included; a project with a git safety net runs one task at a time.
+- Model pickers in Settings, the project editor and the inspector: `fable`, `opus`, `sonnet` or `haiku`, or none to
+  inherit (task → project → Settings → Claude Code's default).
 - Scheduling: send now, at a date and time, or with the project's daily queue. Schedules fire while Shotcue is
   running; one missed during sleep or while the app was closed runs once when the Mac wakes or Shotcue starts.
 - Hand-off: continue a run's session in Terminal (`claude --resume`) or in Claude Desktop, or open the task in the
-  Claude Desktop composer.
+  Claude Desktop composer. Runs carry their own entrypoint tag (`shotcue`), so Claude Desktop lists them with its
+  Claude Code sessions.
 - Git safety nets per project (off by default): start each run in a new `shotcue/…` branch and stash local changes
-  before the run. The in-app diff shows what a run changed.
+  before the run.
+- Code comparison screen for what a run changed: the changed files with status badges and +/− counts beside the
+  selected file's diff with old and new line numbers. Untracked files show as added, with their contents; copy one
+  file's patch or the whole patch.
 - Menu bar extra with recent tasks, queue and pause controls; a permission onboarding window and a diagnostics
   report in Settings.
 - `make dmg` builds the release DMG (`dist/Shotcue-<version>.dmg`) and its SHA-256 file.
