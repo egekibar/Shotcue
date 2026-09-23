@@ -30,6 +30,8 @@ let package = Package(
             dependencies: ["ShotcueCore", .product(name: "WhisperKit", package: "argmax-oss-swift")],
             swiftSettings: serviceSettings),
         .target(name: "ShotcueClaudeBridge", dependencies: ["ShotcueCore"], swiftSettings: serviceSettings),
+        // In-app updates from GitHub Releases: release feed, DMG download/verify/stage, post-exit bundle swap.
+        .target(name: "ShotcueUpdater", dependencies: ["ShotcueCore"], swiftSettings: serviceSettings),
         .target(name: "ShotcueUI", dependencies: ["ShotcueCore"], swiftSettings: uiSettings),
         // Fakes of every Core protocol, shared by all test targets (never linked into the app).
         .target(name: "ShotcueTestSupport", dependencies: ["ShotcueCore"], swiftSettings: serviceSettings),
@@ -37,7 +39,7 @@ let package = Package(
             name: "ShotcueApp",
             dependencies: [
                 "ShotcueCore", "ShotcueUI", "ShotcuePersistence", "ShotcueCapture",
-                "ShotcueNotes", "ShotcueClaudeBridge",
+                "ShotcueNotes", "ShotcueClaudeBridge", "ShotcueUpdater",
             ],
             swiftSettings: uiSettings),
         .testTarget(name: "ShotcueCoreTests", dependencies: ["ShotcueCore", "ShotcueTestSupport"], swiftSettings: serviceSettings),
@@ -45,6 +47,7 @@ let package = Package(
         .testTarget(name: "ShotcueCaptureTests", dependencies: ["ShotcueCapture", "ShotcueTestSupport"], swiftSettings: serviceSettings),
         .testTarget(name: "ShotcueNotesTests", dependencies: ["ShotcueNotes", "ShotcueTestSupport"], swiftSettings: serviceSettings),
         .testTarget(name: "ShotcueClaudeBridgeTests", dependencies: ["ShotcueClaudeBridge", "ShotcueTestSupport"], swiftSettings: serviceSettings),
+        .testTarget(name: "ShotcueUpdaterTests", dependencies: ["ShotcueUpdater", "ShotcueTestSupport"], swiftSettings: serviceSettings),
         .testTarget(name: "ShotcueUITests", dependencies: ["ShotcueUI", "ShotcueTestSupport"], swiftSettings: uiSettings),
     ],
     swiftLanguageModes: [.v6]

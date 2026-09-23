@@ -16,6 +16,7 @@
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSMicrophoneUsageDescription</key><string>Sesli not kaydetmek için mikrofon gerekir.</string>
+    <key>ShotcueUpdateRepo</key><string>egekibar/Shotcue</string>
     <key>NSHumanReadableCopyright</key><string>Shotcue</string>
 </dict>
 </plist>

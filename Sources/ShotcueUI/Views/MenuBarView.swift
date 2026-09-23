@@ -8,17 +8,21 @@ public struct MenuBarView: View {
     public let openLibrary: () -> Void
     public let openSettings: () -> Void
     public let quit: () -> Void
+    /// "Güncellemeleri denetle…"; the row is hidden when nil.
+    public let checkForUpdates: (() -> Void)?
 
     public init(
         store: MenuBarStore,
         openLibrary: @escaping () -> Void,
         openSettings: @escaping () -> Void,
-        quit: @escaping () -> Void
+        quit: @escaping () -> Void,
+        checkForUpdates: (() -> Void)? = nil
     ) {
         self.store = store
         self.openLibrary = openLibrary
         self.openSettings = openSettings
         self.quit = quit
+        self.checkForUpdates = checkForUpdates
     }
 
     public var body: some View {
@@ -141,6 +145,17 @@ public struct MenuBarView: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(",")
+
+            if let checkForUpdates {
+                Button {
+                    checkForUpdates()
+                } label: {
+                    Label("Güncellemeleri denetle…", systemImage: "arrow.triangle.2.circlepath")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
 
             Button {
                 quit()

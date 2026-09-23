@@ -37,6 +37,8 @@ final class AppEnvironment {
     let captureFlow: CaptureFlowController
     /// Quit / SIGTERM: stop the runs, keep unsaved work (final review I2).
     let termination: TerminationController
+    /// In-app updates from GitHub Releases: the check timer, the update window, the install quit.
+    let updates: UpdateCoordinator
 
     /// Where `claude` is; resolved without blocking launch (checked by the runner, handoff, diagnostics).
     let claude: ClaudeExecutableLocator
@@ -201,6 +203,8 @@ final class AppEnvironment {
             runCoordinator: runCoordinator, dispatcher: dispatcher, libraryStore: libraryStore,
             quickPanel: quickPanel)
         self.termination = termination
+        self.updates = UpdateCoordinator(
+            settings: settings, activationPolicy: activationPolicy, termination: termination)
         let onboarding = OnboardingWindowController(
             permissionsStore: permissionsStore,
             permissions: permissions,

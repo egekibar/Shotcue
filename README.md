@@ -133,6 +133,8 @@ flowchart TB
 
 Shotcue lives in the menu bar (a viewfinder icon). It has no Dock icon until you open the library.
 
+**Updates.** Shotcue checks GitHub Releases shortly after launch and then once a day. When a newer version is out it shows its release notes; **Güncelle** downloads the DMG, checks it against the release's SHA-256 file, replaces the app and reopens it (running tasks are stopped after a confirmation, as when quitting). You can also check from the menu bar (*Güncellemeleri denetle…*) or Ayarlar → Genel → *Güncellemeler*, where automatic checks can be turned off.
+
 > [!IMPORTANT]
 > Release builds are **ad-hoc signed** (there is no Apple Developer ID). macOS ties privacy permissions to the signature, so after installing a new version it asks for Screen Recording and Microphone again. If a switch in System Settings is already on but Shotcue still asks, remove Shotcue from that list (–) and grant it again.
 
@@ -252,7 +254,7 @@ The Claude tab (Ayarlar → Claude) applies to every run:
 
 - **Local data.** Everything Shotcue stores stays on your Mac, in `~/Library/Application Support/Shotcue/`: the database (`shotcue.sqlite`), `captures/`, `thumbs/`, `audio/`, `runs/` (the raw run logs) and `models/` (the transcription model). Preferences are in the `com.shotcue.app` defaults domain. The folder can be moved in Ayarlar → Genel → *Depolama*.
 - **On-device transcription.** WhisperKit transcribes voice notes on your Mac; the audio never leaves it.
-- **No telemetry.** No analytics, crash reporting or accounts; Shotcue has no server. It uses the network only to download the transcription model and its tokenizer from Hugging Face (`argmaxinc/whisperkit-coreml`) after you click *Modeli indir*. Claude Code makes its own connections.
+- **No telemetry.** No analytics, crash reporting or accounts; Shotcue has no server. It uses the network only to download the transcription model and its tokenizer from Hugging Face (`argmaxinc/whisperkit-coreml`) after you click *Modeli indir*, and to check GitHub Releases for updates (`api.github.com`, at most once a day; off in Ayarlar → Genel → *Güncellemeler*). Claude Code makes its own connections.
 - **What reaches Anthropic** is what Claude Code sends under your login: the prompt (note, transcript, file paths) and whatever Claude reads, including the screenshots and your project files. Don't send captures that show secrets you would not paste into Claude Code.
 - **Diagnostics.** *Tanılama çalıştır* (at the bottom of Settings) writes a local report to your temporary folder. From `claude auth status` it copies only `loggedIn`, `authMethod` and `subscriptionType`, never your e-mail address.
 

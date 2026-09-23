@@ -133,6 +133,8 @@ flowchart TB
 
 Shotcue menü çubuğunda yaşar (vizör ikonu). Kütüphaneyi açana kadar Dock'ta ikonu olmaz.
 
+**Güncellemeler.** Shotcue açıldıktan kısa süre sonra ve ardından günde bir kez GitHub Releases'i denetler. Yeni sürüm çıktıysa sürüm notlarını gösterir; **Güncelle** DMG'yi indirir, sürümün SHA-256 dosyasıyla doğrular, uygulamayı değiştirir ve yeniden açar (çalışan görevler, çıkışta olduğu gibi onaydan sonra durdurulur). Menü çubuğundan (*Güncellemeleri denetle…*) ya da Ayarlar → Genel → *Güncellemeler*'den elle de denetleyebilirsin; otomatik denetim oradan kapatılır.
+
 > [!IMPORTANT]
 > Yayın derlemeleri **ad-hoc imzalıdır** (Apple Developer ID yoktur). macOS gizlilik izinlerini imzaya bağladığı için yeni bir sürüm kurduktan sonra Ekran Kaydı ve Mikrofon iznini yeniden sorar. Sistem Ayarları'ndaki anahtar açık görünmesine rağmen Shotcue hâlâ izin istiyorsa Shotcue'yu o listeden kaldır (–) ve izni yeniden ver.
 
@@ -252,7 +254,7 @@ Claude sekmesi (Ayarlar → Claude) her çalışmaya uygulanır:
 
 - **Yerel veri.** Shotcue'nun sakladığı her şey Mac'inde, `~/Library/Application Support/Shotcue/` altında kalır: veritabanı (`shotcue.sqlite`), `captures/`, `thumbs/`, `audio/`, `runs/` (ham çalışma logları) ve `models/` (transkripsiyon modeli). Tercihler `com.shotcue.app` defaults alanındadır. Klasör Ayarlar → Genel → *Depolama*'dan taşınabilir.
 - **Cihaz içi transkripsiyon.** Sesli notları WhisperKit Mac'inde yazıya döker; ses Mac'ten çıkmaz.
-- **Telemetri yok.** Analitik, çökme raporu ya da hesap yok; Shotcue'nun bir sunucusu yoktur. Ağı yalnızca, *Modeli indir*'e tıkladıktan sonra transkripsiyon modelini ve tokenizer'ını Hugging Face'ten (`argmaxinc/whisperkit-coreml`) indirmek için kullanır. Claude Code kendi bağlantılarını kendisi kurar.
+- **Telemetri yok.** Analitik, çökme raporu ya da hesap yok; Shotcue'nun bir sunucusu yoktur. Ağı yalnızca, *Modeli indir*'e tıkladıktan sonra transkripsiyon modelini ve tokenizer'ını Hugging Face'ten (`argmaxinc/whisperkit-coreml`) indirmek ve güncellemeleri GitHub Releases'ten denetlemek için kullanır (`api.github.com`, günde en fazla bir kez; Ayarlar → Genel → *Güncellemeler*'den kapatılabilir). Claude Code kendi bağlantılarını kendisi kurar.
 - **Anthropic'e ulaşan**, Claude Code'un senin oturumunla gönderdikleridir: prompt (not, transkript, dosya yolları) ve Claude'un okudukları; ekran görüntüleri ve proje dosyaların dahil. Claude Code'a yapıştırmayacağın sırları gösteren yakalamaları gönderme.
 - **Tanılama.** *Tanılama çalıştır* (Ayarlar'ın en altında) geçici klasörüne yerel bir rapor yazar. `claude auth status` çıktısından yalnızca `loggedIn`, `authMethod` ve `subscriptionType` alanlarını kopyalar; e-posta adresini asla.
 
