@@ -46,14 +46,16 @@ public enum RunErrorText {
 
     /// The failure notification's body: the message, then the suggestion. For `claude_error` it is claude's own error
     /// line after the Turkish lead: that line is the reason itself (a rejected key, a usage limit), as the body showed
-    /// before codes existed; a login hint follows it after a dash. Other details (git's stderr, a path) stay in the
-    /// inspector.
+    /// before codes existed. A lost session's login hint comes first: a banner shows the start of the body and cuts the
+    /// rest, and claude's line can run to ~250 characters (an API error's JSON body). Other details (git's stderr, a
+    /// path) stay in the inspector.
     public static func notificationBody(for stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil) -> String {
         guard let text = describe(stored, exitCode: exitCode, numTurns: numTurns) else {
             return "Çalışma hata ile bitti."
         }
         if let stored, let line = text.detail, RunErrorCode.parse(stored)?.code == RunErrorCode.claudeError {
-            return ["\(claudeErrorLead): \(line)", text.suggestion].compactMap { $0 }.joined(separator: " — ")
+            // `claude_error`'s only suggestion is the login hint (`known`).
+            return [text.suggestion, "\(claudeErrorLead): \(line)"].compactMap { $0 }.joined(separator: " ")
         }
         return [text.message, text.suggestion].compactMap { $0 }.joined(separator: " ")
     }

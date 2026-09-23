@@ -69,11 +69,11 @@ struct RunErrorTextTests {
         let text = try #require(RunErrorText.describe(stored))
         #expect(text.message == "claude hata bildirdi.")
         #expect(text.detail == "Invalid API key · Please run /login")
-        // A rejected key is a lost session (spec §8): the text asks for a new login.
+        // A rejected key is a lost session (spec §8): the text asks for a new login, first in the notification.
         #expect(text.suggestion == "claude ile tekrar giriş yapın.")
         #expect(
             RunErrorText.notificationBody(for: stored)
-                == "claude hata bildirdi: Invalid API key · Please run /login — claude ile tekrar giriş yapın.")
+                == "claude ile tekrar giriş yapın. claude hata bildirdi: Invalid API key · Please run /login")
 
         // A line that holds ": " itself stays whole; an overloaded API is not a login problem.
         let overloaded = RunErrorCode.compose(RunErrorCode.claudeError, detail: "API Error: 529 Overloaded")
@@ -112,8 +112,23 @@ struct RunErrorTextTests {
         #expect(text.detail == line)
         #expect(text.suggestion == (isAuthFailure ? "claude ile tekrar giriş yapın." : nil))
         let body = RunErrorText.notificationBody(for: stored)
-        #expect(body.hasPrefix("claude hata bildirdi: \(line)"))
-        #expect(body.contains("claude ile tekrar giriş yapın.") == isAuthFailure)
+        #expect(
+            body
+                == (isAuthFailure
+                    ? "claude ile tekrar giriş yapın. claude hata bildirdi: \(line)" : "claude hata bildirdi: \(line)"))
+    }
+
+    /// A notification banner shows the start of its body and cuts the rest. claude's line for a lost session can run
+    /// to ~250 characters (an API error's JSON body), so the login hint leads and the line follows it.
+    @Test func theLoginHintLeadsTheNotificationSoALongLineCannotCutItOff() throws {
+        let line =
+            #"API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"OAuth token has "#
+            + #"expired. Please obtain a new token or refresh your existing token."},"request_"#
+            + #"id":"req_011CTc9mQ7Zr4xWfVbN2pLsE"} · Please run /login"#
+        #expect(line.count > 200)
+        let body = RunErrorText.notificationBody(for: RunErrorCode.compose(RunErrorCode.claudeError, detail: line))
+        #expect(body.hasPrefix("claude ile tekrar giriş yapın. "))
+        #expect(body.hasSuffix("claude hata bildirdi: \(line)"))
     }
 
     /// The inspector shows claude's line once, as the run's result text (primary text): the failure's detail, which

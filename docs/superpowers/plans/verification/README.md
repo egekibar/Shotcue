@@ -131,7 +131,7 @@ Aşağıdaki satırlar gerçek uygulamada kullanıcının göreceği davranış�
 | # | Kontrol | Beklenen | Sonuç |
 |---|---|---|---|
 | R1 | Onboarding "Başla" — çalışan run varken (N1) | `make reset-tcc`; bir görev `running` iken (ya da açılışta kuyruktan başlayan bir run sürerken) onboarding'de Ekran Kaydı iznini ver ve **"Başla"**ya bas → uygulama **donmaz**; "Ekran Kaydı izninin geçerli olması için Shotcue yeniden başlatılacak." diyaloğu ("Çalışan 1 görev durdurulacak. …"), düğmeler **"Durdur ve yeniden başlat"** / **"Vazgeç"**. **Durdur ve yeniden başlat** → ≤ ~12 sn içinde run `cancelled` (`select state, error from run order by started_at desc limit 1;`), `ps aux \| grep "claude -p"` boş, uygulama kapanır ve **yeni PID ile yeniden açılır**; izin geçerli (yakalama çalışır), onboarding bir daha açılmaz. **Vazgeç** → hiçbir şey durmaz (run sürer), uygulama yeniden başlamaz; onboarding penceresi **açık kalır**, turuncu "Ekran Kaydı izni, Shotcue yeniden başlayınca geçerli olur. Hazır olduğunda "Yeniden başlat"a bas." notunu gösterir ve düğmesi **"Yeniden başlat"** olur; run bittikten sonra ona basınca diyalog çıkmadan yeniden başlar. Vazgeç'ten sonra menüden **Çık** → uygulama **yeniden açılmaz**. Diyalogdan sonra kapanış sürerken "Başla"ya ya da menüde "Çık"a yeniden basmak kapanışı kesmez (run yine `cancelled`, taslaklar kaydedilir). | PENDING (user) |
-| R2 | claude'un kendi hata satırı (`claude_error`, spec §8 "Oturum düşmüş") | Oturumu düşmüş (ya da API anahtarı geçersiz) bir `claude` ile bir görev gönder → run `failed`; `select error, result_text from run order by started_at desc limit 1;` → `claude_error: Invalid API key · Please run /login` (claude'un yazdığı ilk satır) ve aynı satır `result_text`'te. Inspector run satırında claude'un satırı **birincil metin**, altında kırmızı "claude hata bildirdi." ve "claude ile tekrar giriş yapın."; satır ikinci kez (soluk ayrıntı olarak) gösterilmez. RUN_FAILED gövdesi: "claude hata bildirdi: Invalid API key · Please run /login — claude ile tekrar giriş yapın.". Oturumla ilgisi olmayan bir hata (ör. "API Error: 529 Overloaded") giriş ipucu taşımaz. | PENDING (user) |
+| R2 | claude'un kendi hata satırı (`claude_error`, spec §8 "Oturum düşmüş") | Oturumu düşmüş (ya da API anahtarı geçersiz) bir `claude` ile bir görev gönder → run `failed`; `select error, result_text from run order by started_at desc limit 1;` → `claude_error: Invalid API key · Please run /login` (claude'un yazdığı ilk satır) ve aynı satır `result_text`'te. Inspector run satırında claude'un satırı **birincil metin**, altında kırmızı "claude hata bildirdi." ve "claude ile tekrar giriş yapın."; satır ikinci kez (soluk ayrıntı olarak) gösterilmez. RUN_FAILED gövdesi giriş ipucuyla başlar (claude'un uzun satırı bildirimde kesilse de ipucu görünsün): "claude ile tekrar giriş yapın. claude hata bildirdi: Invalid API key · Please run /login". Oturumla ilgisi olmayan bir hata (ör. "API Error: 529 Overloaded") giriş ipucu taşımaz. | PENDING (user) |
 
 ## Tamamlanma ölçütleri (ajanın koşturduğu)
 
@@ -172,9 +172,9 @@ Foundation Models: Apple Intelligence kapalı
 ```
 
 (`girişte başlat` metni bu ölçümden sonra düzeltildi: `.notFound` artık "kullanılamıyor — Shotcue'yu Sistem Ayarları >
-Genel > Giriş Öğeleri'nden elle ekle" diyor. Geliştirici notu: yerel build'de girişte başlat, `make cert` + `make
-install` ile çalışır.) `claude auth` satırı spike S1'in kalıcı kanıtıdır: bundle'dan başlatılan `claude` aboneliğin
-oturumunu görüyor.
+Genel > Giriş Öğeleri'nden elle ekle" diyor. Geliştirici notu: yerel build'de girişte başlatın çalışması için `make
+cert` + `make install` gerekir; çalıştığı henüz doğrulanmadı, V13'te kontrol edilecek.) `claude auth` satırı spike
+S1'in kalıcı kanıtıdır: bundle'dan başlatılan `claude` aboneliğin oturumunu görüyor.
 
 ## Notlar
 

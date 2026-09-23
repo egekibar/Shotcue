@@ -380,10 +380,10 @@ struct RunCoordinatorTests {
         #expect(await h.status(of: task.id) == .failed)
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.kind == .runFailed)
-        // A rejected key is a lost session: spec §8's login hint follows claude's line.
+        // A rejected key is a lost session: spec §8's login hint leads, claude's line follows it.
         #expect(
             notification.body
-                == "claude hata bildirdi: Invalid API key · Please run /login — claude ile tekrar giriş yapın.")
+                == "claude ile tekrar giriş yapın. claude hata bildirdi: Invalid API key · Please run /login")
         // The inspector reads the same row: claude's line as the result text (primary), the Turkish text and the
         // login hint under it, and no second copy of the line.
         #expect(run.resultText == "Invalid API key · Please run /login")

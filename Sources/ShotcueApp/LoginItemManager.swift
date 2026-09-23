@@ -10,8 +10,8 @@ import ServiceManagement
 /// from `~/Applications` too. The user's way out is adding Shotcue by hand in System Settings > General > Login Items,
 /// which is what the status text says.
 ///
-/// Developer note: a local build gets a working login item once it is installed and signed with the "Shotcue Dev"
-/// certificate (`make cert`, then `make install`).
+/// Developer note: a local build should get a working login item once it is installed and signed with the "Shotcue Dev"
+/// certificate (`make cert`, then `make install`). Not verified yet: the verification record's V13 still lists it.
 enum LoginItemManager {
     static var statusText: String {
         switch SMAppService.mainApp.status {

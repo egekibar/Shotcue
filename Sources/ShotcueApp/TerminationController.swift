@@ -106,9 +106,10 @@ final class TerminationController {
     /// `NSApp.terminate` there hangs the app whenever there are runs to stop or work to save: AppKit waits for the
     /// `.terminateLater` reply inside that block, where no main-queue or main-actor work — the shutdown, the hard
     /// deadline — can run (measured). `relaunching`: the installed bundle is opened again once this process is gone;
-    /// `onRelaunchCancelled` runs if the user cancels that quit ("Vazgeç").
+    /// `onRelaunchCancelled` runs if the user cancels that quit ("Vazgeç"). A relaunch asked for after SIGTERM is not
+    /// recorded: that shutdown ends the app and must not reopen it (see `relaunchRequested`).
     func quit(relaunching: Bool = false, onRelaunchCancelled: (() -> Void)? = nil) {
-        if relaunching {
+        if relaunching, trigger != .signal {
             relaunchRequested = true
             relaunchCancelled = onRelaunchCancelled
         }
