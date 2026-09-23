@@ -125,6 +125,34 @@ struct LibraryStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// Final review M9: while a search is active the grid shows the live rows, so a status chip or a title that
+    /// changes (a run starts, a transcript fills the title) updates without searching again.
+    @MainActor
+    @Test func searchResultsFollowTheLiveRows() async throws {
+        let f = fixture()
+        f.store.start()
+        _ = await waitUntil("loaded") { f.store.projects.count == 2 }
+        f.store.selection = .project(f.projectA.id)
+        f.store.searchText = "Buton"
+        await f.store.runSearch()
+        #expect(f.store.tasks.map(\.id) == [f.tasks[0].id])
+
+        var changed = try #require(try await f.bundle.services.tasks.task(id: f.tasks[0].id))
+        try changed.transition(to: .queued, at: t0)
+        changed.title = "Buton rengi (güncel)"
+        try await f.bundle.services.tasks.save(changed)
+
+        #expect(await waitUntil("live row") { f.store.tasks.first?.status == .queued })
+        #expect(f.store.tasks.map(\.title) == ["Buton rengi (güncel)"])
+        #expect(f.store.tasks.map(\.id) == [f.tasks[0].id])
+
+        // A deleted result disappears instead of lingering from the snapshot.
+        try await f.bundle.services.tasks.deleteTask(id: f.tasks[0].id)
+        #expect(await waitUntil("deleted") { f.store.tasks.isEmpty })
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func sendEnqueuesEverySelectedTask() async {
         let f = fixture()

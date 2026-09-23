@@ -86,8 +86,9 @@ public final class LibraryStore {
     @ObservationIgnored private let services: AppServices
     @ObservationIgnored private let renumber: Renumber
     @ObservationIgnored private var allTasks: [ShotTask] = []
-    /// Non-nil while a search is active; the filter then runs over these rows instead of `allTasks`.
-    @ObservationIgnored private var searchResults: [ShotTask]?
+    /// Non-nil while a search is active: the ids the repository matched. The filter then runs over the live
+    /// `allTasks` rows with these ids, so status chips and titles keep updating (final review M9).
+    @ObservationIgnored private var searchResultIDs: Set<UUID>?
     @ObservationIgnored private var streams: [Task<Void, Never>] = []
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var decorationTask: Task<Void, Never>?
@@ -241,7 +242,7 @@ public final class LibraryStore {
         searchTask?.cancel()
         let query = storedSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            searchResults = nil
+            searchResultIDs = nil
             recompute()
             return
         }
@@ -255,14 +256,14 @@ public final class LibraryStore {
     private func performSearch() async {
         let query = storedSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            searchResults = nil
+            searchResultIDs = nil
             recompute()
             return
         }
         do {
-            searchResults = try await services.tasks.search(query)
+            searchResultIDs = Set(try await services.tasks.search(query).map(\.id))
         } catch {
-            searchResults = []
+            searchResultIDs = []
             report(error)
         }
         recompute()
@@ -721,7 +722,10 @@ public final class LibraryStore {
     // MARK: - Recomputation
 
     private func recompute() {
-        let base = searchResults ?? allTasks
+        // During a search the matched ids are mapped onto the live rows (final review M9): a result whose status or
+        // title changed shows the change, a deleted one disappears. Rows created after the search are not matched
+        // until the next search.
+        let base = searchResultIDs.map { ids in allTasks.filter { ids.contains($0.id) } } ?? allTasks
         tasks = filtered(base)
         counts = makeCounts(allTasks)
         let visible = Set(tasks.map(\.id))
