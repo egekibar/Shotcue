@@ -34,4 +34,5 @@ Spec: docs/superpowers/specs/2026-09-22-shotcue-design.md · Plans: docs/superpo
 ## Workflow
 - TDD: failing test → minimal code → green → commit. Swift Testing (`#expect`, `#require`), no XCTest.
 - `swift-format` config in `.swift-format`; run `make format` before committing.
-- Commit messages end with: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- No Claude attribution anywhere: no `Co-Authored-By: Claude …` trailer in commits, no "Generated with Claude Code" line in PRs.
+  Claude must never show up as a GitHub contributor (`.claude/settings.json` sets `attribution` to empty).
