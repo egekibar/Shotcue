@@ -244,7 +244,8 @@ struct RunCoordinatorTests {
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.kind == .runDone)
         #expect(notification.title == "Buton rengi")
-        #expect(notification.body == "Özet satırı")
+        // Spec §5.5: title + one-line summary + cost (final review M1).
+        #expect(notification.body == "Özet satırı · $0.42")
         #expect(notification.taskID == task.id)
         #expect(notification.runID == run.id)
 
@@ -254,6 +255,20 @@ struct RunCoordinatorTests {
         let replayed = log.split(separator: "\n", omittingEmptySubsequences: true)
             .compactMap { StreamJSONParser.parse(line: String($0)) }
         #expect(replayed == [.assistantText("bakıyorum"), .toolUse(name: "Read", summary: "Read a.png")])
+    }
+
+    @Test func aDoneNotificationWithoutACostOrSummaryStaysShort() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Sessiz", status: .ready)
+        let runner = FakeClaudeRunner(outcome: .success(ClaudeRunResult(subtype: "success", isError: false)))
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run succeeded") { await h.runs(of: task.id).first?.state == .succeeded }
+        #expect(h.notifier.sent.current.first?.body == "Tamamlandı")
+        #expect(RunCoordinator.doneBody(summary: nil, costUSD: 1.5) == "Tamamlandı · $1.50")
+        #expect(RunCoordinator.doneBody(summary: "Bitti.", costUSD: 0.004) == "Bitti. · $0.00")
     }
 
     @Test func limitResultFailsTheTaskAndNotifies() async throws {

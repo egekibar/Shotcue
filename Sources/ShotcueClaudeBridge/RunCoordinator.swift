@@ -388,7 +388,7 @@ public actor RunCoordinator: TaskDispatcher {
                 let task = await apply(.done, toTask: run.taskID)
                 return AppNotification(
                     kind: .runDone, title: task?.title ?? title,
-                    body: Self.firstLine(result.result) ?? "Tamamlandı",
+                    body: Self.doneBody(summary: Self.firstLine(result.result), costUSD: result.totalCostUSD),
                     taskID: run.taskID, runID: run.id)
             }
             // A limit stop or an execution error: claude's own subtype is the code (final review I6).
@@ -489,6 +489,14 @@ public actor RunCoordinator: TaskDispatcher {
             .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard let line else { return nil }
         return String(line.prefix(200))
+    }
+
+    /// Spec §5.5: the "done" notification carries the one-line summary and the run's cost when the result has one
+    /// (final review M1).
+    static func doneBody(summary: String?, costUSD: Double?) -> String {
+        let text = summary ?? "Tamamlandı"
+        guard let costUSD else { return text }
+        return text + " · " + String(format: "$%.2f", costUSD)
     }
 
     /// The first line git printed (its stderr), which says what is wrong; otherwise the error's own description.
