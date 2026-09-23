@@ -87,6 +87,7 @@ public final class TaskDetailStore {
                 for await list in runStream {
                     guard let self else { return }
                     self.runs = list.sorted { $0.startedAt > $1.startedAt }
+                    self.refreshResumableRun()
                     self.syncLiveSubscription()
                 }
             })
@@ -130,6 +131,7 @@ public final class TaskDetailStore {
             captures = try await services.tasks.captures(taskID: taskID)
             voiceNotes = try await services.tasks.voiceNotes(taskID: taskID)
             runs = try await services.runs.runs(taskID: taskID).sorted { $0.startedAt > $1.startedAt }
+            refreshResumableRun()
             projects = try await services.projects.allProjects()
             if let scheduled = task?.scheduledAt { scheduleDate = scheduled }
             syncLiveSubscription()
@@ -189,8 +191,18 @@ public final class TaskDetailStore {
 
     public var latestRun: Run? { runs.first }
 
-    /// The claude session id to resume: `run.id` doubles as `--session-id` (spec §6.3).
-    public var sessionID: String? { latestRun?.id.uuidString }
+    /// The run a resume opens (final review M4): the newest one that actually started claude. Runs refused or
+    /// cancelled before launch (C1, I4, claude not found) have no session. Kept in step with `runs`, so the file
+    /// checks behind it run when the runs change, not on every render.
+    public private(set) var resumableRun: Run?
+
+    /// The claude session id to resume: `run.id` doubles as `--session-id` (spec §6.3). nil disables the
+    /// "Terminalde devam et" / "Desktop'ta aç" buttons.
+    public var sessionID: String? { resumableRun?.id.uuidString }
+
+    private func refreshResumableRun() {
+        resumableRun = services.fileStore.latestLaunchedRun(in: runs)
+    }
 
     /// What `RunLogView` renders: the live stream while the selected run is the live one, otherwise the
     /// selected run's replay (which keeps an ended live run's events on screen).

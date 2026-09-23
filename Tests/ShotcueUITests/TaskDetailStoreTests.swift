@@ -173,6 +173,8 @@ struct TaskDetailStoreTests {
             finishedAt: t0.addingTimeInterval(84), numTurns: 11, costUSD: 0.4137,
             resultText: "Fixed the button color.", subtype: "success",
             logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        // claude wrote events for it: the run started a session (final review M4).
+        try f.bundle.writeFile(run.logRelPath, contents: "{\"type\":\"system\",\"subtype\":\"init\"}\n")
         try await f.bundle.services.runs.save(run)
         _ = await waitUntil("runs") { f.store.runs.count == 1 }
 
@@ -187,6 +189,49 @@ struct TaskDetailStoreTests {
 
         await f.store.openComposer()
         #expect(f.bundle.handoff.actions.current.last == "composer:/tmp/acme-web:1")
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    /// Final review M4: resume opens the newest run that actually started claude; a newer run refused before
+    /// launch (C1, I4) has no session and is skipped.
+    @MainActor
+    @Test func resumeSkipsRunsThatNeverStartedClaude() async throws {
+        let f = try await fixture(status: .ready)
+        let launched = Run(
+            taskID: f.task.id, state: .succeeded, startedAt: t0, finishedAt: t0.addingTimeInterval(30),
+            logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try f.bundle.writeFile(launched.logRelPath, contents: "{\"type\":\"system\",\"subtype\":\"init\"}\n")
+        let refused = Run(
+            taskID: f.task.id, state: .failed, startedAt: t0.addingTimeInterval(60),
+            finishedAt: t0.addingTimeInterval(60), error: RunErrorCode.voiceNotePending,
+            logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try await f.bundle.services.runs.save(launched)
+        try await f.bundle.services.runs.save(refused)
+        _ = await waitUntil("runs") { f.store.runs.count == 2 }
+
+        #expect(f.store.latestRun?.id == refused.id)
+        #expect(f.store.sessionID == launched.id.uuidString)
+        await f.store.openInTerminal()
+        #expect(f.bundle.handoff.actions.current.first?.hasPrefix("terminal:\(launched.id.uuidString)") == true)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func resumeIsOffWhenNoRunStartedClaude() async throws {
+        let f = try await fixture(status: .ready)
+        let refused = Run(
+            taskID: f.task.id, state: .failed, startedAt: t0, finishedAt: t0,
+            error: RunErrorCode.gitBranchFailed, logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try await f.bundle.services.runs.save(refused)
+        _ = await waitUntil("runs") { f.store.runs.count == 1 }
+
+        #expect(f.store.sessionID == nil)
+        await f.store.openInTerminal()
+        await f.store.openInDesktop()
+        #expect(f.bundle.handoff.actions.current.isEmpty)
+        #expect(f.store.lastError == "Devam ettirilecek bir oturum yok.")
         f.store.stop()
         f.bundle.cleanUp()
     }

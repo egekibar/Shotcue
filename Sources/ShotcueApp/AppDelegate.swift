@@ -166,15 +166,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return UUID(uuidString: string)
     }
 
-    /// The notification's run, or the task's newest one. The spelling `--resume` needs is applied by
-    /// `ClaudeHandoff`, the same as for the Inspector's resume buttons.
+    /// The notification's run (RUN_DONE: claude ran it), or the task's newest run that actually started claude
+    /// (final review M4, the Inspector's rule). The spelling `--resume` needs is applied by `ClaudeHandoff`, the
+    /// same as for the Inspector's resume buttons.
     private static func sessionID(
         runID: UUID?, taskID: UUID?, environment: AppEnvironment
     ) async -> String? {
         if let runID { return runID.uuidString }
         guard let taskID else { return nil }
         let runs = (try? await environment.services.runs.runs(taskID: taskID)) ?? []
-        return runs.max(by: { $0.startedAt < $1.startedAt })?.id.uuidString
+        return environment.fileStore.latestLaunchedRun(in: runs)?.id.uuidString
     }
 
     /// Banners while Shotcue is frontmost, too — a finished run is the whole point of the app.
