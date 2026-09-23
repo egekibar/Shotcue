@@ -11,6 +11,8 @@ public struct SettingsView: View {
     public let claudeVersion: String?
     public let transcriberState: TranscriberModelState
     public let onDownloadModel: () -> Void
+    /// Shown on the download button ("Modeli indir (≈1,6 GB)", spec §6.2: "boyut gösterilir").
+    public let modelDownloadSize: String?
     /// Input devices for the "Giriş cihazı" picker; empty → a UID text field is shown instead.
     /// Filled by the App layer from `AudioDeviceCatalog.inputDevices()` (ShotcueNotes).
     public let inputDevices: [(uid: String, name: String)]
@@ -22,6 +24,7 @@ public struct SettingsView: View {
         claudeVersion: String?,
         transcriberState: TranscriberModelState,
         onDownloadModel: @escaping () -> Void,
+        modelDownloadSize: String? = nil,
         inputDevices: [(uid: String, name: String)] = []
     ) {
         self.settings = settings
@@ -30,6 +33,7 @@ public struct SettingsView: View {
         self.claudeVersion = claudeVersion
         self.transcriberState = transcriberState
         self.onDownloadModel = onDownloadModel
+        self.modelDownloadSize = modelDownloadSize
         self.inputDevices = inputDevices
     }
 
@@ -233,7 +237,7 @@ public struct SettingsView: View {
                 } else if case .ready = transcriberState {
                     EmptyView()
                 } else {
-                    Button("Modeli indir") { onDownloadModel() }
+                    Button(modelDownloadSize.map { "Modeli indir (\($0))" } ?? "Modeli indir") { onDownloadModel() }
                         .buttonStyle(.glassProminent)
                 }
                 Text(

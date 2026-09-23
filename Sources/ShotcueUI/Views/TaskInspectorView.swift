@@ -243,20 +243,30 @@ public struct TaskInspectorView: View {
         }
     }
 
+    /// A pending note says what it waits for: the queue ("çevriliyor") or the model ("model indirilmedi", with the
+    /// download one click away — spec §6.2).
     @ViewBuilder
     private func transcriptStateBadge(_ note: VoiceNote) -> some View {
-        switch note.transcriptState {
-        case .pending:
-            Label("çevriliyor", systemImage: "ellipsis.circle")
+        let status = store.transcriptStatus(for: note)
+        switch status {
+        case .transcribing, .modelDownloading:
+            Label(status.label ?? "", systemImage: "ellipsis.circle")
                 .font(.caption2).foregroundStyle(.orange)
-        case .failed:
-            Label("çevrilemedi", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption2).foregroundStyle(.red)
-        case .done:
-            if note.editedByUser {
-                Label("düzenlendi", systemImage: "pencil")
-                    .font(.caption2).foregroundStyle(.secondary)
+        case .waitingForModel, .modelUnavailable:
+            Label(status.label ?? "", systemImage: "arrow.down.circle")
+                .font(.caption2).foregroundStyle(.orange)
+            if let model = store.modelStore {
+                Button("Modeli indir (\(model.downloadSizeText))") { model.startDownload() }
+                    .font(.caption2)
             }
+        case .failed:
+            Label(status.label ?? "", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption2).foregroundStyle(.red)
+        case .edited:
+            Label(status.label ?? "", systemImage: "pencil")
+                .font(.caption2).foregroundStyle(.secondary)
+        case .done:
+            EmptyView()
         }
     }
 

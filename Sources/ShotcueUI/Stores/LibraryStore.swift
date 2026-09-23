@@ -95,13 +95,18 @@ public final class LibraryStore {
     @ObservationIgnored private var storedSearchText = ""
     @ObservationIgnored private var storedSelectedIDs: Set<UUID> = []
 
+    /// Handed to every inspector store, so a pending voice note can say it waits for the model (C1 (c)).
+    @ObservationIgnored private let modelStore: TranscriberModelStore?
+
     /// `renumber` defaults to a no-op so the store works (and tests) without the persistence module.
     /// Plan 06 passes `PersistenceMaintenance.renumberSortIndexes`.
     public init(
         services: AppServices,
+        modelStore: TranscriberModelStore? = nil,
         renumber: @escaping Renumber = { _ in }
     ) {
         self.services = services
+        self.modelStore = modelStore
         self.renumber = renumber
         self.scheduleDate = services.clock.now.addingTimeInterval(3600)
     }
@@ -750,7 +755,7 @@ public final class LibraryStore {
         }
         guard detailStore?.taskID != id else { return }
         dropDetailStore()
-        let store = TaskDetailStore(services: services, taskID: id)
+        let store = TaskDetailStore(services: services, taskID: id, modelStore: modelStore)
         detailStore = store
         detailStartTask = Task { await store.start() }
     }

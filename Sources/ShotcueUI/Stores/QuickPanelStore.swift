@@ -55,9 +55,14 @@ public final class QuickPanelStore {
     static let tick: Duration = .milliseconds(200)
     static let tickSeconds: Double = 0.2
 
-    public init(services: AppServices, settings: SettingsStore) {
+    /// The shared transcription model (spec §6.2): after a recording without it, the panel says so and offers the
+    /// download (final review C1 (c)). Nil disables the notice.
+    public let modelStore: TranscriberModelStore?
+
+    public init(services: AppServices, settings: SettingsStore, modelStore: TranscriberModelStore? = nil) {
         self.services = services
         self.settings = settings
+        self.modelStore = modelStore
         self.scheduleDate = services.clock.now.addingTimeInterval(3600)
     }
 
@@ -87,11 +92,20 @@ public final class QuickPanelStore {
         }
         applyProjectDefaults()
         microphoneState = await services.permissions.state(of: .microphone)
+        await modelStore?.refresh()
     }
 
     // MARK: - Derived
 
     public var canSave: Bool { task != nil }
+
+    /// A recording of this panel waits for a transcription model that is not there (not downloaded, still
+    /// downloading or unloadable): the panel shows "model indirilmedi" and the download button instead of
+    /// "cihaz içi transkripsiyon".
+    public var showsModelNotice: Bool {
+        guard let modelStore, !modelStore.isReady else { return false }
+        return voiceNotes.contains { $0.isAwaitingTranscript }
+    }
 
     public var canRecord: Bool { microphoneState != .denied && task != nil }
 
@@ -212,6 +226,7 @@ public final class QuickPanelStore {
         } catch {
             report(error)
         }
+        await modelStore?.refresh()
     }
 
     // MARK: - Saving

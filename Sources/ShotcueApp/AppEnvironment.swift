@@ -27,6 +27,8 @@ final class AppEnvironment {
     let libraryStore: LibraryStore
     let menuBarStore: MenuBarStore
     let permissionsStore: PermissionsStore
+    /// The transcription model's state and its one download flow (Settings, quick panel, inspector).
+    let transcriberModel: TranscriberModelStore
 
     let windowOpener: WindowOpener
     let activationPolicy: ActivationPolicyController
@@ -139,8 +141,12 @@ final class AppEnvironment {
         // 8. Stores (Plan 05) and the shared image cache.
         let thumbnails = ThumbnailCache(fileStore: fileStore)
         self.thumbnails = thumbnails
+        let transcriberModel = TranscriberModelStore(
+            transcriber: transcriber, transcriptionQueue: transcription, modelName: snapshot.sttModel)
+        self.transcriberModel = transcriberModel
         self.libraryStore = LibraryStore(
             services: services,
+            modelStore: transcriberModel,
             renumber: { projectID in
                 try await PersistenceMaintenance.renumberSortIndexes(in: database, projectID: projectID)
             })
@@ -166,7 +172,7 @@ final class AppEnvironment {
             settings: settings)
         let quickPanel = QuickPanelController(
             makeStore: { taskID in
-                let store = QuickPanelStore(services: services, settings: settings)
+                let store = QuickPanelStore(services: services, settings: settings, modelStore: transcriberModel)
                 // ⌘⇧↩ with a transcript on its way closes the panel at once (final review C1); a send that then
                 // cannot go out is reported like any other failed run.
                 store.onSendFailure = { title, message, taskID in
@@ -298,7 +304,7 @@ final class AppEnvironment {
 
     /// `claude --version`, transcriber model state, project list, input devices and login item status.
     func refreshStatus() {
-        let transcriber = services.transcriber
+        let transcriberModel = transcriberModel
         let projectRepository = services.projects
         Task { @MainActor in
             let version = await diagnostics.claudeVersion()
@@ -306,7 +312,7 @@ final class AppEnvironment {
             status.claudeFound = version.found
             AppLog.app.notice(
                 "claude \(version.found ? "found" : "missing", privacy: .public): \(version.text, privacy: .public)")
-            status.transcriberState = await transcriber.modelState()
+            await transcriberModel.refresh()
             status.projects = (try? await projectRepository.allProjects()) ?? []
         }
         status.inputDevices = AudioDeviceCatalog.inputDevices()
@@ -350,35 +356,6 @@ final class AppEnvironment {
         status.loginItemStatusText = LoginItemManager.statusText
     }
 
-    /// Settings > Ses > "Modeli indir" (explicit consent, spec §6.2). The transcriber reports its progress
-    /// through `modelState()`, so it is mirrored into the status every half second while the download runs;
-    /// the poll is awaited before the final state is written, so a late poll cannot overwrite `.ready`.
-    func downloadTranscriberModel() {
-        if case .downloading = status.transcriberState { return }
-        status.transcriberState = .downloading(progress: 0)
-        let transcriber = services.transcriber
-        Task { @MainActor in
-            let progressPoll = Task { @MainActor in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .milliseconds(500))
-                    let state = await transcriber.modelState()
-                    if !Task.isCancelled, case .downloading = state { status.transcriberState = state }
-                }
-            }
-            do {
-                try await transcriber.downloadModel()
-                progressPoll.cancel()
-                await progressPoll.value
-                status.transcriberState = await transcriber.modelState()
-                await services.transcriptionQueue.processPending()
-            } catch {
-                progressPoll.cancel()
-                await progressPoll.value
-                status.transcriberState = .failed(error.localizedDescription)
-            }
-        }
-    }
-
     func runDiagnostics() {
         guard !status.diagnosticsRunning else { return }
         status.diagnosticsRunning = true
@@ -386,7 +363,7 @@ final class AppEnvironment {
             defer { status.diagnosticsRunning = false }
             do {
                 let url = try await diagnostics.writeReport(
-                    transcriberState: status.transcriberState,
+                    transcriberState: transcriberModel.state,
                     loginItemStatus: LoginItemManager.statusText,
                     hotKeyLabel: settings.hotKey.label)
                 NSWorkspace.shared.open(url)

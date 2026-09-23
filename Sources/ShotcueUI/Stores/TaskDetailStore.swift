@@ -54,9 +54,14 @@ public final class TaskDetailStore {
     /// Whether the pending-transcript poll is running (test hook).
     var isPollingTranscripts: Bool { transcriptPollTask != nil }
 
-    public init(services: AppServices, taskID: UUID) {
+    /// The shared transcription model (spec §6.2): a pending note says whether it waits for the model and offers
+    /// the download (final review C1 (c)). Nil: pending notes read "çevriliyor".
+    public let modelStore: TranscriberModelStore?
+
+    public init(services: AppServices, taskID: UUID, modelStore: TranscriberModelStore? = nil) {
         self.services = services
         self.taskID = taskID
+        self.modelStore = modelStore
         self.scheduleDate = services.clock.now.addingTimeInterval(3600)
     }
 
@@ -132,6 +137,7 @@ public final class TaskDetailStore {
         } catch {
             report(error)
         }
+        await modelStore?.refresh()
     }
 
     /// Re-reads captures and voice notes, which the task stream does not carry.
@@ -163,6 +169,8 @@ public final class TaskDetailStore {
                     guard !Task.isCancelled else { return }
                     self.voiceNotes = notes
                 }
+                // The model can finish downloading, or fail to load, while a note waits for it.
+                await self.modelStore?.refresh()
                 self.syncTranscriptPolling()
             }
         }
@@ -206,6 +214,11 @@ public final class TaskDetailStore {
     public var canCancel: Bool {
         guard let task else { return false }
         return task.status == .running || task.status == .queued || task.status == .scheduled
+    }
+
+    /// What the note's transcript waits for: "model indirilmedi" rather than an endless "çevriliyor" (spec §6.2).
+    public func transcriptStatus(for note: VoiceNote) -> VoiceNoteStatus {
+        VoiceNoteStatus.of(note, model: modelStore?.state)
     }
 
     public var firstTranscript: String? {
