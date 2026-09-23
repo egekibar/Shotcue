@@ -5,9 +5,13 @@ import ServiceManagement
 /// the toggle in Settings and the real registration can drift (the user can flip it in System
 /// Settings), so the status is read on every Settings open and never cached.
 ///
-/// Measured 2026-09-22: a bundle running from outside a normal apps directory reports `.notFound`.
-/// Measured 2026-09-23: the ad-hoc signed fallback build reports `.notFound` from `~/Applications` too,
-/// so launch-at-login needs the installed app *and* the "Shotcue Dev" signature (`make cert`).
+/// `.notFound`: macOS does not register this copy of the app as a login item. Measured 2026-09-22: a bundle running
+/// from outside a normal apps directory reports it. Measured 2026-09-23: the ad-hoc signed fallback build reports it
+/// from `~/Applications` too. The user's way out is adding Shotcue by hand in System Settings > General > Login Items,
+/// which is what the status text says.
+///
+/// Developer note: a local build gets a working login item once it is installed and signed with the "Shotcue Dev"
+/// certificate (`make cert`, then `make install`).
 enum LoginItemManager {
     static var statusText: String {
         switch SMAppService.mainApp.status {
@@ -18,7 +22,7 @@ enum LoginItemManager {
         case .requiresApproval:
             return "Sistem Ayarları > Genel > Giriş Öğeleri'nde onay bekliyor"
         case .notFound:
-            return "kullanılamıyor (~/Applications'a imzalı kurulum gerekir: make cert + make install)"
+            return "kullanılamıyor — Shotcue'yu Sistem Ayarları > Genel > Giriş Öğeleri'nden elle ekle"
         @unknown default:
             return "bilinmiyor"
         }

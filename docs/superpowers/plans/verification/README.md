@@ -160,9 +160,10 @@ transkripsiyon modeli: indirilmedi (openai_whisper-large-v3-v20240930_turbo)
 Foundation Models: Apple Intelligence kapalı
 ```
 
-(`girişte başlat` metni bu ölçümden sonra düzeltildi: `.notFound` artık "~/Applications'a imzalı kurulum gerekir: make
-cert + make install" diyor.) `claude auth` satırı spike S1'in kalıcı kanıtıdır: bundle'dan başlatılan `claude`
-aboneliğin oturumunu görüyor.
+(`girişte başlat` metni bu ölçümden sonra düzeltildi: `.notFound` artık "kullanılamıyor — Shotcue'yu Sistem Ayarları >
+Genel > Giriş Öğeleri'nden elle ekle" diyor. Geliştirici notu: yerel build'de girişte başlat, `make cert` + `make
+install` ile çalışır.) `claude auth` satırı spike S1'in kalıcı kanıtıdır: bundle'dan başlatılan `claude` aboneliğin
+oturumunu görüyor.
 
 ## Notlar
 
