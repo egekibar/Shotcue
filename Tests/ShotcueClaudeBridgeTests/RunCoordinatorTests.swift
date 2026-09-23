@@ -277,7 +277,9 @@ struct RunCoordinatorTests {
         #expect(await h.status(of: task.id) == .failed)
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.kind == .runFailed)
-        #expect(notification.body == "Tur limiti aşıldı (30 tur).")
+        // Final review I6: the Turkish text comes from the one mapping, with the §8 limit hint.
+        #expect(notification.body == RunErrorText.notificationBody(for: RunErrorCode.maxTurns, numTurns: 30))
+        #expect(notification.body.contains("tur limitini artırıp"))
     }
 
     @Test func cancelledRunnerErrorMapsToCancelledWithoutANotification() async throws {
@@ -305,8 +307,39 @@ struct RunCoordinatorTests {
 
         let run = try #require(await h.runs(of: task.id).first)
         #expect(run.exitCode == 1)
-        #expect(run.error == "claude ile tekrar giriş yapın.")
+        #expect(run.error == RunErrorCode.claudeNotLoggedIn)
+        #expect(h.notifier.sent.current.first?.body.contains("claude ile tekrar giriş yapın.") == true)
         #expect(h.notifier.sent.current.first?.kind == .runFailed)
+    }
+
+    /// Final review I6: the run row keeps a machine code (plus the raw detail worth showing); the notification says it
+    /// in Turkish through `RunErrorText`.
+    @Test(
+        arguments: zip(
+            [
+                ClaudeRunError.timedOut, .notFound, .noResult, .launchFailed("posix_spawn failed"),
+                .processFailed(exitCode: 2, stderr: "boom\nsecond line"),
+            ],
+            [
+                RunErrorCode.timeout, RunErrorCode.claudeNotFound, RunErrorCode.noResult,
+                "claude_launch_failed: posix_spawn failed", "claude_failed: boom",
+            ]))
+    func runnerErrorsAreStoredAsCodes(error: ClaudeRunError, stored: String) async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Kod", status: .ready)
+        let h = Harness(projects: [project], tasks: [task], runner: ErrorClaudeRunner(error))
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        let run = try #require(await h.runs(of: task.id).first)
+        #expect(run.error == stored)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(
+            notification.body
+                == RunErrorText.notificationBody(for: run.error, exitCode: run.exitCode, numTurns: run.numTurns))
+        #expect(!notification.body.contains("_"))
     }
 
     @Test func cancelForwardsToTheRunnerWhileRunningAndUnqueuesOtherwise() async throws {
@@ -351,6 +384,7 @@ struct RunCoordinatorTests {
         // It never ran, so it is ready to be sent again.
         #expect(await h.status(of: task.id) == .ready)
         #expect(h.notifier.sent.current.isEmpty)
+        #expect(await h.runs(of: task.id).first?.error == RunErrorCode.cancelledBeforeLaunch)
     }
 
     @Test func editsMadeDuringARunSurviveItsEnd() async throws {
@@ -948,7 +982,7 @@ struct RunCoordinatorTests {
         // The task never ran, so it returns to `ready` instead of `failed`.
         #expect(await h.status(of: task.id) == .ready)
         let run = try #require(await h.runs(of: task.id).first)
-        #expect(run.error == RunCoordinator.missingProjectMessage(path: project.path))
+        #expect(run.error == RunErrorCode.compose(RunErrorCode.projectFolderMissing, detail: project.path))
         #expect(h.notifier.sent.current.first?.kind == .runFailed)
     }
 
@@ -973,7 +1007,7 @@ struct RunCoordinatorTests {
         let runs = await h.runs(of: orphan.id)
         #expect(runs.count == 1)
         #expect(runs.first?.state == .failed)
-        #expect(runs.first?.error == RunCoordinator.missingProjectRecordMessage)
+        #expect(runs.first?.error == RunErrorCode.projectMissing)
         #expect(h.notifier.sent.current.contains { $0.kind == .runFailed && $0.taskID == orphan.id })
     }
 

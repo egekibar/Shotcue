@@ -217,12 +217,14 @@ public actor RunCoordinator: TaskDispatcher {
         let project: Project
         do {
             guard let found = try await projectRepository.project(id: projectID) else {
-                await failBeforeLaunch(&run, title: queued.title, message: Self.missingProjectRecordMessage)
+                await failBeforeLaunch(&run, title: queued.title, error: RunErrorCode.projectMissing)
                 return
             }
             project = found
         } catch {
-            await failBeforeLaunch(&run, title: queued.title, message: Self.unreadableProjectMessage(error))
+            await failBeforeLaunch(
+                &run, title: queued.title,
+                error: RunErrorCode.compose(RunErrorCode.projectUnreadable, detail: Self.detail(of: error)))
             return
         }
 
@@ -231,7 +233,9 @@ public actor RunCoordinator: TaskDispatcher {
         guard FileManager.default.fileExists(atPath: project.path, isDirectory: &isDirectory),
             isDirectory.boolValue
         else {
-            await failBeforeLaunch(&run, title: queued.title, message: Self.missingProjectMessage(path: project.path))
+            await failBeforeLaunch(
+                &run, title: queued.title,
+                error: RunErrorCode.compose(RunErrorCode.projectFolderMissing, detail: project.path))
             return
         }
 
@@ -243,7 +247,7 @@ public actor RunCoordinator: TaskDispatcher {
         // of the task's notes has no usable text. Checked before the git steps, so a refusal leaves the
         // working tree as it was.
         if let refusal = await voiceNoteRefusal(taskID: taskID) {
-            await failBeforeLaunch(&run, title: queued.title, error: refusal.code, message: refusal.message)
+            await failBeforeLaunch(&run, title: queued.title, error: refusal)
             return
         }
         // Final review I4: the opt-in git safety net fails closed. When the user asked for a branch or a stash and
@@ -256,8 +260,7 @@ public actor RunCoordinator: TaskDispatcher {
             } catch {
                 await failBeforeLaunch(
                     &run, title: queued.title,
-                    error: RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: Self.gitDetail(error)),
-                    message: Self.gitBranchFailedMessage)
+                    error: RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: Self.gitDetail(error)))
                 return
             }
         }
@@ -267,8 +270,7 @@ public actor RunCoordinator: TaskDispatcher {
             } catch {
                 await failBeforeLaunch(
                     &run, title: queued.title,
-                    error: RunErrorCode.compose(RunErrorCode.gitStashFailed, detail: Self.gitDetail(error)),
-                    message: Self.gitStashFailedMessage)
+                    error: RunErrorCode.compose(RunErrorCode.gitStashFailed, detail: Self.gitDetail(error)))
                 return
             }
         }
@@ -290,7 +292,7 @@ public actor RunCoordinator: TaskDispatcher {
         guard let running = await apply(.running, toTask: taskID) else {
             run.state = .cancelled
             run.finishedAt = clock.now
-            run.error = Self.taskChangedBeforeLaunchMessage
+            run.error = RunErrorCode.taskChangedBeforeLaunch
             try? await runRepository.save(run)
             return
         }
@@ -328,32 +330,34 @@ public actor RunCoordinator: TaskDispatcher {
         if let notification { await notifier.notify(notification) }
     }
 
-    /// The run never started (spec §8): the Run row says why (`error`), the task goes back to `ready` (the
-    /// task never entered `running`; fix the cause and resend) and the user is told (`message`).
-    private func failBeforeLaunch(_ run: inout Run, title: String, error: String? = nil, message: String) async {
+    /// The run never started (spec §8): the Run row keeps the machine code (`error`), the task goes back to
+    /// `ready` (the task never entered `running`; fix the cause and resend) and the user is told in Turkish
+    /// (`RunErrorText`, the same text the inspector shows).
+    private func failBeforeLaunch(_ run: inout Run, title: String, error: String) async {
         run.state = .failed
         run.finishedAt = clock.now
-        run.error = error ?? message
+        run.error = error
         let task = await apply(.ready, toTask: run.taskID)
         try? await runRepository.save(run)
         await notifier.notify(
             AppNotification(
-                kind: .runFailed, title: task?.title ?? title, body: message, taskID: run.taskID, runID: run.id))
+                kind: .runFailed, title: task?.title ?? title, body: RunErrorText.notificationBody(for: error),
+                taskID: run.taskID, runID: run.id))
     }
 
-    /// Why the task's voice notes keep the run from starting, or nil when every note has usable text.
-    /// Notes that cannot be read also refuse: the run could not show that it carries them.
-    private func voiceNoteRefusal(taskID: UUID) async -> (code: String, message: String)? {
+    /// The code of why the task's voice notes keep the run from starting, or nil when every note has usable
+    /// text. Notes that cannot be read also refuse: the run could not show that it carries them.
+    private func voiceNoteRefusal(taskID: UUID) async -> String? {
         let notes: [VoiceNote]
         do {
             notes = try await taskRepository.voiceNotes(taskID: taskID)
         } catch {
-            return (RunErrorCode.voiceNotesUnreadable, Self.voiceNotesUnreadableMessage)
+            return RunErrorCode.voiceNotesUnreadable
         }
         switch VoiceNoteReadiness.of(notes) {
         case .ready: return nil
-        case .pending: return (RunErrorCode.voiceNotePending, Self.voiceNotePendingMessage)
-        case .failed: return (RunErrorCode.voiceNoteFailed, Self.voiceNoteFailedMessage)
+        case .pending: return RunErrorCode.voiceNotePending
+        case .failed: return RunErrorCode.voiceNoteFailed
         }
     }
 
@@ -362,7 +366,7 @@ public actor RunCoordinator: TaskDispatcher {
     private func cancelBeforeLaunch(_ run: inout Run) async {
         run.state = .cancelled
         run.finishedAt = clock.now
-        run.error = "cancelled"
+        run.error = RunErrorCode.cancelledBeforeLaunch
         await apply(.ready, toTask: run.taskID)
         try? await runRepository.save(run)
     }
@@ -387,28 +391,31 @@ public actor RunCoordinator: TaskDispatcher {
                     body: Self.firstLine(result.result) ?? "Tamamlandı",
                     taskID: run.taskID, runID: run.id)
             }
+            // A limit stop or an execution error: claude's own subtype is the code (final review I6).
             run.state = .failed
-            run.error = result.subtype
+            run.error = RunErrorCode.isCode(result.subtype) ? result.subtype : RunErrorCode.executionError
             let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
                 kind: .runFailed, title: task?.title ?? title,
-                body: Self.message(for: result), taskID: run.taskID, runID: run.id)
+                body: RunErrorText.notificationBody(for: run.error, numTurns: run.numTurns),
+                taskID: run.taskID, runID: run.id)
 
         case .failure(let error):
             let claudeError = error as? ClaudeRunError
             if claudeError == .cancelled {
                 run.state = .cancelled
-                run.error = "cancelled"
+                run.error = RunErrorCode.cancelled
                 await apply(.cancelled, toTask: run.taskID)
                 return nil
             }
             run.state = .failed
-            run.error = Self.message(for: error)
+            run.error = Self.errorCode(for: error)
             if case .processFailed(let exitCode, _) = claudeError { run.exitCode = exitCode }
             let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
                 kind: .runFailed, title: task?.title ?? title,
-                body: Self.message(for: error), taskID: run.taskID, runID: run.id)
+                body: RunErrorText.notificationBody(for: run.error, exitCode: run.exitCode),
+                taskID: run.taskID, runID: run.id)
         }
     }
 
@@ -484,46 +491,6 @@ public actor RunCoordinator: TaskDispatcher {
         return String(line.prefix(200))
     }
 
-    static func message(for result: ClaudeRunResult) -> String {
-        switch result.subtype {
-        case ClaudeRunResult.maxTurnsSubtype:
-            return "Tur limiti aşıldı (\(result.numTurns.map(String.init) ?? "?") tur)."
-        case ClaudeRunResult.maxBudgetSubtype:
-            return "Bütçe limiti aşıldı."
-        default:
-            return firstLine(result.result) ?? "Çalışma hata ile bitti (\(result.subtype))."
-        }
-    }
-
-    static func missingProjectMessage(path: String) -> String {
-        "Proje klasörü bulunamadı: \(path). Ayarlar > Projeler'den yolu düzeltin."
-    }
-
-    static let missingProjectRecordMessage = "Proje bulunamadı. Görevi bir projeye atayıp yeniden gönderin."
-
-    static func unreadableProjectMessage(_ error: any Error) -> String {
-        "Proje okunamadı: \(error)"
-    }
-
-    static let taskChangedBeforeLaunchMessage =
-        "Görev, claude başlatılmadan önce değişti ya da silindi; çalıştırılmadı."
-
-    static let voiceNotePendingMessage =
-        "Sesli not henüz yazıya dökülmedi; görev gönderilmedi. Transkript bitince yeniden gönder."
-
-    static let voiceNoteFailedMessage =
-        "Sesli not yazıya dökülemedi; görev gönderilmedi. Transkripti elle yaz ya da yeniden çevir, sonra yeniden gönder."
-
-    static let voiceNotesUnreadableMessage = "Sesli notlar okunamadı; görev gönderilmedi. Yeniden gönder."
-
-    static let gitBranchFailedMessage =
-        "Yeni git branch'i açılamadı; claude başlatılmadı. Projenin git durumunu düzelt ya da proje ayarlarında "
-        + "\"Her çalıştırmayı yeni branch'te başlat\"ı kapat."
-
-    static let gitStashFailedMessage =
-        "Değişiklikler stash'lenemedi; claude başlatılmadı. Projenin git durumunu düzelt ya da proje ayarlarında "
-        + "\"Çalıştırmadan önce değişiklikleri stash'le\"yi kapat."
-
     /// The first line git printed (its stderr), which says what is wrong; otherwise the error's own description.
     static func gitDetail(_ error: any Error) -> String {
         let text: String
@@ -535,24 +502,35 @@ public actor RunCoordinator: TaskDispatcher {
         return String((firstLine(text) ?? text).prefix(200))
     }
 
-    static func message(for error: any Error) -> String {
-        guard let error = error as? ClaudeRunError else { return String(describing: error) }
+    /// An error's first line, as the raw detail under a code.
+    static func detail(of error: any Error) -> String {
+        let text = String(describing: error)
+        return String((firstLine(text) ?? text).prefix(200))
+    }
+
+    /// The code stored for a runner failure (final review I6); `RunErrorText` turns it into Turkish. The login
+    /// check keeps the spec §8 message for an expired session.
+    static func errorCode(for error: any Error) -> String {
+        guard let error = error as? ClaudeRunError else {
+            return RunErrorCode.compose(RunErrorCode.unknownError, detail: detail(of: error))
+        }
         switch error {
         case .notFound:
-            return "claude bulunamadı. Ayarlar > Claude'dan yolu kontrol edin."
-        case .launchFailed(let detail):
-            return "claude başlatılamadı: \(detail)"
-        case .processFailed(let exitCode, let stderr):
-            if stderr.lowercased().contains("not logged in") || stderr.lowercased().contains("login") {
-                return "claude ile tekrar giriş yapın."
+            return RunErrorCode.claudeNotFound
+        case .launchFailed(let reason):
+            return RunErrorCode.compose(RunErrorCode.claudeLaunchFailed, detail: firstLine(reason))
+        case .processFailed(_, let stderr):
+            let lowered = stderr.lowercased()
+            if lowered.contains("not logged in") || lowered.contains("login") {
+                return RunErrorCode.compose(RunErrorCode.claudeNotLoggedIn, detail: nil)
             }
-            return firstLine(stderr) ?? "claude \(exitCode) koduyla çıktı."
+            return RunErrorCode.compose(RunErrorCode.claudeFailed, detail: firstLine(stderr))
         case .timedOut:
-            return "Zaman aşımı. Çalışma durduruldu."
+            return RunErrorCode.timeout
         case .cancelled:
-            return "İptal edildi."
+            return RunErrorCode.cancelled
         case .noResult:
-            return "claude sonuç satırı üretmeden çıktı."
+            return RunErrorCode.noResult
         }
     }
 }

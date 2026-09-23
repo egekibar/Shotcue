@@ -431,11 +431,27 @@ public struct TaskInspectorView: View {
                         .lineLimit(3)
                         .foregroundStyle(.primary)
                 }
-                if let error = run.error, !error.isEmpty {
-                    Text(error)
+                // Final review I6: the row keeps a machine code; it is read in Turkish, with what to do about it
+                // (spec §8: after a limit stop, raise the limit) and the raw detail or unknown code underneath.
+                if let failure = RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns) {
+                    Text(failure.message)
                         .font(.caption)
                         .lineLimit(2)
                         .foregroundStyle(.red)
+                    if let suggestion = failure.suggestion {
+                        Text(suggestion)
+                            .font(.caption)
+                            .lineLimit(3)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let detail = failure.detail {
+                        Text(detail)
+                            .font(.caption2.monospaced())
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.tertiary)
+                            .textSelection(.enabled)
+                    }
                 }
             }
             .padding(8)
