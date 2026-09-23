@@ -146,6 +146,25 @@ struct TaskDetailStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// Final review I3: the schedule controls follow the status. A failed task that kept an old date (a row written
+    /// before the fix) offers "Tarih seç…" again instead of a date and a "Kaldır" that does nothing.
+    @MainActor
+    @Test func theScheduleControlsFollowTheStatusNotTheDate() async throws {
+        let f = try await fixture(status: .failed)
+        var stale = try #require(try await f.bundle.services.tasks.task(id: f.task.id))
+        stale.scheduledAt = t0.addingTimeInterval(-3600)
+        try await f.bundle.services.tasks.save(stale)
+        await f.store.reload()
+        #expect(f.store.scheduledFor == nil)
+
+        let when = t0.addingTimeInterval(7200)
+        await f.store.schedule(at: when)
+        #expect(f.store.task?.status == .scheduled)
+        #expect(f.store.scheduledFor == when)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func handoffUsesTheLatestRunIdAsTheSessionId() async throws {
         let f = try await fixture(status: .done)

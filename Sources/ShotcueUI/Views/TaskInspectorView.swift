@@ -329,10 +329,10 @@ public struct TaskInspectorView: View {
 
     @ViewBuilder
     private var schedulingSection: some View {
-        if let task = store.task {
+        if store.task != nil {
             VStack(alignment: .leading, spacing: 8) {
                 sectionTitle("ZAMANLAMA")
-                if let scheduledAt = task.scheduledAt {
+                if let scheduledAt = store.scheduledFor {
                     HStack(spacing: 8) {
                         Label(Formatting.dateAndTime(scheduledAt), systemImage: "clock")
                             .font(.callout)

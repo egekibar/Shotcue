@@ -211,6 +211,13 @@ public final class TaskDetailStore {
         return task.projectID != nil && task.status.canTransition(to: .queued)
     }
 
+    /// The date the task is scheduled for, only while it is `scheduled` (final review I3): a row that kept an old
+    /// date after it ran (rows written before the fix) shows the "Tarih seç…" / "Günlük kuyruğa al" controls again.
+    public var scheduledFor: Date? {
+        guard let task, task.status == .scheduled else { return nil }
+        return task.scheduledAt
+    }
+
     public var canCancel: Bool {
         guard let task else { return false }
         return task.status == .running || task.status == .queued || task.status == .scheduled
