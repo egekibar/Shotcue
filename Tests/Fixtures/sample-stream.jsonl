@@ -1,0 +1,7 @@
+{"type":"system","subtype":"init","session_id":"3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73","model":"claude-sonnet-5","cwd":"/tmp/proj","tools":["Read","Edit","Bash"],"permissionMode":"bypassPermissions"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Reading the screenshot first."}]},"session_id":"3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"/tmp/shots/a.png"}}]},"session_id":"3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"(image)"}]},"session_id":"3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73"}
+{"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,"error":"overloaded"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_2","name":"Edit","input":{"file_path":"/tmp/proj/src/Button.tsx","old_string":"red","new_string":"blue"}}]},"session_id":"3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73"}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":84213,"duration_api_ms":71904,"num_turns":11,"result":"Fixed the button color.\n\nFiles changed:\n- src/Button.tsx","session_id":"3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73","total_cost_usd":0.4137,"usage":{"input_tokens":41233,"output_tokens":6180},"permission_denials":[]}

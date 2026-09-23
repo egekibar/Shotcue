@@ -21,7 +21,7 @@
 - Kod, identifier'lar ve commit mesajları İngilizce; UI metinleri Türkçe literal; Swift Testing (`import Testing`, `#expect`, `#require`); XCTest kullanılmaz.
 - Domain görev tipi **`ShotTask`** (Swift'in `Task` tipiyle çakışmasın diye). Çalışma kaydı `Run`, ekran görüntüsü `Capture`, ses notu `VoiceNote`, proje `Project`.
 - `ShotcueCore` yalnızca `Foundation` import eder. AppKit/SwiftUI/AVFoundation/GRDB Core'a giremez.
-- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Bu plana özel kurallar
 
@@ -355,7 +355,7 @@ Karar kuralı: **632MB varyantı teknik terimlerde turbo ile eşitse ve hız öl
 git add docs/superpowers/plans/spike-results.md
 git commit -m "docs: record S4 WhisperKit Turkish quality spike results
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -734,7 +734,7 @@ Expected: `Test run with 8 tests in 2 suites passed`. (Bu makinede ölçülen de
 make format && git add -A Sources/ShotcueNotes Tests/ShotcueNotesTests
 git commit -m "feat(notes): add RMS level meter and AAC archive writer
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -976,7 +976,7 @@ Expected: `Test run with 4 tests in 1 suite passed`.
 make format && git add Sources/ShotcueNotes/EngineAudioRecorder.swift Tests/ShotcueNotesTests/EngineAudioRecorderTests.swift
 git commit -m "feat(notes): add AVAudioEngine recorder with configuration-change recovery
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 - [ ] **Step 6: Manuel kontrol listesi (gerçek mikrofon) — kullanıcıyla birlikte**
@@ -1031,7 +1031,7 @@ Sonra geçici kolu geri al: `git checkout -- Sources/ShotcueApp/ShotcueApp.swift
 git add docs/superpowers/plans/spike-results.md
 git commit -m "docs: record manual microphone checklist results
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1145,7 +1145,7 @@ Expected: `Test run with 3 tests in 1 suite passed`. (Bu makinede `inputDevices(
 make format && git add Sources/ShotcueNotes/AudioDeviceCatalog.swift Tests/ShotcueNotesTests/AudioDeviceCatalogTests.swift
 git commit -m "feat(notes): list audio input devices and translate Core Audio UIDs
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1617,7 +1617,7 @@ Expected: `Test run with 7 tests in 1 suite passed`.
 make format && git add Sources/ShotcueNotes/WhisperEngine.swift Sources/ShotcueNotes/WhisperKitTranscriber.swift Tests/ShotcueNotesTests/WhisperKitTranscriberTests.swift
 git commit -m "feat(notes): transcribe voice notes with WhisperKit behind a testable engine seam
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2045,7 +2045,7 @@ Expected: `Test run with 33 tests in 6 suites passed` (LevelMeter 4 + AACWriter 
 make format && git add Sources/ShotcueNotes/TranscriptionCoordinator.swift Tests/ShotcueNotesTests/TranscriptionCoordinatorTests.swift
 git commit -m "feat(notes): process pending voice notes sequentially and auto-fill titles
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2224,7 +2224,7 @@ git commit -m "feat(notes): report Foundation Models availability, defer @Genera
 @Generable/@Guide cannot compile with Command Line Tools: the FoundationModelsMacros
 plugin is not shipped there (same class of failure as #Preview/PreviewsMacros).
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---

@@ -21,7 +21,7 @@
 - Kod, identifier'lar ve commit mesajları İngilizce; UI metinleri Türkçe literal; Swift Testing (`import Testing`, `#expect`, `#require`); XCTest kullanılmaz.
 - Domain görev tipi **`ShotTask`** (Swift'in `Task` tipiyle çakışmasın diye). Çalışma kaydı `Run`, ekran görüntüsü `Capture`, ses notu `VoiceNote`, proje `Project`.
 - `ShotcueCore` yalnızca `Foundation` import eder. AppKit/SwiftUI/AVFoundation/GRDB Core'a giremez.
-- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Her task `swift test` yeşilken commit'lenir. Commit mesajı sonu: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ---
 
@@ -83,6 +83,8 @@ Aşağıdaki semboller bu makinede (`swift 6.4`, `GRDB.swift 7.11.1`) scratchpad
 | Observation | `ValueObservation.tracking { (Database) throws -> Value }`, `ValueObservation<ValueReducers.Fetch<Value>>`, `.values(in: any DatabaseReader)` → `AsyncValueObservation<Value>` (`AsyncSequence`, throwing; varsayılan `scheduling: .task`, `bufferingPolicy: .unbounded`) |
 
 **Karar — tarih formatı:** Tüm `Date` kolonları `Double` (1970'ten beri geçen saniye) olarak saklanır; kodlama ve kod çözme stratejisi `ShotcueRecord` extension'ında bir kez `.timeIntervalSince1970` olarak verilir. Gerekçe: GRDB'nin varsayılanı olan `"YYYY-MM-DD HH:MM:SS.SSS"` metni milisaniyeye yuvarlar, bu da model round-trip testlerini (`#expect(decoded == original)`) kırar; `.iso8601` ise saniyeye yuvarlar. `Double` tam yuvarlak dönüş verir, `ORDER BY` doğal olarak sıralanır ve `markInterruptedRuns` gibi yerlerde `Column.set(to: now.timeIntervalSince1970)` ile doğrudan yazılabilir.
+
+> **Uygulama notu (2026-09-22, review fix round 1):** Kod `timeIntervalSinceReferenceDate` (2001'den beri saniye) kullanır. 1970 tabanlı `Double`, `Date`'in iç temsiline 978 307 200 s eklendiğinde son mantis bitini kaybedip kesirli `Date()` değerlerinin ~%49'unda eşitliği bozuyordu. Aşağıdaki Task 2/5 kod bloklarındaki `timeIntervalSince1970` ifadeleri tarihsel; bağlayıcı olan birleşmiş koddur. Ayrıca kayıt → model dönüşümleri bozuk satırda `PersistenceError.corruptRow` fırlatır ve gözlem hataları `os.Logger` ile loglanır.
 
 **Karar — Türkçe arama:** SQLite'ın `lower()` ve `LIKE`'ı yalnızca ASCII harflerde büyük/küçük harf katlaması yapar, dolayısıyla `İ`, `ı`, `Ş`, `Ğ`, `Ü`, `Ö`, `Ç` için arama çalışmaz. Çözüm: `shotcue_fold` adında özel bir SQL fonksiyonu her bağlantıya kaydedilir (`Configuration.prepareDatabase`) ve `SearchText.normalized(_:)` ile hem kolon hem sorgu tarafı aynı şekilde normalize edilir. Normalizasyon Türkçe noktasız `ı` ve noktalı `İ`'yi düz `i`'ye indirir, ardından `folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive])` uygular. Bu, büyük/küçük harf duyarsızlığını **aksan duyarsızlığıyla birlikte** verir: `"ÖNBELLEĞİ"` ↔ `"önbelleği"` ↔ `"onbellegi"`, `"IŞIK"` ↔ `"ışık"`, `"LOGIN"` ↔ `"login"`. Bu bilinçli bir üst-küme; `InMemoryTaskRepository` (Plan 00) sade `lowercased()` kullanır, bu yüzden Task 7'deki eşitlik testi ASCII sorgu terimleriyle çalışır ve fark Task 7'de açıkça yazılıdır.
 
@@ -460,7 +462,7 @@ make format && git add Sources/ShotcuePersistence/SearchText.swift \
   Tests/ShotcuePersistenceTests/AppDatabaseTests.swift
 git commit -m "feat(persistence): add AppDatabase, schema migration v1 and Turkish text folding
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1102,7 +1104,7 @@ Expected: `Test run with 7 tests … passed`.
 make format && git add Sources/ShotcuePersistence/Records Tests/ShotcuePersistenceTests/RecordRoundTripTests.swift
 git commit -m "feat(persistence): add GRDB record types and model conversions
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1312,7 +1314,7 @@ make format && git add Sources/ShotcuePersistence/ObservationBridge.swift \
   Tests/ShotcuePersistenceTests/GRDBProjectRepositoryTests.swift
 git commit -m "feat(persistence): add GRDB project repository and ValueObservation bridge
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1720,7 +1722,7 @@ make format && git add Sources/ShotcuePersistence/GRDBTaskRepository.swift \
   Tests/ShotcuePersistenceTests/GRDBTaskRepositoryTests.swift
 git commit -m "feat(persistence): add GRDB task repository with folded search and observation
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1939,7 +1941,7 @@ make format && git add Sources/ShotcuePersistence/GRDBRunRepository.swift \
   Tests/ShotcuePersistenceTests/GRDBRunRepositoryTests.swift
 git commit -m "feat(persistence): add GRDB run repository with interrupted-run recovery
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2089,7 +2091,7 @@ make format && git add Sources/ShotcuePersistence/PersistenceMaintenance.swift \
   Tests/ShotcuePersistenceTests/PersistenceMaintenanceTests.swift
 git commit -m "feat(persistence): add sort index renumbering maintenance helper
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2241,7 +2243,7 @@ Expected: `swift build`'de hata satırı yok; `swift test` tüm target'larda ye�
 make format && git add Tests/ShotcuePersistenceTests/TaskRepositoryContractTests.swift
 git commit -m "test(persistence): prove InMemory and GRDB task repositories match
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
