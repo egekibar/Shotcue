@@ -191,9 +191,14 @@ public final class FakeTaskDispatcher: TaskDispatcher, @unchecked Sendable {
     public let cancelledTasks = Locked<[UUID]>([])
     public let runQueueCalls = Locked(0)
     public let paused = Locked(false)
+    /// Set to make `enqueue` fail (nothing is recorded then), e.g. the app's "claude missing" refusal.
+    public let enqueueError = Locked<FakeError?>(nil)
     private let broadcasters = Locked<[UUID: Broadcaster<RunEvent>]>([:])
     public init() {}
-    public func enqueue(taskID: UUID) async throws { enqueued.withLock { $0.append(taskID) } }
+    public func enqueue(taskID: UUID) async throws {
+        if let error = enqueueError.current { throw error }
+        enqueued.withLock { $0.append(taskID) }
+    }
     public func cancel(taskID: UUID) async { cancelledTasks.withLock { $0.append(taskID) } }
     public func runQueueNow() async { runQueueCalls.withLock { $0 += 1 } }
     public func setPaused(_ value: Bool) async { paused.set(value) }
