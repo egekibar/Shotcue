@@ -467,38 +467,46 @@ struct RunCoordinatorTests {
         #expect(h.notifier.sent.current.isEmpty)
     }
 
-    @Test func oneRunPerProjectAndTheGlobalLimitAreRespected() async throws {
-        let first = Project(name: "a", path: Harness.makeProjectDirectory("a"))
-        let second = Project(name: "b", path: Harness.makeProjectDirectory("b"))
-        let tasks = [
-            ShotTask(projectID: first.id, title: "a1", status: .ready, sortIndex: 1),
-            ShotTask(projectID: first.id, title: "a2", status: .ready, sortIndex: 2),
-            ShotTask(projectID: second.id, title: "b1", status: .ready, sortIndex: 3),
-            ShotTask(projectID: second.id, title: "b2", status: .ready, sortIndex: 4),
-        ]
+    @Test func tasksOfOneProjectRunSideBySideUpToTheGlobalLimit() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let tasks = (1...4).map { index in
+            ShotTask(projectID: project.id, title: "t\(index)", status: .ready, sortIndex: Double(index))
+        }
+        let runner = ConcurrencyProbeRunner(hold: .milliseconds(100))
         let h = Harness(
-            projects: [first, second], tasks: tasks,
-            runner: successRunner(delay: .milliseconds(40)),
-            settings: RunSettings(maxConcurrent: 2, keepAwake: false))
+            projects: [project], tasks: tasks, runner: runner,
+            settings: RunSettings(maxConcurrent: 3, keepAwake: false))
         defer { h.cleanUp() }
 
         for task in tasks { try await h.coordinator.enqueue(taskID: task.id) }
-
-        var peak = 0
-        var everDoubledUpOnOneProject = false
-        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
-        while ContinuousClock.now < deadline {
-            let running = (try? await h.taskRepository.tasks(status: .running)) ?? []
-            peak = max(peak, running.count)
-            if Set(running.compactMap(\.projectID)).count != running.count { everDoubledUpOnOneProject = true }
-            if ((try? await h.taskRepository.tasks(status: .done)) ?? []).count == tasks.count { break }
-            try await Task.sleep(for: .milliseconds(5))
+        await waitUntil("every task done") {
+            ((try? await h.taskRepository.tasks(status: .done)) ?? []).count == tasks.count
         }
-        let done = (try? await h.taskRepository.tasks(status: .done)) ?? []
-        #expect(done.count == 4)
-        #expect(peak >= 1)
-        #expect(peak <= 2)
-        #expect(everDoubledUpOnOneProject == false)
+
+        #expect(runner.calls.current == tasks.count)
+        #expect(runner.peak.current == 3)
+    }
+
+    @Test func aProjectWithTheGitSafetyNetRunsOneTaskAtATime() async throws {
+        // A branch switch or a stash would pull the tree out from under a run already working in it.
+        let guarded = Project(
+            name: "guarded", path: Harness.makeProjectDirectory("guarded"), stashBeforeRun: true)
+        let tasks = (1...3).map { index in
+            ShotTask(projectID: guarded.id, title: "g\(index)", status: .ready, sortIndex: Double(index))
+        }
+        let runner = ConcurrencyProbeRunner(hold: .milliseconds(60))
+        let h = Harness(
+            projects: [guarded], tasks: tasks, runner: runner,
+            settings: RunSettings(maxConcurrent: 3, keepAwake: false))
+        defer { h.cleanUp() }
+
+        for task in tasks { try await h.coordinator.enqueue(taskID: task.id) }
+        await waitUntil("every task done") {
+            ((try? await h.taskRepository.tasks(status: .done)) ?? []).count == tasks.count
+        }
+
+        #expect(runner.calls.current == tasks.count)
+        #expect(runner.peak.current == 1)
     }
 
     @Test func theGlobalLimitCapsRunsAcrossProjects() async throws {

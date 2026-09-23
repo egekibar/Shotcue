@@ -19,11 +19,23 @@ struct QueuePolicyTests {
         #expect(QueuePolicy.ordered([a, b, c]).map(\.id) == [c, b, a].map(\.id))
     }
 
-    @Test func skipsProjectsThatAlreadyRun() {
+    @Test func runsSeveralTasksOfOneProjectSideBySide() {
+        let a = task(p1, sort: 1)
+        let next = QueuePolicy.nextRunnable(queued: [a], runningProjectIDs: [p1], runningCount: 1, maxConcurrent: 2)
+        #expect(next?.id == a.id)
+    }
+
+    @Test func keepsGitSafetyNetProjectsToOneRun() {
         let a = task(p1, sort: 1)
         let b = task(p2, sort: 2)
-        let next = QueuePolicy.nextRunnable(queued: [a, b], runningProjectIDs: [p1], runningCount: 1, maxConcurrent: 2)
+        let next = QueuePolicy.nextRunnable(
+            queued: [a, b], runningProjectIDs: [p1], exclusiveProjectIDs: [p1], runningCount: 1, maxConcurrent: 2)
         #expect(next?.id == b.id)
+        // An exclusive project that is not running yet may start.
+        #expect(
+            QueuePolicy.nextRunnable(
+                queued: [a], runningProjectIDs: [p2], exclusiveProjectIDs: [p1], runningCount: 1, maxConcurrent: 2)?
+                .id == a.id)
     }
 
     @Test func respectsGlobalLimit() {

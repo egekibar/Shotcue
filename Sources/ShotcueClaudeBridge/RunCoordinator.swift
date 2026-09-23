@@ -2,7 +2,8 @@ import Foundation
 import ShotcueCore
 import os
 
-/// Owns the run queue (spec §5.5, §6.4): at most one run per project, a global concurrency limit,
+/// Owns the run queue (spec §5.5, §6.4): a global concurrency limit (tasks of one project run side by side,
+/// except in a project with the git safety net, which runs one at a time),
 /// git snapshots around every run, the NDJSON log, notifications and the live event stream.
 /// All time decisions live in `SchedulerRules`/`QueuePolicy`; this actor only applies them.
 public actor RunCoordinator: TaskDispatcher {
@@ -159,17 +160,31 @@ public actor RunCoordinator: TaskDispatcher {
     private func pumpQueue() async {
         guard !paused, !queueHeld else { return }
         while true {
+            guard inFlight.count < max(1, settings.maxConcurrent) else { return }
+            // Both reads suspend; the `inFlight` filter and `start` below must not, or a reentrant pump could
+            // start the same task twice.
+            let exclusive = await exclusiveProjectIDs()
             let queued = ((try? await taskRepository.tasks(status: .queued)) ?? [])
                 .filter { inFlight[$0.id] == nil }
             guard
                 let next = QueuePolicy.nextRunnable(
                     queued: queued,
                     runningProjectIDs: Set(inFlight.values.map(\.projectID)),
+                    exclusiveProjectIDs: exclusive,
                     runningCount: inFlight.count,
                     maxConcurrent: settings.maxConcurrent)
             else { return }
             guard start(next) else { return }
         }
+    }
+
+    /// Projects whose git safety net (a branch or a stash per run) rewrites the working tree: one run at a time.
+    /// An unreadable project list counts every project as exclusive — the old, safe rule.
+    private func exclusiveProjectIDs() async -> Set<UUID> {
+        guard let projects = try? await projectRepository.allProjects() else {
+            return Set(inFlight.values.map(\.projectID))
+        }
+        return Set(projects.filter { $0.runInBranch || $0.stashBeforeRun }.map(\.id))
     }
 
     /// Registers the run without suspending, so a reentrant `pumpQueue` cannot double-start it.
