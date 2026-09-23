@@ -6,7 +6,9 @@
   `scripts/bundle.sh` fell back to ad-hoc signing (`codesign -dvv` → `Signature=adhoc`, `flags=0x10002(adhoc,runtime)`).
 - Run by the Plan 00 agent: Step 2 (SpikeRunner) and Step 3 (S1). Not run by the agent, by design: Step 1 (`make cert`,
   changes keychain trust) and Steps 4–6 (S3, S2, S5: they need TCC dialogs or a person watching Claude Desktop).
-  Their exact commands are below so they can be run later.
+- The temporary `SpikeRunner` and its `SHOTCUE_SPIKE` hook were removed by Plan 06 (read-only `Diagnostics` replaced
+  them), so the S2, S3 and S5 steps are now run through the app itself, as rows of the verification record
+  `docs/superpowers/plans/verification/README.md`: S2 → V1, S3 → V2 + V4 (and V14's first row), S5 → V7.
 - S4 (WhisperKit Turkish quality) is measured by Plan 03 Task 1, which appends its own `## S4 — WhisperKit Türkçe` section.
 
 ## S1 — `claude auth status` spawned from the app bundle: PASS
@@ -38,6 +40,10 @@ stdout={
 stderr=
 ```
 
+(Historical command: the `SHOTCUE_SPIKE` hook no longer exists. To re-check S1 — for example after `make cert` — press
+"Tanılama çalıştır" in the strip at the bottom of the Settings window; its report carries the same `loggedIn` /
+`authMethod` / `subscriptionType` fields: verification V13.)
+
 Decision: the architecture's core assumption holds. A `claude` child process spawned by the non-sandboxed,
 hardened-runtime app bundle (with `HOME` set, `~/.local/bin` first on `PATH`, `ANTHROPIC_API_KEY` removed) sees the
 claude.ai subscription login (`loggedIn: true`, `subscriptionType: max`) with no keychain error on stderr.
@@ -57,56 +63,42 @@ make cert
 Expected: `Certificate ready: Shotcue Dev`. If `security add-trusted-cert` fails: Keychain Access → login → Certificates →
 "Shotcue Dev" → Get Info → Trust → Code Signing: Always Trust, then run the command again.
 
-S2 (Task 11 Step 5), after S3 has granted the permission:
+S2 is checked by verification **V1** ("İmza + TCC kalıcılığı"), after S3 has granted the permission: two consecutive
+`make install`s with a source change in between, then capture with the global hotkey (⌃⇧2).
 
-```bash
-touch Sources/ShotcueApp/ShotcueApp.swift && make install && open -a ~/Applications/Shotcue.app --env SHOTCUE_SPIKE=capture
-# select a region, then:
-cat /tmp/shotcue-spike-capture.txt
-```
+Expected: no new permission dialog and the capture lands in the library. If the dialog appears again, the signature is
+still ad-hoc: `codesign -dv ~/Applications/Shotcue.app 2>&1 | grep -E "Authority|flags"` must show
+`Authority=Shotcue Dev`; if it does not, repeat Step 1.
 
-Expected: no new permission dialog, `exit=0`. If the dialog appears again, the signature is still ad-hoc:
-`codesign -dv ~/Applications/Shotcue.app 2>&1 | grep -E "Authority|flags"` must show `Authority=Shotcue Dev`; if it
-does not, repeat Step 1.
-
-Result: pending.
+Result: pending (V1).
 
 ## S3 — `screencapture -i -s` from the bundle, cancel and success: PENDING (user step)
 
 Not measured yet (needs the TCC dialog and a person pressing Esc / selecting a region). Run after Step 1 (`make cert`)
-and `make install`; if the app is already running, quit it first (`pkill -x Shotcue`), otherwise `open` only
-activates it and the `--env` value is ignored.
+and `make install`, through the app itself:
 
-Command (Task 11 Step 4):
+- **V2** (onboarding + relaunch): on the first capture macOS shows the Screen Recording permission dialog **for
+  Shotcue**; grant it (Shotcue relaunches) — this is the prompt S3 looks for.
+- **V14, first row**: without the permission the hotkey opens onboarding and no selection cursor appears.
+- **V4** (quick panel): press ⌃⇧2 and then Esc at the selection cursor → nothing is created
+  (`select count(*) from task;` unchanged — `screencapture` exited 1 with an empty stderr); press ⌃⇧2 again and select a
+  region → the quick panel opens with the image and the PNG is under
+  `~/Library/Application Support/Shotcue/captures/YYYY/MM/` (`file <that png>` → PNG).
 
-```bash
-open -a ~/Applications/Shotcue.app --env SHOTCUE_SPIKE=capture
-# when the selection cursor appears, press Esc, then:
-cat /tmp/shotcue-spike-capture.txt
-```
-
-Expected: on the first run macOS shows the Screen Recording permission dialog for Shotcue; grant it and run again.
-Cancel → `exit=1` and empty `stderr`. Run once more and select a region → `exit=0` and
-`/tmp/shotcue-spike-capture.png` exists (`file /tmp/shotcue-spike-capture.png` → PNG).
-
-Result: pending.
+Result: pending (V2, V4).
 
 ## S5 — Does the Claude Desktop deep link attach the image?: PENDING (user step)
 
-Not measured yet (needs a person watching Claude Desktop, and `/tmp/shotcue-spike-capture.png` from S3).
+Not measured yet (needs a person watching Claude Desktop). It is checked by verification **V7**: select a task with a
+capture in the library and press "Desktop composer'da aç" in the inspector (the app builds the same
+`claude://code/new?q=…&folder=…&file=<capture png>` link the spike had).
 
-Commands (Task 11 Step 6):
-
-```bash
-open "claude://code/new?q=Test%20from%20Shotcue&folder=/tmp&file=/tmp/shotcue-spike-capture.png"
-open "claude://cowork/new?q=Test%20from%20Shotcue&file=/tmp/shotcue-spike-capture.png"
-```
-
-Expected: Claude Desktop opens and the composer is pre-filled with the text; note on which route the image is actually
+Expected: Claude Desktop opens and the composer is pre-filled with the text; note whether the image is actually
 attached. Decision rule for Plan 04 `HandoffService.openDesktopComposer`: use `code/new` (default); use `cowork/new`
-only if `code/new` does not attach the image.
+only if `code/new` does not attach the image (to compare by hand:
+`open "claude://cowork/new?q=Test&file=<the same capture png>"`).
 
-Result: pending. Until it is measured, Plan 04 keeps the default `code/new`.
+Result: pending (V7). Until it is measured, Plan 04 keeps the default `code/new`.
 
 ## S4 — WhisperKit Türkçe kalite/hız (Plan 03 Task 1): PENDING (user step)
 
