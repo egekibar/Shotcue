@@ -183,7 +183,8 @@ struct TaskDetailStoreTests {
         await f.store.openInDesktop()
         #expect(
             f.bundle.handoff.actions.current == [
-                "terminal:\(run.id.uuidString)",
+                // Final review M6: Terminal resumes from the project folder.
+                "terminal:\(run.id.uuidString)@/tmp/acme-web",
                 "desktop:\(run.id.uuidString)",
             ])
 
@@ -214,6 +215,26 @@ struct TaskDetailStoreTests {
         #expect(f.store.sessionID == launched.id.uuidString)
         await f.store.openInTerminal()
         #expect(f.bundle.handoff.actions.current.first?.hasPrefix("terminal:\(launched.id.uuidString)") == true)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    /// Final review M6: without a project there is no folder to resume the session from.
+    @MainActor
+    @Test func terminalResumeNeedsTheTasksProjectFolder() async throws {
+        let f = try await fixture(status: .done)
+        let run = Run(
+            taskID: f.task.id, state: .succeeded, startedAt: t0, finishedAt: t0.addingTimeInterval(30),
+            logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try f.bundle.writeFile(run.logRelPath, contents: "{\"type\":\"system\",\"subtype\":\"init\"}\n")
+        try await f.bundle.services.runs.save(run)
+        _ = await waitUntil("runs") { f.store.runs.count == 1 }
+        await f.store.setProject(nil)
+        _ = await waitUntil("detached") { f.store.task?.projectID == nil }
+
+        await f.store.openInTerminal()
+        #expect(f.bundle.handoff.actions.current.isEmpty)
+        #expect(f.store.lastError?.contains("proje klasöründen") == true)
         f.store.stop()
         f.bundle.cleanUp()
     }

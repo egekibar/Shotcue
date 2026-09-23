@@ -141,8 +141,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 environment.status.lastError = "Devam edilecek oturum bulunamadı."
                 return
             }
+            // The session resumes from the task's project folder, where the run worked (final review M6).
+            guard let projectPath = await Self.projectPath(taskID: taskID, environment: environment) else {
+                environment.status.lastError = "Oturum proje klasöründen devam ettirilir; görevin bir projesi yok."
+                return
+            }
             do {
-                try environment.services.handoff.openInTerminal(sessionID: sessionID)
+                try environment.services.handoff.openInTerminal(sessionID: sessionID, projectPath: projectPath)
             } catch {
                 environment.status.lastError = "Terminal açılamadı: \(error.localizedDescription)"
             }
@@ -176,6 +181,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard let taskID else { return nil }
         let runs = (try? await environment.services.runs.runs(taskID: taskID)) ?? []
         return environment.fileStore.latestLaunchedRun(in: runs)?.id.uuidString
+    }
+
+    /// The folder of the task's project; nil when the task or its project is gone.
+    private static func projectPath(taskID: UUID?, environment: AppEnvironment) async -> String? {
+        guard let taskID, let task = try? await environment.services.tasks.task(id: taskID),
+            let projectID = task.projectID,
+            let project = try? await environment.services.projects.project(id: projectID)
+        else { return nil }
+        return project.path
     }
 
     /// Banners while Shotcue is frontmost, too — a finished run is the whole point of the app.

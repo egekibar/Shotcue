@@ -178,7 +178,9 @@ public final class FakeNotifier: Notifier, @unchecked Sendable {
 public final class FakeHandoffService: HandoffService, @unchecked Sendable {
     public let actions = Locked<[String]>([])
     public init() {}
-    public func openInTerminal(sessionID: String) throws { actions.withLock { $0.append("terminal:\(sessionID)") } }
+    public func openInTerminal(sessionID: String, projectPath: String) throws {
+        actions.withLock { $0.append("terminal:\(sessionID)@\(projectPath)") }
+    }
     public func openInDesktop(sessionID: String) throws { actions.withLock { $0.append("desktop:\(sessionID)") } }
     public func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws {
         actions.withLock { $0.append("composer:\(projectPath):\(files.count)") }

@@ -141,8 +141,8 @@ nonisolated struct ClaudeHandoff: HandoffService {
         }
     }
 
-    func openInTerminal(sessionID: String) throws {
-        try makeBase().openInTerminal(sessionID: sessionID.lowercased())
+    func openInTerminal(sessionID: String, projectPath: String) throws {
+        try makeBase().openInTerminal(sessionID: sessionID.lowercased(), projectPath: projectPath)
     }
 
     func openInDesktop(sessionID: String) throws {

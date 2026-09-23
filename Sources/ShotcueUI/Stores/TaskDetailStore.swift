@@ -581,12 +581,21 @@ public final class TaskDetailStore {
 
     // MARK: - Handoff
 
+    /// Resumes the session in Terminal from the task's project folder, where the run worked (final review M6).
     public func openInTerminal() async {
         guard let sessionID else {
             lastError = "Devam ettirilecek bir oturum yok."
             return
         }
-        do { try services.handoff.openInTerminal(sessionID: sessionID) } catch { report(error) }
+        guard let projectPath = project?.path else {
+            lastError = "Oturum proje klasöründen devam ettirilir; görevin bir projesi yok."
+            return
+        }
+        do {
+            try services.handoff.openInTerminal(sessionID: sessionID, projectPath: projectPath)
+        } catch {
+            report(error)
+        }
     }
 
     public func openInDesktop() async {
