@@ -527,7 +527,7 @@ struct RunCoordinatorTests {
         #expect(spec.systemPromptAppend.hasSuffix("\n\nTürkçe cevap ver."))
     }
 
-    @Test func promptCarriesCaptureAbsolutePathsAndTranscripts() async throws {
+    @Test func promptCarriesCaptureAbsolutePathsAndEveryUsableTranscript() async throws {
         let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
         let task = ShotTask(projectID: project.id, title: "Filtre bozuk", noteText: "Son 7 gün yanlış.", status: .ready)
         let runner = successRunner()
@@ -548,11 +548,12 @@ struct RunCoordinatorTests {
                 taskID: task.id, relPath: "audio/a.m4a", durationSec: 3,
                 transcript: "tarih filtresi çalışmıyor",
                 transcriptState: .done))
+        // The transcriber gave up on this one, but the user typed its text: that text is the note.
         try await h.taskRepository.save(
             VoiceNote(
                 taskID: task.id, relPath: "audio/b.m4a", durationSec: 3,
-                transcript: "bu henüz yazıya dökülmedi",
-                transcriptState: .pending))
+                transcript: "elle yazılan sesli not",
+                transcriptState: .failed, editedByUser: true))
 
         try await h.coordinator.enqueue(taskID: task.id)
         await waitUntil("spec captured") { !runner.specs.current.isEmpty }
@@ -563,8 +564,67 @@ struct RunCoordinatorTests {
         #expect(prompt.contains("- \(firstPath)  (Filtre bozuk)"))
         #expect(prompt.contains("- \(secondPath)"))
         #expect(prompt.contains("tarih filtresi çalışmıyor"))
-        #expect(!prompt.contains("bu henüz yazıya dökülmedi"))
+        #expect(prompt.contains("elle yazılan sesli not"))
         #expect(prompt.contains("Son 7 gün yanlış."))
+    }
+
+    /// Final review C1: the voice note is the main instruction channel. A note still waiting for its
+    /// transcript, or one that failed with no text from the user, keeps claude from starting at all.
+    @Test(
+        arguments: zip(
+            [TranscriptState.pending, .failed],
+            [RunErrorCode.voiceNotePending, RunErrorCode.voiceNoteFailed]))
+    func aVoiceNoteWithoutUsableTextNeverStartsClaude(state: TranscriptState, code: String) async throws {
+        let project = Project(
+            name: "crm", path: Harness.makeProjectDirectory("crm"), runInBranch: true, stashBeforeRun: true)
+        let task = ShotTask(projectID: project.id, title: "Sesli görev", status: .ready)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+        try await h.taskRepository.save(
+            VoiceNote(
+                taskID: task.id, relPath: "audio/a.m4a", durationSec: 4,
+                transcript: "bitmemiş", transcriptState: state))
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        #expect(runner.specs.current.isEmpty)
+        // It never ran, so it is ready to be sent again once the note has text.
+        #expect(await h.status(of: task.id) == .ready)
+        let run = try #require(await h.runs(of: task.id).first)
+        #expect(run.error == code)
+        #expect(run.finishedAt != nil)
+        // Refused before the git steps: the working tree is left exactly as it was.
+        #expect(h.gitInspector.branches.current.isEmpty)
+        #expect(h.gitInspector.stashes.current.isEmpty)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(notification.kind == .runFailed)
+        #expect(notification.taskID == task.id)
+        #expect(notification.runID == run.id)
+        #expect(notification.body.contains("Sesli not"))
+    }
+
+    @Test func aTranscriptThatFinishedLetsTheNextSendRun() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Sesli görev", status: .ready)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+        var note = VoiceNote(taskID: task.id, relPath: "audio/a.m4a", durationSec: 4, transcriptState: .pending)
+        try await h.taskRepository.save(note)
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("refused") { await h.runs(of: task.id).first?.state == .failed }
+        #expect(runner.specs.current.isEmpty)
+
+        note.transcript = "artık yazıya döküldü"
+        note.transcriptState = .done
+        try await h.taskRepository.save(note)
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("ran") { await h.status(of: task.id) == .done }
+        #expect(runner.specs.current.count == 1)
+        #expect(runner.specs.current.first?.prompt.contains("artık yazıya döküldü") == true)
     }
 
     @Test func branchAndStashSettingsCallTheInspector() async throws {

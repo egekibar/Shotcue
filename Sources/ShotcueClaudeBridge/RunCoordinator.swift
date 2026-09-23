@@ -199,6 +199,13 @@ public actor RunCoordinator: TaskDispatcher {
             await cancelBeforeLaunch(&run)
             return
         }
+        // Final review C1: the voice note is the main instruction channel, so claude never starts while one
+        // of the task's notes has no usable text. Checked before the git steps, so a refusal leaves the
+        // working tree as it was.
+        if let refusal = await voiceNoteRefusal(taskID: taskID) {
+            await failBeforeLaunch(&run, title: queued.title, error: refusal.code, message: refusal.message)
+            return
+        }
         if project.runInBranch {
             do {
                 try await gitInspector.createBranch(GitOutputParser.branchName(for: taskID), at: project.path)
@@ -269,17 +276,33 @@ public actor RunCoordinator: TaskDispatcher {
         if let notification { await notifier.notify(notification) }
     }
 
-    /// The run never started (spec §8): the Run row says why, the task goes back to `ready` (the task
-    /// never entered `running`; fix the cause and resend) and the user is told.
-    private func failBeforeLaunch(_ run: inout Run, title: String, message: String) async {
+    /// The run never started (spec §8): the Run row says why (`error`), the task goes back to `ready` (the
+    /// task never entered `running`; fix the cause and resend) and the user is told (`message`).
+    private func failBeforeLaunch(_ run: inout Run, title: String, error: String? = nil, message: String) async {
         run.state = .failed
         run.finishedAt = clock.now
-        run.error = message
+        run.error = error ?? message
         let task = await apply(.ready, toTask: run.taskID)
         try? await runRepository.save(run)
         await notifier.notify(
             AppNotification(
                 kind: .runFailed, title: task?.title ?? title, body: message, taskID: run.taskID, runID: run.id))
+    }
+
+    /// Why the task's voice notes keep the run from starting, or nil when every note has usable text.
+    /// Notes that cannot be read also refuse: the run could not show that it carries them.
+    private func voiceNoteRefusal(taskID: UUID) async -> (code: String, message: String)? {
+        let notes: [VoiceNote]
+        do {
+            notes = try await taskRepository.voiceNotes(taskID: taskID)
+        } catch {
+            return (RunErrorCode.voiceNotesUnreadable, Self.voiceNotesUnreadableMessage)
+        }
+        switch VoiceNoteReadiness.of(notes) {
+        case .ready: return nil
+        case .pending: return (RunErrorCode.voiceNotePending, Self.voiceNotePendingMessage)
+        case .failed: return (RunErrorCode.voiceNoteFailed, Self.voiceNoteFailedMessage)
+        }
     }
 
     /// Cancelled before claude was started: the Run row is cancelled, the task (never `running`) goes back
@@ -345,9 +368,10 @@ public actor RunCoordinator: TaskDispatcher {
                 absolutePath: fileStore.absoluteURL(for: capture.relPath).path,
                 label: index == 0 ? task.title : nil)
         }
+        // Only notes with usable text get here (`voiceNoteRefusal`); the user's own text counts.
         let transcripts =
             voiceNotes
-            .filter { $0.transcriptState == .done }
+            .filter(\.hasUsableText)
             .compactMap(\.transcript)
         let prompt = PromptBuilder.build(
             PromptInput(
@@ -426,6 +450,14 @@ public actor RunCoordinator: TaskDispatcher {
 
     static let taskChangedBeforeLaunchMessage =
         "Görev, claude başlatılmadan önce değişti ya da silindi; çalıştırılmadı."
+
+    static let voiceNotePendingMessage =
+        "Sesli not henüz yazıya dökülmedi; görev gönderilmedi. Transkript bitince yeniden gönder."
+
+    static let voiceNoteFailedMessage =
+        "Sesli not yazıya dökülemedi; görev gönderilmedi. Transkripti elle yaz ya da yeniden çevir, sonra yeniden gönder."
+
+    static let voiceNotesUnreadableMessage = "Sesli notlar okunamadı; görev gönderilmedi. Yeniden gönder."
 
     static func message(for error: any Error) -> String {
         guard let error = error as? ClaudeRunError else { return String(describing: error) }
