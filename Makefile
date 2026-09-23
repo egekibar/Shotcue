@@ -9,12 +9,16 @@ INSTALL_DIR  := $(HOME)/Applications
 TESTING_PLUGIN   := $(shell xcode-select -p)/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib
 SWIFT_TEST_FLAGS := $(if $(wildcard $(TESTING_PLUGIN)),-Xswiftc -load-plugin-library -Xswiftc $(TESTING_PLUGIN),)
 
-.PHONY: build test bundle install run shot reset-tcc format lint clean cert
+.PHONY: build build-release test bundle bundle-release install run shot reset-tcc format lint clean cert
 
 build: ; swift build
+build-release: ; swift build -c release
 # Usage: make test            (everything)   |   make test FILTER='ModelsTests|TitleMakerTests'   (regex on suite/test names)
 test: ; @swift test $(SWIFT_TEST_FLAGS) $(if $(FILTER),--filter '$(FILTER)',)
 bundle: build ; ./scripts/bundle.sh "$(APP_NAME)" "$(BUNDLE_ID)" "$(SIGN_IDENTITY)"
+# Distribution: arm64 release bundle in dist/release/; never installed or launched.
+# Sign with another identity: make bundle-release SIGN_IDENTITY='…'
+bundle-release: build-release ; ./scripts/bundle.sh "$(APP_NAME)" "$(BUNDLE_ID)" "$(SIGN_IDENTITY)" release
 install: bundle ; ./scripts/install.sh "$(APP_NAME)" "$(INSTALL_DIR)"
 run: install ; open "$(INSTALL_DIR)/$(APP_NAME).app"
 shot: ; ./scripts/shot.sh "$(APP_NAME)"
