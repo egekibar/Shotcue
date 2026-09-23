@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" role="img" aria-label="Review and hand-off">
+  <defs><linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A70F5"/><stop offset="1" stop-color="#5C38CC"/></linearGradient></defs>
+  <rect x="2" y="2" width="52" height="52" rx="14" fill="url(#p)"/>
+  <rect x="2.5" y="2.5" width="51" height="51" rx="13.5" fill="none" stroke="#FFFFFF" stroke-opacity=".16"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28 20 H40 M28 28 H36 M28 36 H40"/>
+    <path d="M19 16.5 V23.5 M15.5 20 H22.5 M19 32.5 V39.5 M15.5 36 H22.5" stroke="#9BF0B4"/>
+    <path d="M15.5 28 H22.5" stroke="#FFB4B4"/>
+  </g>
+</svg>

@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="t d">
+  <title id="t">Shotcue</title>
+  <desc id="d">A region of a web page is selected with the global shortcut; the Shotcue quick panel shows the capture, a typed note and a voice note; Claude Code then runs the task and reports the result.</desc>
+  <style>
+    .bg0 { stop-color: #F3F5FF; } .bg1 { stop-color: #F8F2FF; }
+    .glowA { stop-color: #4A70F5; stop-opacity: .20; } .glowB { stop-color: #7B4BE0; stop-opacity: .16; } .glowC { stop-color: #FFC83D; stop-opacity: .12; }
+    .glow0 { stop-opacity: 0; }
+    .dot { fill: #26306B; fill-opacity: .07; }
+    .win { fill: #FFFFFF; stroke: #E0E3EC; }
+    .bar { fill: #F3F4F8; } .hair { stroke: #E4E6EE; } .pill { fill: #E9EBF2; }
+    .page { fill: #F6F7FB; } .card { fill: #FFFFFF; stroke: #E2E5EE; }
+    .input { fill: #F2F4F8; stroke: #DFE2EA; } .line { fill: #E0E3EB; }
+    .ink { fill: #1B1E2B; } .muted { fill: #6B7185; } .faint { fill: #A2A7B7; }
+    .accent { fill: #4A70F5; } .accentStroke { stroke: #4A70F5; }
+    .pet0 { fill: #FFE7D8; } .pet1 { fill: #E0EAFF; } .pet2 { fill: #E0F5E6; }
+    .dim { fill: #0B0E24; fill-opacity: .24; }
+    .panel { fill: #FFFFFF; fill-opacity: .95; stroke: #E0E3ED; }
+    .control { fill: #F1F2F6; stroke: #E0E3EB; } .segTrack { fill: #EAECF1; } .segSel { fill: #FFFFFF; stroke: #DADDE6; }
+    .field { fill: #F3F4F8; } .glassBtn { fill: #FFFFFF; stroke: #D9DCE6; } .meterOff { fill: #6B7185; fill-opacity: .22; }
+    .key { fill: #FFFFFF; stroke: #D8DBE5; } .keyShadow { fill: #C9CDD9; }
+    .term { fill: #10121B; stroke: #1F2331; }
+    .flow { stroke: #4A70F5; stroke-opacity: .55; } .flowMark { stroke: #4A70F5; stroke-opacity: .75; }
+    #shadow feDropShadow { flood-color: #1E2250; flood-opacity: .16; }
+    #softShadow feDropShadow { flood-color: #1E2250; flood-opacity: .10; }
+  </style>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="bg0"/><stop offset="1" class="bg1"/></linearGradient>
+    <radialGradient id="glowA"><stop offset="0" class="glowA"/><stop offset="1" class="glowA glow0"/></radialGradient>
+    <radialGradient id="glowB"><stop offset="0" class="glowB"/><stop offset="1" class="glowB glow0"/></radialGradient>
+    <radialGradient id="glowC"><stop offset="0" class="glowC"/><stop offset="1" class="glowC glow0"/></radialGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4A70F5"/><stop offset="1" stop-color="#5C38CC"/></linearGradient>
+    <linearGradient id="brandH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A70F5"/><stop offset="1" stop-color="#5C38CC"/></linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" class="dot"/></pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="16" stdDeviation="20"/></filter>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6"/></filter>
+    <clipPath id="winClip"><rect x="56" y="96" width="716" height="496" rx="14"/></clipPath>
+    <clipPath id="thumbClip"><rect x="826" y="88" width="180" height="116" rx="9"/></clipPath>
+    <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L8 5 L1 9" fill="none" class="flowMark" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+
+  <!-- Backdrop -->
+  <rect width="1280" height="640" rx="28" fill="url(#bg)"/>
+  <rect width="1280" height="640" rx="28" fill="url(#dots)"/>
+  <circle cx="170" cy="60" r="440" fill="url(#glowA)"/>
+  <circle cx="1180" cy="620" r="480" fill="url(#glowB)"/>
+  <circle cx="1010" cy="110" r="280" fill="url(#glowC)"/>
+
+  <!-- Global shortcut -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="600" font-size="19" text-anchor="middle">
+    <rect x="56" y="33" width="40" height="40" rx="9" class="keyShadow"/><rect x="56" y="30" width="40" height="40" rx="9" class="key"/><text x="76" y="57" class="ink">⌃</text>
+    <rect x="104" y="33" width="40" height="40" rx="9" class="keyShadow"/><rect x="104" y="30" width="40" height="40" rx="9" class="key"/><text x="124" y="57" class="ink">⇧</text>
+    <rect x="152" y="33" width="40" height="40" rx="9" class="keyShadow"/><rect x="152" y="30" width="40" height="40" rx="9" class="key"/><text x="172" y="57" class="ink">2</text>
+  </g>
+  <path d="M204 52 C 300 52, 372 104, 398 172" fill="none" class="flow" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <!-- Browser window with a fictional web app -->
+  <g filter="url(#shadow)"><rect x="56" y="96" width="716" height="496" rx="14" class="win"/></g>
+  <g clip-path="url(#winClip)" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif">
+    <rect x="56" y="96" width="716" height="44" class="bar"/>
+    <line x1="56" y1="140.5" x2="772" y2="140.5" class="hair"/>
+    <circle cx="78" cy="118" r="6" fill="#FF5F57"/><circle cx="98" cy="118" r="6" fill="#FEBC2E"/><circle cx="118" cy="118" r="6" fill="#28C840"/>
+    <rect x="264" y="107" width="300" height="22" rx="11" class="pill"/>
+    <text x="414" y="122.5" font-size="12" text-anchor="middle" class="muted">pati.app/giris</text>
+    <rect x="56" y="141" width="716" height="451" class="page"/>
+    <circle cx="96" cy="170" r="11" fill="#FF8A4C"/>
+    <circle cx="92" cy="168" r="2" fill="#FFFFFF"/><circle cx="100" cy="168" r="2" fill="#FFFFFF"/><circle cx="96" cy="174" r="3" fill="#FFFFFF"/>
+    <text x="114" y="176" font-size="18" font-weight="700" class="ink">pati</text>
+    <rect x="496" y="165" width="56" height="10" rx="5" class="line"/><rect x="564" y="165" width="48" height="10" rx="5" class="line"/><rect x="624" y="165" width="70" height="10" rx="5" class="line"/>
+    <text x="92" y="246" font-size="30" font-weight="800" class="ink">Yeni dostunla</text>
+    <text x="92" y="282" font-size="30" font-weight="800" fill="#FF8A4C">tanış.</text>
+    <rect x="92" y="300" width="250" height="9" rx="4.5" class="line"/><rect x="92" y="316" width="196" height="9" rx="4.5" class="line"/>
+    <g>
+      <rect x="92" y="348" width="88" height="112" rx="12" class="pet0"/>
+      <circle cx="136" cy="390" r="19" fill="#FF9E6B"/><circle cx="121" cy="373" r="7" fill="#FF9E6B"/><circle cx="151" cy="373" r="7" fill="#FF9E6B"/>
+      <rect x="106" y="424" width="60" height="7" rx="3.5" fill="#FF9E6B" fill-opacity=".45"/><rect x="106" y="437" width="40" height="7" rx="3.5" fill="#FF9E6B" fill-opacity=".3"/>
+      <rect x="192" y="348" width="88" height="112" rx="12" class="pet1"/>
+      <circle cx="236" cy="390" r="19" fill="#7FA2FF"/><path d="M219 380 L221 360 L233 373 Z M253 380 L251 360 L239 373 Z" fill="#7FA2FF"/>
+      <rect x="206" y="424" width="60" height="7" rx="3.5" fill="#7FA2FF" fill-opacity=".45"/><rect x="206" y="437" width="40" height="7" rx="3.5" fill="#7FA2FF" fill-opacity=".3"/>
+      <rect x="292" y="348" width="88" height="112" rx="12" class="pet2"/>
+      <circle cx="336" cy="392" r="18" fill="#62C987"/><ellipse cx="320" cy="380" rx="6" ry="11" fill="#62C987"/><ellipse cx="352" cy="380" rx="6" ry="11" fill="#62C987"/>
+      <rect x="306" y="424" width="60" height="7" rx="3.5" fill="#62C987" fill-opacity=".45"/><rect x="306" y="437" width="40" height="7" rx="3.5" fill="#62C987" fill-opacity=".3"/>
+    </g>
+    <rect x="92" y="486" width="132" height="32" rx="16" fill="#FF8A4C" fill-opacity=".14"/>
+    <text x="158" y="507" font-size="13" font-weight="600" text-anchor="middle" fill="#E0703A">Tümünü gör →</text>
+
+    <!-- Login card (the bug: the button overflows the card) -->
+    <g filter="url(#softShadow)"><rect x="428" y="204" width="284" height="312" rx="14" class="card"/></g>
+    <text x="452" y="242" font-size="19" font-weight="700" class="ink">Giriş yap</text>
+    <rect x="452" y="254" width="150" height="8" rx="4" class="line"/>
+    <text x="452" y="288" font-size="11.5" class="muted">E-posta</text>
+    <rect x="452" y="296" width="236" height="34" rx="8" class="input"/>
+    <text x="464" y="317.5" font-size="12.5" class="faint">ada@ornek.com</text>
+    <text x="452" y="352" font-size="11.5" class="muted">Şifre</text>
+    <rect x="452" y="360" width="236" height="34" rx="8" class="input"/>
+    <text x="464" y="382" font-size="13" letter-spacing="2" class="muted">••••••••</text>
+    <rect x="452" y="418" width="296" height="40" rx="10" fill="#FF8A4C"/>
+    <text x="600" y="443" font-size="14" font-weight="600" text-anchor="middle" fill="#FFFFFF">Giriş yap</text>
+    <text x="570" y="488" font-size="11.5" text-anchor="middle" fill="#E0703A">Şifremi unuttum</text>
+
+    <!-- screencapture -i -s: everything but the selection is dimmed -->
+    <path d="M56 96 H772 V592 H56 Z M408 188 V536 H764 V188 Z" fill-rule="evenodd" class="dim"/>
+  </g>
+
+  <!-- Selection: dashed edge, viewfinder brackets, size label, crosshair -->
+  <rect x="408" y="188" width="356" height="348" fill="none" stroke="#FFFFFF" stroke-opacity=".9" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M438 188 H408 V218 M734 188 H764 V218 M438 536 H408 V506 M734 536 H764 V506" stroke="#FFFFFF" stroke-width="10"/>
+    <path d="M438 188 H408 V218 M734 188 H764 V218 M438 536 H408 V506 M734 536 H764 V506" stroke="url(#brand)" stroke-width="5.5"/>
+  </g>
+  <rect x="660" y="546" width="80" height="24" rx="7" fill="#111322" fill-opacity=".86"/>
+  <text x="700" y="562.5" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" text-anchor="middle" fill="#FFFFFF">356 × 348</text>
+  <g stroke-linecap="round">
+    <path d="M764 522 V550 M750 536 H778" stroke="#FFFFFF" stroke-width="4"/>
+    <path d="M764 522 V550 M750 536 H778" stroke="#111322" stroke-width="1.6"/>
+  </g>
+
+  <path d="M770 180 C 782 160, 788 150, 798 142" fill="none" class="flow" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <!-- Quick panel (top-right, like the real one) -->
+  <g filter="url(#shadow)"><rect x="808" y="36" width="432" height="356" rx="18" class="panel"/></g>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif">
+    <path d="M831 68 V64 H835 M845 64 H849 V68 M849 76 V80 H845 M835 80 H831 V76" fill="none" class="accentStroke" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="840" cy="72" r="2.4" class="accent"/>
+    <text x="858" y="77" font-size="15" font-weight="600" class="ink">Yeni yakalama</text>
+    <text x="1222" y="76" font-size="10" text-anchor="end" class="muted">⌘⏎ kaydet · ⌘⇧⏎ kaydet ve gönder · esc kapat</text>
+
+    <!-- capture thumbnail: the selected region -->
+    <g clip-path="url(#thumbClip)">
+      <rect x="826" y="88" width="180" height="116" class="page"/>
+      <rect x="850" y="100" width="128" height="100" rx="7" class="card"/>
+      <rect x="860" y="110" width="52" height="7" rx="3.5" class="ink"/>
+      <rect x="860" y="126" width="106" height="13" rx="4" class="input"/>
+      <rect x="860" y="146" width="106" height="13" rx="4" class="input"/>
+      <rect x="860" y="168" width="134" height="16" rx="5" fill="#FF8A4C"/>
+    </g>
+    <rect x="826" y="88" width="180" height="116" rx="9" fill="none" class="hair"/>
+
+    <text x="1022" y="101" font-size="9.5" font-weight="600" letter-spacing=".6" class="muted">PROJE</text>
+    <rect x="1022" y="108" width="200" height="26" rx="7" class="control"/>
+    <text x="1034" y="125.5" font-size="12.5" class="ink">pati-web</text>
+    <text x="1196" y="125.5" font-size="11" text-anchor="end" class="muted">⌘1</text>
+    <path d="M1206 117 L1209.5 113.5 L1213 117 M1206 125 L1209.5 128.5 L1213 125" fill="none" stroke="#8A90A3" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1022" y="149" font-size="9.5" class="muted">~/Projects/pati-web</text>
+    <text x="1022" y="172" font-size="9.5" font-weight="600" letter-spacing=".6" class="muted">MOD</text>
+    <rect x="1022" y="180" width="200" height="24" rx="12" class="segTrack"/>
+    <rect x="1124" y="182" width="96" height="20" rx="10" class="segSel"/>
+    <text x="1073" y="196" font-size="11.5" text-anchor="middle" class="muted">Analiz</text>
+    <text x="1172" y="196" font-size="11.5" font-weight="600" text-anchor="middle" class="ink">Uygula</text>
+
+    <rect x="826" y="218" width="396" height="64" rx="9" class="field"/>
+    <text x="838" y="243" font-size="12.5" class="ink">Giriş butonu mobilde kartın dışına taşıyor.</text>
+    <text x="838" y="263" font-size="12.5" class="ink">Genişlik %100 olsun, iç boşluk korunsun.</text>
+    <rect x="1071" y="252" width="1.6" height="14" class="accent"/>
+
+    <rect x="826" y="296" width="100" height="28" rx="14" class="glassBtn"/>
+    <circle cx="845" cy="310" r="7.5" fill="none" class="accentStroke" stroke-width="1.5"/>
+    <rect x="842.8" y="305" width="4.4" height="7" rx="2.2" class="accent"/><path d="M841 311 A4 4 0 0 0 849 311" fill="none" class="accentStroke" stroke-width="1.2"/>
+    <text x="859" y="314.5" font-size="12" class="accent">Sesli not</text>
+    <g class="accent">
+      <rect x="938" y="314" width="3" height="5" rx="1.5"/><rect x="943" y="313" width="3" height="6" rx="1.5"/><rect x="948" y="312" width="3" height="7" rx="1.5"/><rect x="953" y="311" width="3" height="8" rx="1.5"/><rect x="958" y="310" width="3" height="9" rx="1.5"/><rect x="963" y="309" width="3" height="10" rx="1.5"/><rect x="968" y="308" width="3" height="11" rx="1.5"/><rect x="973" y="307" width="3" height="12" rx="1.5"/><rect x="978" y="306" width="3" height="13" rx="1.5"/>
+    </g>
+    <g class="meterOff">
+      <rect x="983" y="305" width="3" height="14" rx="1.5"/><rect x="988" y="304" width="3" height="15" rx="1.5"/><rect x="993" y="303" width="3" height="16" rx="1.5"/><rect x="998" y="302" width="3" height="17" rx="1.5"/><rect x="1003" y="301" width="3" height="18" rx="1.5"/>
+    </g>
+    <text x="1018" y="314.5" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" class="muted">0:18</text>
+    <text x="1222" y="314" font-size="9.5" text-anchor="end" class="muted">cihaz içi transkripsiyon</text>
+
+    <line x1="826" y1="338.5" x2="1222" y2="338.5" class="hair"/>
+    <text x="826" y="366" font-size="12" class="ink">Vazgeç</text>
+    <rect x="902" y="348" width="76" height="28" rx="14" class="glassBtn"/>
+    <text x="940" y="366" font-size="11.5" text-anchor="middle" class="ink">Zamanla…</text>
+    <rect x="984" y="348" width="82" height="28" rx="14" class="glassBtn"/>
+    <text x="1025" y="366" font-size="11.5" text-anchor="middle" class="ink">Kaydet  ⌘⏎</text>
+    <rect x="1072" y="348" width="150" height="28" rx="14" fill="url(#brandH)"/>
+    <text x="1147" y="366" font-size="11.5" font-weight="600" text-anchor="middle" fill="#FFFFFF">Kaydet ve gönder  ⌘⇧⏎</text>
+  </g>
+
+  <path d="M1147 382 C 1147 392, 1147 398, 1147 406" fill="none" class="flow" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <!-- Claude Code run, as the inspector's log shows it -->
+  <g filter="url(#shadow)"><rect x="808" y="412" width="432" height="196" rx="14" class="term"/></g>
+  <g font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace">
+    <circle cx="828" cy="432" r="5" fill="#3A3F52"/><circle cx="844" cy="432" r="5" fill="#3A3F52"/><circle cx="860" cy="432" r="5" fill="#3A3F52"/>
+    <text x="1024" y="436" font-size="11" text-anchor="middle" fill="#8C93A8">claude -p  ·  pati-web</text>
+    <rect x="1162" y="422" width="60" height="20" rx="10" fill="#34C759" fill-opacity=".18"/>
+    <path d="M1172 432 L1175.5 435.5 L1182 428.5" fill="none" stroke="#4ADE80" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1203" y="436" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" text-anchor="middle" fill="#4ADE80">Bitti</text>
+    <line x1="808" y1="452.5" x2="1240" y2="452.5" stroke="#23283A"/>
+    <g font-size="12">
+      <circle cx="830" cy="474" r="3" fill="#6EA8FF"/><text x="842" y="478"><tspan fill="#6EA8FF">Read</tspan><tspan fill="#C5CAD8"> ~/…/captures/2026/09/c41f….png</tspan></text>
+      <circle cx="830" cy="496" r="3" fill="#6EA8FF"/><text x="842" y="500"><tspan fill="#6EA8FF">Grep</tspan><tspan fill="#C5CAD8"> LoginForm</tspan></text>
+      <circle cx="830" cy="518" r="3" fill="#6EA8FF"/><text x="842" y="522"><tspan fill="#6EA8FF">Edit</tspan><tspan fill="#C5CAD8"> src/components/LoginForm.tsx</tspan></text>
+      <circle cx="830" cy="540" r="3" fill="#6EA8FF"/><text x="842" y="544"><tspan fill="#6EA8FF">Bash</tspan><tspan fill="#C5CAD8"> npm test -- LoginForm</tspan></text>
+      <text x="842" y="566" fill="#E8EAF1">Buton kartın içinde kalıyor; test eklendi.</text>
+      <path d="M826 584 L829.5 587.5 L836 580.5" fill="none" stroke="#4ADE80" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="842" y="588" fill="#4ADE80">bitti · $0.41 · 11 tur · 1 dk 24 sn</text>
+    </g>
+  </g>
+</svg>
