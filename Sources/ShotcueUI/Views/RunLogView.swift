@@ -85,7 +85,6 @@ public struct RunLogView: View {
         case .result(let result):
             if result.isSuccess {
                 var parts = ["bitti"]
-                parts.append(Formatting.cost(result.totalCostUSD))
                 parts.append(Formatting.turns(result.numTurns))
                 parts.append(Formatting.duration(result.durationMs.map { Double($0) / 1000 }))
                 return parts.joined(separator: " · ")

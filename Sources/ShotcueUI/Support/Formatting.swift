@@ -6,12 +6,6 @@ import Foundation
 public enum Formatting {
     nonisolated public static let placeholder = "—"
 
-    /// "$0.41"; `nil` (cost unknown, e.g. an unfinished run) becomes "—".
-    nonisolated public static func cost(_ usd: Double?) -> String {
-        guard let usd else { return placeholder }
-        return "$" + String(format: "%.2f", usd)
-    }
-
     /// "1 dk 24 sn" / "59 sn"; `nil` and non-positive values become "—".
     nonisolated public static func duration(_ seconds: Double?) -> String {
         guard let seconds, seconds > 0 else { return placeholder }

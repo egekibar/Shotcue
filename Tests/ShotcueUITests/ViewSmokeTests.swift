@@ -168,7 +168,7 @@ struct TaskInspectorViewTests {
         #expect(RunLogView.line(for: events[2]) == "Read /tmp/a.png")
         #expect(RunLogView.line(for: events[3]) == "API yeniden deneme (1)")
         #expect(RunLogView.line(for: events[4]) == "user")
-        #expect(RunLogView.line(for: events[5]) == "bitti · $0.41 · 11 tur · 1 dk 24 sn")
+        #expect(RunLogView.line(for: events[5]) == "bitti · 11 tur · 1 dk 24 sn")
         #expect(RunLogView.symbol(for: events[2]) == "wrench.and.screwdriver")
         #expect(RunLogView.symbol(for: events[5]) == "checkmark.seal.fill")
 

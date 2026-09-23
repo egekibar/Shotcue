@@ -71,7 +71,7 @@ Shotcue turns "this looks wrong, fix it" into a task for [Claude Code](https://g
     <td width="33%" valign="top">
       <img src="docs/assets/feature-claude.svg" width="44" alt=""><br>
       <b>Headless Claude Code</b><br>
-      Each task runs as <code>claude -p</code> in its project folder with your Claude subscription, no API key, on the model you pick. Turns, cost and the result are recorded per run.
+      Each task runs as <code>claude -p</code> in its project folder with your Claude subscription, no API key, on the model you pick. Turns, duration and the result are recorded per run.
     </td>
     <td width="33%" valign="top">
       <img src="docs/assets/feature-schedule.svg" width="44" alt=""><br>
@@ -103,7 +103,7 @@ flowchart TB
     C -- "⌘⇧↩ Kaydet ve gönder" --> E
     D -- "Şimdi gönder · Zamanla… · daily queue" --> E["Run queue<br/>side by side, up to the limit"]
     E --> F["claude -p in the project folder<br/>on your Claude subscription"]
-    F --> G["Live log · cost · git diff<br/>notification"]
+    F --> G["Live log · git diff<br/>notification"]
     G -.-> H["Continue: claude --resume<br/>in Terminal or Claude Desktop"]
 ```
 
@@ -206,11 +206,11 @@ Schedules are checked every 30 seconds and when the Mac wakes; a slot missed dur
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/inspector-dark.png">
-    <img src="docs/assets/inspector-light.png" width="400" alt="The inspector's lower half: project, mode and the model picker, scheduling buttons, a successful run with its cost, turns, duration and summary, the replayed run log, and the Terminalde devam et, Desktop'ta aç, Diff'i göster and Desktop composer'da aç buttons.">
+    <img src="docs/assets/inspector-light.png" width="400" alt="The inspector's lower half: project, mode and the model picker, scheduling buttons, a successful run with its turns, duration and summary, the replayed run log, and the Terminalde devam et, Desktop'ta aç, Diff'i göster and Desktop composer'da aç buttons.">
   </picture>
 </p>
 
-While a task runs, the inspector streams its log live; afterwards it replays the saved log. Every run keeps its turns, cost as reported by Claude Code, duration and result, and the git commit before and after. When a run ends, a notification shows the title, the first line of Claude's summary and the cost, with **Aç** (open) and **Terminalde devam et**, or **Yeniden çalıştır** (run again) if it failed. **İptal** (cancel) stops a running task (SIGINT, then SIGKILL after 10 seconds) or takes it out of the queue; quitting Shotcue while runs are going asks first and stops them.
+While a task runs, the inspector streams its log live; afterwards it replays the saved log. Every run keeps its turns, duration and result, and the git commit before and after. When a run ends, a notification shows the title and the first line of Claude's summary, with **Aç** (open) and **Terminalde devam et**, or **Yeniden çalıştır** (run again) if it failed. **İptal** (cancel) stops a running task (SIGINT, then SIGKILL after 10 seconds) or takes it out of the queue; quitting Shotcue while runs are going asks first and stops them.
 
 The inspector's hand-off buttons (*Aktarım*):
 

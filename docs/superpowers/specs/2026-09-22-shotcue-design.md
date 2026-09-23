@@ -8,7 +8,7 @@ Araştırma raporları: `docs/research/01…05`. Bu spec o raporların doğrulan
 
 ## 1. Amaç
 
-Klavye kısayoluyla ekranın bir bölgesini yakala, üzerine sesli veya yazılı not ekle, bunları **proje bazında** bir kütüphanede grupla/sırala ve tek tıkla ya da zamanlanmış olarak **headless Claude Code**'a görev olarak gönder. Claude Code görevi ilgili proje klasöründe çalıştırır; sonuç, maliyet ve session Shotcue içinde görünür; oturum terminalde veya Claude Desktop'ta devam ettirilebilir.
+Klavye kısayoluyla ekranın bir bölgesini yakala, üzerine sesli veya yazılı not ekle, bunları **proje bazında** bir kütüphanede grupla/sırala ve tek tıkla ya da zamanlanmış olarak **headless Claude Code**'a görev olarak gönder. Claude Code görevi ilgili proje klasöründe çalıştırır; sonuç ve session Shotcue içinde görünür; oturum terminalde veya Claude Desktop'ta devam ettirilebilir.
 
 Tek kullanıcı: uygulama sahibi, kendi Mac'inde. Dağıtım yok.
 
@@ -29,7 +29,7 @@ Tek kullanıcı: uygulama sahibi, kendi Mac'inde. Dağıtım yok.
 ## 3. Kapsam
 
 ### v1'de var
-Global kısayolla bölge yakalama (sistem seçici), hızlı panel (metin + sesli not, proje, mod), cihaz içi Türkçe/İngilizce transkripsiyon, kütüphane penceresi (proje sidebar, grid/liste, sıralama, arama, çoklu seçim, Inspector), Claude runner (canlı log, sonuç, maliyet, bildirim, terminal/Desktop'a aktarım), zamanlayıcı (tek seferlik + günlük kuyruk, uyanma sonrası catch-up), ayarlar, izin onboarding'i, menü çubuğu.
+Global kısayolla bölge yakalama (sistem seçici), hızlı panel (metin + sesli not, proje, mod), cihaz içi Türkçe/İngilizce transkripsiyon, kütüphane penceresi (proje sidebar, grid/liste, sıralama, arama, çoklu seçim, Inspector), Claude runner (canlı log, sonuç, bildirim, terminal/Desktop'a aktarım), zamanlayıcı (tek seferlik + günlük kuyruk, uyanma sonrası catch-up), ayarlar, izin onboarding'i, menü çubuğu.
 
 ### v1 dışı
 Custom capture overlay (v2), annotasyon, Kanban görünümü, canlı transkript taslağı, bulut/sync, MCP sunucusu, Anthropic API ile uygulama içi sohbet, launchd ile uygulama kapalıyken zamanlama, otomatik güncelleme, App Store, çoklu kullanıcı.
@@ -107,10 +107,10 @@ Mikrofon düğmesine tıkla → kayıt başlar (süre + seviye çubuğu görün�
 Sidebar: Projeler (her biri sayaçla), Inbox (projesiz), durum filtreleri. İçerik: grid (thumbnail, başlık, durum çipi, ses ikonu, tarih) veya `Table` liste. Sıralama: En yeni / En eski / Manuel / Durum. `⌘F` arama (başlık, not, transkript). Çoklu seçim → alt çubuk: Tek task olarak birleştir ve gönder, Ayrı ayrı gönder, Projeye taşı, Zamanla, Sil. Sürükle-bırak: task'ları sidebar'daki projeye bırakma; manuel sırada yeniden sıralama (macOS 27'de `reorderable`, 26'da `draggable`/`dropDestination`, `sort_index` fractional).
 
 ### 5.4 Task detayı (Inspector)
-Görüntüler (büyük önizleme, `⌘C`, Finder'da göster), başlık (otomatik: not metninin ilk cümlesi; not yoksa transkriptin ilk cümlesi; ikisi de yoksa "Yakalama <gün.ay saat:dk>"; kullanıcı düzenlerse bir daha otomatik değişmez), not, transkript + ses oynatıcı, proje, mod (Analiz/Uygula), model override, zamanlama (Şimdi gönder / Tarih-saat / Günlük kuyruğa al / Zamanlamayı kaldır), run geçmişi (her run: durum, süre, tur, maliyet tahmini, özet) ve seçili run'ın canlı/kayıtlı logu; aksiyonlar: Terminalde devam et, Desktop'ta aç, Desktop composer'da aç, Diff'i göster, Yeniden çalıştır, İptal (çalışıyorsa).
+Görüntüler (büyük önizleme, `⌘C`, Finder'da göster), başlık (otomatik: not metninin ilk cümlesi; not yoksa transkriptin ilk cümlesi; ikisi de yoksa "Yakalama <gün.ay saat:dk>"; kullanıcı düzenlerse bir daha otomatik değişmez), not, transkript + ses oynatıcı, proje, mod (Analiz/Uygula), model override, zamanlama (Şimdi gönder / Tarih-saat / Günlük kuyruğa al / Zamanlamayı kaldır), run geçmişi (her run: durum, süre, tur, özet; maliyet kaydedilir ama gösterilmez) ve seçili run'ın canlı/kayıtlı logu; aksiyonlar: Terminalde devam et, Desktop'ta aç, Desktop composer'da aç, Diff'i göster, Yeniden çalıştır, İptal (çalışıyorsa).
 
 ### 5.5 Gönderme ve sonuç
-`Şimdi gönder` → `queued` → `RunCoordinator` sırası gelince `running` → `done`/`failed`. Bitişte bildirim (başlık + tek satır özet + maliyet; aksiyonlar: Aç, Terminalde devam et). Menü çubuğu menüsü: son 5 task ve durumları, Kuyruğu şimdi çalıştır, Duraklat/Sürdür, Kütüphane, Ayarlar, Çık.
+`Şimdi gönder` → `queued` → `RunCoordinator` sırası gelince `running` → `done`/`failed`. Bitişte bildirim (başlık + tek satır özet; aksiyonlar: Aç, Terminalde devam et). Menü çubuğu menüsü: son 5 task ve durumları, Kuyruğu şimdi çalıştır, Duraklat/Sürdür, Kütüphane, Ayarlar, Çık.
 
 ## 6. Bileşen tasarımı
 

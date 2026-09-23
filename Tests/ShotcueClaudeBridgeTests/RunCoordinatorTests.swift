@@ -244,8 +244,8 @@ struct RunCoordinatorTests {
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.kind == .runDone)
         #expect(notification.title == "Buton rengi")
-        // Spec §5.5: title + one-line summary + cost (final review M1).
-        #expect(notification.body == "Özet satırı · $0.42")
+        // Spec §5.5: title + one-line summary; the cost is recorded on the run but never shown.
+        #expect(notification.body == "Özet satırı")
         #expect(notification.taskID == task.id)
         #expect(notification.runID == run.id)
 
@@ -257,7 +257,7 @@ struct RunCoordinatorTests {
         #expect(replayed == [.assistantText("bakıyorum"), .toolUse(name: "Read", summary: "Read a.png")])
     }
 
-    @Test func aDoneNotificationWithoutACostOrSummaryStaysShort() async throws {
+    @Test func aDoneNotificationWithoutASummaryStaysShort() async throws {
         let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
         let task = ShotTask(projectID: project.id, title: "Sessiz", status: .ready)
         let runner = FakeClaudeRunner(outcome: .success(ClaudeRunResult(subtype: "success", isError: false)))
@@ -267,8 +267,8 @@ struct RunCoordinatorTests {
         try await h.coordinator.enqueue(taskID: task.id)
         await waitUntil("run succeeded") { await h.runs(of: task.id).first?.state == .succeeded }
         #expect(h.notifier.sent.current.first?.body == "Tamamlandı")
-        #expect(RunCoordinator.doneBody(summary: nil, costUSD: 1.5) == "Tamamlandı · $1.50")
-        #expect(RunCoordinator.doneBody(summary: "Bitti.", costUSD: 0.004) == "Bitti. · $0.00")
+        #expect(RunCoordinator.doneBody(summary: nil) == "Tamamlandı")
+        #expect(RunCoordinator.doneBody(summary: "Bitti.") == "Bitti.")
     }
 
     @Test func limitResultFailsTheTaskAndNotifies() async throws {

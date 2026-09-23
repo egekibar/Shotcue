@@ -16,13 +16,6 @@ struct FormattingTests {
         return c
     }
 
-    @Test func costUsesTwoDecimalsAndDashForNil() {
-        #expect(Formatting.cost(0.4137) == "$0.41")
-        #expect(Formatting.cost(0) == "$0.00")
-        #expect(Formatting.cost(12.5) == "$12.50")
-        #expect(Formatting.cost(nil) == "—")
-    }
-
     @Test func durationSplitsMinutesAndSeconds() {
         #expect(Formatting.duration(84.213) == "1 dk 24 sn")
         #expect(Formatting.duration(59.4) == "59 sn")

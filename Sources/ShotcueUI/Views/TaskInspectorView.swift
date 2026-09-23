@@ -423,7 +423,6 @@ public struct TaskInspectorView: View {
                         .foregroundStyle(.secondary)
                 }
                 HStack(spacing: 10) {
-                    Text(Formatting.cost(run.costUSD))
                     Text(Formatting.turns(run.numTurns))
                     Text(Formatting.duration(run.finishedAt.map { $0.timeIntervalSince(run.startedAt) }))
                 }

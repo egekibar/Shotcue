@@ -403,7 +403,7 @@ public actor RunCoordinator: TaskDispatcher {
                 let task = await apply(.done, toTask: run.taskID)
                 return AppNotification(
                     kind: .runDone, title: task?.title ?? title,
-                    body: Self.doneBody(summary: Self.firstLine(result.result), costUSD: result.totalCostUSD),
+                    body: Self.doneBody(summary: Self.firstLine(result.result)),
                     taskID: run.taskID, runID: run.id)
             }
             // A limit stop, an execution error, or an API or auth failure (final review I6; `errorCode(for:)`).
@@ -506,12 +506,10 @@ public actor RunCoordinator: TaskDispatcher {
         return String(line.prefix(200))
     }
 
-    /// Spec §5.5: the "done" notification carries the one-line summary and the run's cost when the result has one
-    /// (final review M1).
-    static func doneBody(summary: String?, costUSD: Double?) -> String {
-        let text = summary ?? "Tamamlandı"
-        guard let costUSD else { return text }
-        return text + " · " + String(format: "$%.2f", costUSD)
+    /// Spec §5.5: the "done" notification carries the one-line summary. The run's cost is recorded but never shown:
+    /// on a subscription it is only an API-price estimate, and a dollar figure reads like a bill.
+    static func doneBody(summary: String?) -> String {
+        summary ?? "Tamamlandı"
     }
 
     /// The first line git printed (its stderr), which says what is wrong; otherwise the error's own description.

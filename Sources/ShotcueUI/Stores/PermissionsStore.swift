@@ -63,7 +63,7 @@ public final class PermissionsStore {
         case .microphone:
             "Sesli not almak için gerekir. İzin yoksa metin notu yine çalışır."
         case .notifications:
-            "Bir çalışma bittiğinde sonucu ve maliyeti bildirmek için kullanılır."
+            "Bir çalışma bittiğinde sonucu bildirmek için kullanılır."
         }
     }
 
