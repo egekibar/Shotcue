@@ -15,6 +15,13 @@ public struct RunErrorDescription: Hashable, Sendable {
         self.suggestion = suggestion
         self.detail = detail
     }
+
+    /// Whether `text` — a run's result text — says nothing this description does not show already. For `claude_error`
+    /// the result text is claude's error line, which is the detail, so the inspector shows it once.
+    public func alreadyShows(_ text: String) -> Bool {
+        guard let detail else { return false }
+        return detail == text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 /// The one place `Run.error` codes become Turkish (final review I6): the inspector's run rows and the RUN_FAILED
@@ -36,13 +43,21 @@ public enum RunErrorText {
         return text
     }
 
-    /// The failure notification's body: the message, then the suggestion.
+    /// The failure notification's body: the message, then the suggestion. For `claude_error` it is claude's own error
+    /// line after the Turkish lead: that line is the reason itself (a rejected key, a usage limit), as the body showed
+    /// before codes existed. Other details (git's stderr, a path) stay in the inspector.
     public static func notificationBody(for stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil) -> String {
         guard let text = describe(stored, exitCode: exitCode, numTurns: numTurns) else {
             return "Çalışma hata ile bitti."
         }
+        if let stored, let line = text.detail, RunErrorCode.parse(stored)?.code == RunErrorCode.claudeError {
+            return "\(claudeErrorLead): \(line)"
+        }
         return [text.message, text.suggestion].compactMap { $0 }.joined(separator: " ")
     }
+
+    /// `claude_error` in Turkish: the inspector shows claude's line under it, the notification after it.
+    private static let claudeErrorLead = "claude hata bildirdi"
 
     private static func known(_ code: String, exitCode: Int32?, numTurns: Int?) -> RunErrorDescription? {
         switch code {
@@ -69,6 +84,10 @@ public enum RunErrorText {
         case RunErrorCode.claudeFailed:
             return RunErrorDescription(
                 message: exitCode.map { "claude hata ile çıktı (kod \($0))." } ?? "claude hata ile çıktı.")
+        case RunErrorCode.claudeError, ClaudeRunResult.successSubtype:
+            // `success`: what rows written before `claude_error` existed hold for the same failure; claude's line is
+            // then only in the run's result text, which the inspector shows.
+            return RunErrorDescription(message: "\(claudeErrorLead).")
         case RunErrorCode.noResult:
             return RunErrorDescription(message: "claude sonuç satırı üretmeden çıktı.")
         case RunErrorCode.maxTurns:

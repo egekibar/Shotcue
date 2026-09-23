@@ -26,6 +26,9 @@ public enum RunErrorCode {
     /// claude exited non-zero without a result line; the detail is its first stderr line, the exit code is
     /// `Run.exitCode`.
     public static let claudeFailed = "claude_failed"
+    /// A result line with `is_error` and subtype `success`: how claude reports an API or auth failure (a rejected key,
+    /// a usage limit, an overloaded API). The detail is claude's first result line, which says what went wrong.
+    public static let claudeError = "claude_error"
     /// claude exited 0 without a result line.
     public static let noResult = "no_result"
     /// A result line with a limit or an execution error: claude's own `subtype`, stored as it is.

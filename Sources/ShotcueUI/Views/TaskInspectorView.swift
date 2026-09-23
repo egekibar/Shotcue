@@ -425,7 +425,9 @@ public struct TaskInspectorView: View {
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-                if let resultText = run.resultText, !resultText.isEmpty {
+                let failure = RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns)
+                // A failed result's text can be claude's error line alone, which the failure below already shows.
+                if let resultText = run.resultText, !resultText.isEmpty, failure?.alreadyShows(resultText) != true {
                     Text(resultText)
                         .font(.caption)
                         .lineLimit(3)
@@ -433,7 +435,7 @@ public struct TaskInspectorView: View {
                 }
                 // Final review I6: the row keeps a machine code; it is read in Turkish, with what to do about it
                 // (spec §8: after a limit stop, raise the limit) and the raw detail or unknown code underneath.
-                if let failure = RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns) {
+                if let failure {
                     Text(failure.message)
                         .font(.caption)
                         .lineLimit(2)

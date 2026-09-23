@@ -11,7 +11,8 @@ struct RunErrorTextTests {
     static let everyCode: [String] = [
         RunErrorCode.cancelled, RunErrorCode.cancelledBeforeLaunch, RunErrorCode.interrupted, RunErrorCode.timeout,
         RunErrorCode.claudeNotFound, RunErrorCode.claudeLaunchFailed, RunErrorCode.claudeNotLoggedIn,
-        RunErrorCode.claudeFailed, RunErrorCode.noResult, RunErrorCode.maxTurns, RunErrorCode.maxBudget,
+        RunErrorCode.claudeFailed, RunErrorCode.claudeError, RunErrorCode.noResult, RunErrorCode.maxTurns,
+        RunErrorCode.maxBudget,
         RunErrorCode.executionError, RunErrorCode.voiceNotePending, RunErrorCode.voiceNoteFailed,
         RunErrorCode.voiceNotesUnreadable, RunErrorCode.gitBranchFailed, RunErrorCode.gitStashFailed,
         RunErrorCode.projectMissing, RunErrorCode.projectUnreadable, RunErrorCode.projectFolderMissing,
@@ -57,6 +58,47 @@ struct RunErrorTextTests {
 
         let loggedOut = try #require(RunErrorText.describe(RunErrorCode.claudeNotLoggedIn))
         #expect(loggedOut.message == "claude ile tekrar giriş yapın.")  // spec §8, verbatim
+    }
+
+    /// claude reports API and auth failures (a rejected key, a usage limit) as a result with subtype `success` and
+    /// `is_error`. The stored code keeps claude's first result line; the inspector and the notification show it with
+    /// Turkish text instead of a raw "success".
+    @Test func claudesOwnErrorLineIsShownInTheInspectorAndTheNotification() throws {
+        let stored = RunErrorCode.compose(RunErrorCode.claudeError, detail: "Invalid API key · Please run /login")
+        #expect(stored == "claude_error: Invalid API key · Please run /login")
+        let text = try #require(RunErrorText.describe(stored))
+        #expect(text.message == "claude hata bildirdi.")
+        #expect(text.detail == "Invalid API key · Please run /login")
+        #expect(
+            RunErrorText.notificationBody(for: stored) == "claude hata bildirdi: Invalid API key · Please run /login")
+
+        // A line that holds ": " itself stays whole.
+        let overloaded = RunErrorCode.compose(RunErrorCode.claudeError, detail: "API Error: 529 Overloaded")
+        #expect(RunErrorText.describe(overloaded)?.detail == "API Error: 529 Overloaded")
+        #expect(RunErrorText.notificationBody(for: overloaded) == "claude hata bildirdi: API Error: 529 Overloaded")
+        // Without a result line there is nothing to quote.
+        #expect(RunErrorText.notificationBody(for: RunErrorCode.claudeError) == "claude hata bildirdi.")
+
+        // Rows written before this code existed hold claude's subtype, `success`, for the same failure; their result
+        // text (shown above in the inspector) carries claude's line.
+        let legacy = try #require(RunErrorText.describe(ClaudeRunResult.successSubtype))
+        #expect(legacy.message == "claude hata bildirdi.")
+        #expect(legacy.detail == nil)
+    }
+
+    /// The inspector shows such a run's result text once: it is claude's error line, which the failure's detail shows.
+    @Test func aResultTextTheFailureAlreadyShowsIsNotRepeated() throws {
+        let failure = try #require(
+            RunErrorText.describe(
+                RunErrorCode.compose(RunErrorCode.claudeError, detail: "Invalid API key · Please run /login")))
+        #expect(failure.alreadyShows("Invalid API key · Please run /login\n"))
+        // More than the detail holds: the inspector keeps showing the whole text.
+        #expect(!failure.alreadyShows("Invalid API key · Please run /login\nikinci satır"))
+        let branch = try #require(
+            RunErrorText.describe(RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: "fatal: bad ref")))
+        #expect(!branch.alreadyShows("Özet satırı"))
+        let limit = try #require(RunErrorText.describe(RunErrorCode.maxTurns))
+        #expect(!limit.alreadyShows("Özet satırı"))
     }
 
     @Test func anUnknownCodeFallsBackToTurkishWithTheRawCodeUnderIt() throws {
