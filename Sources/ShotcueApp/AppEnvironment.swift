@@ -101,10 +101,13 @@ final class AppEnvironment {
             clock: clock,
             settings: AppSettingsBridge.runSettings(from: snapshot))
         self.runCoordinator = runCoordinator
+        // Every sender (UI stores through AppServices, the quick panel, the scheduler) goes through this:
+        // with `claude` missing, sends are refused up front (spec §8).
+        let dispatcher = ClaudeGatedDispatcher(base: runCoordinator, locator: claude)
 
         // 6. Scheduler + hand-off.
         self.scheduler = SchedulerDriver(
-            dispatcher: runCoordinator,
+            dispatcher: dispatcher,
             taskRepository: tasks,
             projectRepository: projects,
             clock: clock,
@@ -125,7 +128,7 @@ final class AppEnvironment {
             recorder: recorder,
             transcriber: transcriber,
             transcriptionQueue: transcription,
-            dispatcher: runCoordinator,
+            dispatcher: dispatcher,
             handoff: handoff,
             fileStore: fileStore,
             clock: clock,
@@ -219,8 +222,10 @@ final class AppEnvironment {
             previous.sttModel != snapshot.sttModel
                 || previous.inputDeviceUID != snapshot.inputDeviceUID
                 || previous.storageRootPath != snapshot.storageRootPath
+                || previous.claudePath != snapshot.claudePath
         {
-            status.lastError = "Bu ayar için Shotcue'yu yeniden başlatın (model / giriş cihazı / depolama)."
+            status.lastError =
+                "Bu ayar için Shotcue'yu yeniden başlatın (model / giriş cihazı / depolama / claude yolu)."
         }
     }
 

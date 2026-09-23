@@ -5,9 +5,9 @@ import ShotcueUI
 
 /// Value-type mirror of every `SettingsStore` field the app has to react to.
 /// Equatable so `AppEnvironment.applySettings()` can skip no-op re-applications.
-/// The last three fields (`sttModel`, `inputDeviceUID`, `storageRootPath`) cannot be applied to a live
-/// service — they are baked into the transcriber, the recorder and the file store at init — but they are
-/// part of the snapshot so a change is *noticed* and the user is told a restart is needed.
+/// `sttModel`, `inputDeviceUID`, `storageRootPath` and `claudePath` cannot be applied to a live service —
+/// they are baked into the transcriber, the recorder, the file store and the claude locator at init — but
+/// they are part of the snapshot so a change is *noticed* and the user is told a restart is needed.
 struct AppSettingsSnapshot: Equatable, Sendable {
     var maxConcurrent: Int
     var maxTurns: Int
@@ -26,6 +26,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var copyToClipboardOnCapture: Bool
     /// The effective storage root (`SettingsStore.storageRootPath` is optional: nil means the default).
     var storageRootPath: String
+    /// Settings > Claude > Yol; nil = search the default locations.
+    var claudePath: String?
 }
 
 /// The only place that translates user-facing settings into service inputs. Pure functions only:
@@ -48,7 +50,8 @@ enum AppSettingsBridge {
             hotKey: settings.hotKey,
             launchAtLogin: settings.launchAtLogin,
             copyToClipboardOnCapture: settings.copyToClipboardOnCapture,
-            storageRootPath: settings.storageRoot.path)
+            storageRootPath: settings.storageRoot.path,
+            claudePath: nonEmpty(settings.claudePath))
     }
 
     static func runSettings(from snapshot: AppSettingsSnapshot) -> RunSettings {
