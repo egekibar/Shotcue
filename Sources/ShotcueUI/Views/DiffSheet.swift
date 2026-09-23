@@ -36,8 +36,9 @@ public struct DiffSheet: View {
             if document.files.isEmpty {
                 ContentUnavailableView(
                     "Değişiklik yok", systemImage: "checkmark.circle",
-                    description: Text("Bu çalıştırmadan sonra çalışma ağacında fark bulunmadı."))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    description: Text("Bu çalıştırmadan sonra çalışma ağacında fark bulunmadı.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HSplitView {
                     fileList
@@ -187,8 +188,9 @@ struct DiffFileView: View {
                     description: Text(
                         file.isBinary
                             ? "İkili dosyaların içeriği karşılaştırılmaz."
-                            : "Dosya boş, yalnızca taşındı ya da izinleri değişti."))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            : "Dosya boş, yalnızca taşındı ya da izinleri değişti.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {

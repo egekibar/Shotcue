@@ -312,17 +312,18 @@ public struct TaskInspectorView: View {
                 .pickerStyle(.segmented)
                 .disabled(!store.isEditable)
 
-                LabeledContent("Model") {
-                    TextField(
-                        "proje varsayılanı",
-                        text: Binding(
-                            get: { task.modelOverride ?? "" },
-                            set: { newValue in Task { await store.setModelOverride(newValue) } })
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 160)
-                    .disabled(!store.isEditable)
+                Picker(
+                    "Model",
+                    selection: Binding<String>(
+                        get: { task.modelOverride ?? "" },
+                        set: { newValue in Task { await store.setModelOverride(newValue) } })
+                ) {
+                    ForEach(ClaudeModelChoices.options(including: task.modelOverride), id: \.self) { model in
+                        Text(model.isEmpty ? "Proje varsayılanı" : model).tag(model)
+                    }
                 }
+                .frame(maxWidth: 240)
+                .disabled(!store.isEditable)
             }
         }
     }

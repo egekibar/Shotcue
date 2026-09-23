@@ -43,7 +43,13 @@ public struct ProjectEditorView: View {
                         Text("Uygula").tag(TaskMode.implement)
                     }
                     .pickerStyle(.segmented)
-                    TextField("Model (boş = genel ayar)", text: draft.defaultModel)
+                    Picker("Model", selection: draft.defaultModel) {
+                        ForEach(
+                            ClaudeModelChoices.options(including: draft.wrappedValue.defaultModel), id: \.self
+                        ) { model in
+                            Text(model.isEmpty ? "Genel ayar" : model).tag(model)
+                        }
+                    }
                     Picker("Effort", selection: draft.defaultEffort) {
                         ForEach(ProjectDraft.effortChoices, id: \.self) { effort in
                             Text(effort.isEmpty ? "Genel ayar" : effort).tag(effort)
@@ -63,6 +69,11 @@ public struct ProjectEditorView: View {
                 Section("Güvenlik ağı") {
                     Toggle("Her çalıştırmayı yeni branch'te başlat", isOn: draft.runInBranch)
                     Toggle("Çalıştırmadan önce değişiklikleri stash'le", isOn: draft.stashBeforeRun)
+                    Text(
+                        "Bunlardan biri açıkken bu projenin görevleri aynı anda değil, sırayla çalışır; kapalıyken eş zamanlı çalışabilir."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)

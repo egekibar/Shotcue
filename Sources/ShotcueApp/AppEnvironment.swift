@@ -43,6 +43,8 @@ final class AppEnvironment {
 
     private let database: AppDatabase
     private var appliedSnapshot: AppSettingsSnapshot?
+    /// The combo `pauseHotKey()` took down while Settings records a new one.
+    private var pausedHotKey: KeyCombo?
 
     init() throws {
         let settings = SettingsStore(defaults: .standard)
@@ -233,8 +235,12 @@ final class AppEnvironment {
             let language = snapshot.sttLanguage
             Task { await transcription.setLanguage(language) }
         }
-        if previous?.hotKey != snapshot.hotKey {
-            registerHotKey(snapshot.hotKey)
+        if previous?.hotKey != snapshot.hotKey || previous?.hotKeyPaused != snapshot.hotKeyPaused {
+            if snapshot.hotKeyPaused {
+                pauseHotKey()
+            } else {
+                registerHotKey(snapshot.hotKey)
+            }
         }
         if previous?.launchAtLogin != snapshot.launchAtLogin {
             reconcileLoginItem(desired: snapshot.launchAtLogin)
@@ -260,10 +266,12 @@ final class AppEnvironment {
     /// in that case and the picker goes back to it, so Settings always shows the combo that works.
     /// Main actor only: the Carbon service asserts the main queue.
     func registerHotKey(_ combo: KeyCombo) {
-        let previous = hotKeys.registeredCombo
         // Already active — e.g. the picker was just reverted to the combo restored below. Registering it
         // again would only clear the error that explains the revert.
-        guard previous != combo else { return }
+        guard hotKeys.registeredCombo != combo else { return }
+        // While the recorder was listening nothing was registered; the paused combo is the one to fall back to.
+        let previous = hotKeys.registeredCombo ?? pausedHotKey
+        pausedHotKey = nil
         let flow = captureFlow
         // The Carbon service already calls this on the main queue; the hop makes the isolation explicit.
         let handler: @Sendable () -> Void = {
@@ -283,11 +291,19 @@ final class AppEnvironment {
             do {
                 try hotKeys.register(previous, handler: handler)
                 status.hotKeyError = "\(reason) \(previous.label) kullanılmaya devam ediyor."
-                settings.hotKeyLabel = previous.label
+                settings.hotKey = previous
             } catch {
                 status.hotKeyError = "\(reason) Önceki kısayol \(previous.label) de geri yüklenemedi."
             }
         }
+    }
+
+    /// Settings' recorder is listening: without this, Carbon would swallow the current combo before the
+    /// recorder saw it. The combo is remembered so a refused new one can fall back to it.
+    func pauseHotKey() {
+        if let current = hotKeys.registeredCombo { pausedHotKey = current }
+        hotKeys.unregister()
+        AppLog.app.notice("hotkey paused for recording")
     }
 
     /// -9878 is Carbon's `eventHotKeyExistsErr`: another app owns the combination.

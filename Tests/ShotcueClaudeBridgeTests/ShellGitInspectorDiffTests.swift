@@ -45,7 +45,9 @@ struct ShellGitInspectorDiffTests {
         let files = UnifiedDiffParser.parse(text).files
         #expect(files.map(\.path) == ["a.txt", "docs/new file.txt"])
         #expect(files.map(\.status) == [.modified, .added])
-        #expect(files[0].hunks.first?.lines.last == DiffLine(kind: .added, text: "second line", oldNumber: nil, newNumber: 2))
+        #expect(
+            files[0].hunks.first?.lines.last
+                == DiffLine(kind: .added, text: "second line", oldNumber: nil, newNumber: 2))
         #expect(files[1].hunks.first?.lines == [DiffLine(kind: .added, text: "hello", oldNumber: nil, newNumber: 1)])
         // The repository is left as it was: untracked files stay untracked.
         #expect(try git("status", "--porcelain", at: repo.path).contains("?? docs/"))

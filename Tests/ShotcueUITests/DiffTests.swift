@@ -102,7 +102,9 @@ struct TaskDiffTests {
         let rows = DiffRows(file: file)
         #expect(rows.rows.count == 6)
         #expect(rows.rows.map(\.id) == Array(0..<6))
-        if case .hunkHeader(let header) = rows.rows[3].content { #expect(header == "@@ -120 +120 @@") } else {
+        if case .hunkHeader(let header) = rows.rows[3].content {
+            #expect(header == "@@ -120 +120 @@")
+        } else {
             Issue.record("expected a hunk header")
         }
         #expect(rows.gutterDigits == 3)

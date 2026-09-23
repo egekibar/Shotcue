@@ -27,7 +27,9 @@ public final class SettingsStore {
 
     /// The `UserDefaults` keys are the property names verbatim, so they read the same in `defaults read`.
     enum Key {
-        static let hotKeyLabel = "hotKeyLabel"
+        static let hotKey = "hotKey"
+        /// v1: a `KeyCombo.presets` label. Read as a fallback, removed once a combo is stored under `hotKey`.
+        static let legacyHotKeyLabel = "hotKeyLabel"
         static let launchAtLogin = "launchAtLogin"
         static let copyToClipboardOnCapture = "copyToClipboardOnCapture"
         static let storageRootPath = "storageRootPath"
@@ -48,7 +50,6 @@ public final class SettingsStore {
         static let lastUsedProjectID = "lastUsedProjectID"
     }
 
-    public static let defaultHotKeyLabel = "⌃⇧2"
     public static let defaultSTTLanguage = "tr"
     public static let defaultSTTModel = "openai_whisper-large-v3-v20240930_turbo"
     public static let defaultPermissionMode = ClaudePermissionMode.bypassPermissions.rawValue
@@ -61,25 +62,33 @@ public final class SettingsStore {
 
     // MARK: - General
 
-    /// Always one of `KeyCombo.presets` labels; an unknown value is coerced back to the default.
-    public var hotKeyLabel: String {
+    /// The combo `AppEnvironment` registers with Carbon, stored as JSON so any recorded combination fits.
+    /// Never invalid: an unreadable or unusable value falls back to `KeyCombo.defaultCombo`.
+    public var hotKey: KeyCombo {
         get {
-            access(keyPath: \.hotKeyLabel)
-            let stored = defaults.string(forKey: Key.hotKeyLabel) ?? Self.defaultHotKeyLabel
-            return KeyCombo.presets.contains(where: { $0.label == stored }) ? stored : Self.defaultHotKeyLabel
+            access(keyPath: \.hotKey)
+            if let data = defaults.data(forKey: Key.hotKey),
+                let combo = try? JSONDecoder().decode(KeyCombo.self, from: data), combo.isValidHotKey
+            {
+                return combo
+            }
+            let legacy = defaults.string(forKey: Key.legacyHotKeyLabel)
+            return KeyCombo.presets.first { $0.label == legacy } ?? KeyCombo.defaultCombo
         }
         set {
-            let valid =
-                KeyCombo.presets.contains(where: { $0.label == newValue })
-                ? newValue : Self.defaultHotKeyLabel
-            withMutation(keyPath: \.hotKeyLabel) { defaults.set(valid, forKey: Key.hotKeyLabel) }
+            let valid = newValue.isValidHotKey ? newValue : KeyCombo.defaultCombo
+            withMutation(keyPath: \.hotKey) {
+                defaults.set(try? JSONEncoder().encode(valid), forKey: Key.hotKey)
+                defaults.removeObject(forKey: Key.legacyHotKeyLabel)
+            }
         }
     }
 
-    /// The combo Plan 02's `HotKeyCenter` registers. Never nil: falls back to `KeyCombo.defaultCombo`.
-    public var hotKey: KeyCombo {
-        KeyCombo.presets.first { $0.label == hotKeyLabel } ?? KeyCombo.defaultCombo
-    }
+    public var hotKeyLabel: String { hotKey.label }
+
+    /// True while the Settings shortcut recorder is listening. The app unregisters the global hotkey meanwhile,
+    /// otherwise Carbon would swallow the current combo before the recorder could see it. Not persisted.
+    public var isRecordingHotKey = false
 
     public var launchAtLogin: Bool {
         get { bool(Key.launchAtLogin, default: false, keyPath: \.launchAtLogin) }
@@ -142,7 +151,7 @@ public final class SettingsStore {
 
     public var maxConcurrentRuns: Int {
         get { int(Key.maxConcurrentRuns, default: 2, keyPath: \.maxConcurrentRuns) }
-        set { setInt(newValue, Key.maxConcurrentRuns, range: 1...8, keyPath: \.maxConcurrentRuns) }
+        set { setInt(newValue, Key.maxConcurrentRuns, range: 1...20, keyPath: \.maxConcurrentRuns) }
     }
 
     /// Raw value of `ClaudePermissionMode`; stored as a string so an unknown value cannot crash.

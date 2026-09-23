@@ -54,14 +54,7 @@ public struct SettingsView: View {
         @Bindable var store = settings
         return Form {
             Section("Yakalama") {
-                Picker("Kısayol", selection: $store.hotKeyLabel) {
-                    ForEach(KeyCombo.presets, id: \.self) { combo in
-                        Text(combo.label).tag(combo.label)
-                    }
-                }
-                Text("Özel kombinasyon kaydedici v1.1'de gelecek; şimdilik hazır listeden seçilir.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HotKeyRecorder(settings: settings)
                 Toggle("Yakalamayı panoya da kopyala", isOn: $store.copyToClipboardOnCapture)
             }
 
@@ -145,15 +138,15 @@ public struct SettingsView: View {
             }
 
             Section("Varsayılanlar") {
-                LabeledContent("Model") {
-                    TextField(
-                        "CLI varsayılanı",
-                        text: Binding(
-                            get: { settings.defaultModel ?? "" },
-                            set: { settings.defaultModel = $0 })
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 200)
+                Picker(
+                    "Model",
+                    selection: Binding(
+                        get: { settings.defaultModel ?? "" },
+                        set: { settings.defaultModel = $0 })
+                ) {
+                    ForEach(ClaudeModelChoices.options(including: settings.defaultModel), id: \.self) { model in
+                        Text(model.isEmpty ? "CLI varsayılanı" : model).tag(model)
+                    }
                 }
                 LabeledContent("Effort") {
                     TextField(
@@ -179,7 +172,7 @@ public struct SettingsView: View {
                     value: $store.timeoutMinutes, in: 1...480, step: 5)
                 Stepper(
                     "Eş zamanlı çalışma: \(settings.maxConcurrentRuns)",
-                    value: $store.maxConcurrentRuns, in: 1...8)
+                    value: $store.maxConcurrentRuns, in: 1...20)
             }
 
             Section("Yetki modu") {

@@ -13,6 +13,24 @@ public struct RunLogView: View {
     }
 
     public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            log
+            // Outside the scrolled content: a single, always-visible indicator. Inside the LazyVStack its
+            // id kept shifting to collide with the newest row, which left ghost copies behind.
+            if isLive && !events.isEmpty {
+                Divider()
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("akıyor…").font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+            }
+        }
+        .background(.background.secondary, in: .rect(cornerRadius: 8))
+    }
+
+    private var log: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 3) {
@@ -25,22 +43,14 @@ public struct RunLogView: View {
                         row(pair.element)
                             .id(pair.offset)
                     }
-                    if isLive {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text("akıyor…").font(.caption).foregroundStyle(.secondary)
-                        }
-                        .id(events.count)
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
             }
-            .background(.background.secondary, in: .rect(cornerRadius: 8))
             .onChange(of: events.count) { _, newCount in
-                guard isLive else { return }
+                guard isLive, newCount > 0 else { return }
                 withAnimation(.easeOut(duration: 0.15)) {
-                    proxy.scrollTo(newCount, anchor: .bottom)
+                    proxy.scrollTo(newCount - 1, anchor: .bottom)
                 }
             }
         }

@@ -22,6 +22,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var sttModel: String
     var inputDeviceUID: String?
     var hotKey: KeyCombo
+    /// Settings' shortcut recorder is listening: the global hotkey is unregistered until it finishes.
+    var hotKeyPaused: Bool
     var launchAtLogin: Bool
     var copyToClipboardOnCapture: Bool
     /// The effective storage root (`SettingsStore.storageRootPath` is optional: nil means the default).
@@ -48,6 +50,7 @@ enum AppSettingsBridge {
             sttModel: nonEmpty(settings.sttModel) ?? defaultSTTModel,
             inputDeviceUID: nonEmpty(settings.inputDeviceUID),
             hotKey: settings.hotKey,
+            hotKeyPaused: settings.isRecordingHotKey,
             launchAtLogin: settings.launchAtLogin,
             copyToClipboardOnCapture: settings.copyToClipboardOnCapture,
             storageRootPath: settings.storageRoot.path,

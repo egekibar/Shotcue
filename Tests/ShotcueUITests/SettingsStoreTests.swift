@@ -46,7 +46,7 @@ struct SettingsStoreTests {
         let defaults = freshDefaults()
         let store = SettingsStore(defaults: defaults)
 
-        store.hotKeyLabel = "⌥Space"
+        store.hotKey = KeyCombo.presets[4]
         store.launchAtLogin = true
         store.copyToClipboardOnCapture = true
         store.storageRootPath = "/Volumes/Work/Shotcue"
@@ -66,7 +66,8 @@ struct SettingsStoreTests {
         store.foundationModelsEnabled = true
         store.lastUsedProjectID = "8A2B1D4F-0C73-4C6D-9E51-3F2A9C407B18"
 
-        #expect(defaults.string(forKey: "hotKeyLabel") == "⌥Space")
+        let storedHotKey = try? JSONDecoder().decode(KeyCombo.self, from: defaults.data(forKey: "hotKey") ?? Data())
+        #expect(storedHotKey == KeyCombo.presets[4])
         #expect(defaults.bool(forKey: "launchAtLogin") == true)
         #expect(defaults.bool(forKey: "copyToClipboardOnCapture") == true)
         #expect(defaults.string(forKey: "storageRootPath") == "/Volumes/Work/Shotcue")
@@ -106,25 +107,51 @@ struct SettingsStoreTests {
     }
 
     @MainActor
-    @Test func hotKeyResolvesThePresetForTheStoredLabel() {
-        let store = SettingsStore(defaults: freshDefaults())
+    @Test func hotKeyStoresARecordedCombo() {
+        let defaults = freshDefaults()
+        let store = SettingsStore(defaults: defaults)
         #expect(store.hotKey == KeyCombo.defaultCombo)
-        store.hotKeyLabel = "⌃⌥Space"
-        #expect(store.hotKey.label == "⌃⌥Space")
-        #expect(store.hotKey.modifiers == KeyCombo.controlKey | KeyCombo.optionKey)
+        let custom = KeyCombo(keyCode: 0x29, modifiers: KeyCombo.commandKey | KeyCombo.optionKey, label: "⌥⌘Ş")
+        store.hotKey = custom
+        #expect(store.hotKey == custom)
+        #expect(store.hotKeyLabel == "⌥⌘Ş")
+        // A second store over the same defaults sees it: the combo is durable, not in memory.
+        #expect(SettingsStore(defaults: defaults).hotKey == custom)
+    }
+
+    /// v1 stored only a preset label under `hotKeyLabel`; that choice survives the upgrade.
+    @MainActor
+    @Test func legacyPresetLabelIsStillHonoured() {
+        let defaults = freshDefaults()
+        defaults.set("⌃⌥Space", forKey: "hotKeyLabel")
+        let store = SettingsStore(defaults: defaults)
         #expect(store.hotKey == KeyCombo.presets.last)
+        store.hotKey = KeyCombo.presets[1]
+        #expect(defaults.object(forKey: "hotKeyLabel") == nil)
+        #expect(store.hotKey == KeyCombo.presets[1])
     }
 
     @MainActor
-    @Test func unknownHotKeyLabelFallsBackToTheDefault() {
+    @Test func invalidHotKeysFallBackToTheDefault() {
         let defaults = freshDefaults()
         defaults.set("⌘⌥⇧F13", forKey: "hotKeyLabel")
+        #expect(SettingsStore(defaults: defaults).hotKey == KeyCombo.defaultCombo)
+        defaults.set(Data("garbage".utf8), forKey: "hotKey")
+        #expect(SettingsStore(defaults: defaults).hotKey == KeyCombo.defaultCombo)
+        // Assigning a combo without ⌘/⌃/⌥ is rejected, the stored combo stays usable.
         let store = SettingsStore(defaults: defaults)
+        store.hotKey = KeyCombo(keyCode: 0x00, modifiers: KeyCombo.shiftKey, label: "⇧A")
         #expect(store.hotKey == KeyCombo.defaultCombo)
-        // Assigning an invalid label is rejected, the stored label stays valid.
-        store.hotKeyLabel = "nonsense"
-        #expect(store.hotKeyLabel == "⌃⇧2")
-        #expect(defaults.string(forKey: "hotKeyLabel") == "⌃⇧2")
+    }
+
+    /// Not persisted: a recorder left open when the app quits must not keep the hotkey paused next launch.
+    @MainActor
+    @Test func recordingFlagIsNotPersisted() {
+        let defaults = freshDefaults()
+        let store = SettingsStore(defaults: defaults)
+        #expect(store.isRecordingHotKey == false)
+        store.isRecordingHotKey = true
+        #expect(SettingsStore(defaults: defaults).isRecordingHotKey == false)
     }
 
     @MainActor
@@ -164,7 +191,7 @@ struct SettingsStoreTests {
         store.timeoutMinutes = 0
         #expect(store.timeoutMinutes == 1)
         store.maxConcurrentRuns = 99
-        #expect(store.maxConcurrentRuns == 8)
+        #expect(store.maxConcurrentRuns == 20)
     }
 
     /// SwiftUI only re-renders for reads that went through `access(keyPath:)`: every getter must register,
@@ -178,7 +205,8 @@ struct SettingsStoreTests {
             write()
             return changed.current
         }
-        #expect(notifies({ _ = store.hotKeyLabel }, after: { store.hotKeyLabel = "⌥Space" }))
+        #expect(notifies({ _ = store.hotKeyLabel }, after: { store.hotKey = KeyCombo.presets[4] }))
+        #expect(notifies({ _ = store.isRecordingHotKey }, after: { store.isRecordingHotKey = true }))
         #expect(notifies({ _ = store.launchAtLogin }, after: { store.launchAtLogin = true }))
         #expect(notifies({ _ = store.maxTurns }, after: { store.maxTurns = 80 }))
         #expect(notifies({ _ = store.maxBudgetUSD }, after: { store.maxBudgetUSD = 9 }))

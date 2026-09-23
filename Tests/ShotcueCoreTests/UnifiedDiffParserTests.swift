@@ -154,7 +154,8 @@ struct UnifiedDiffParserTests {
             """
         let file = try #require(UnifiedDiffParser.parse(text).files.first)
         #expect(
-            file.patchText == "--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n keep\n-old\n\\ No newline at end of file\n+new")
+            file.patchText
+                == "--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n keep\n-old\n\\ No newline at end of file\n+new")
         let added = DiffFile(id: 0, path: "n.txt", status: .added)
         #expect(added.patchText == "--- /dev/null\n+++ b/n.txt")
     }

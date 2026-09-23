@@ -75,7 +75,8 @@ extension ShellGitInspector: DiffProvider {
             let output = try await capture(
                 ["-c", "core.quotePath=false", "diff", "--no-index"] + options + ["--", "/dev/null", file], at: path)
             guard output.exitCode <= 1 else {
-                throw GitError.commandFailed(arguments: ["diff", "--no-index", file], exitCode: output.exitCode, stderr: output.stderr)
+                throw GitError.commandFailed(
+                    arguments: ["diff", "--no-index", file], exitCode: output.exitCode, stderr: output.stderr)
             }
             untracked.append(output.stdout)
             bytes += output.stdout.utf8.count
