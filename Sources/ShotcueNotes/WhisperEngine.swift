@@ -26,6 +26,10 @@ public protocol WhisperEngine: Sendable {
 public actor WhisperKitEngine: WhisperEngine {
     public static let repo = "argmaxinc/whisperkit-coreml"
 
+    /// The compiled CoreML bundles `WhisperKit.loadModels()` requires in the model folder (WhisperKit 1.1
+    /// `WhisperKit.swift`: MelSpectrogram, AudioEncoder, TextDecoder, each `<name>.mlmodelc`).
+    public static let requiredBundles = ["MelSpectrogram", "AudioEncoder", "TextDecoder"]
+
     public enum Failure: Error, Equatable {
         case modelNotLoaded
     }
@@ -49,9 +53,18 @@ public actor WhisperKitEngine: WhisperEngine {
     }
 
     public func isDownloaded(fileManager: FileManager = .default) -> Bool {
-        let folder = Self.modelFolderURL(modelsDirectory: modelsDirectory, modelName: modelName)
-        var isDirectory: ObjCBool = false
-        return fileManager.fileExists(atPath: folder.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        Self.hasRequiredBundles(
+            in: Self.modelFolderURL(modelsDirectory: modelsDirectory, modelName: modelName), fileManager: fileManager)
+    }
+
+    /// Final review M8: the model is there when every bundle `loadModels()` needs is there — not merely the folder,
+    /// which an interrupted download leaves behind.
+    public static func hasRequiredBundles(in folder: URL, fileManager: FileManager = .default) -> Bool {
+        requiredBundles.allSatisfy { name in
+            var isDirectory: ObjCBool = false
+            let bundle = folder.appendingPathComponent("\(name).mlmodelc", isDirectory: true)
+            return fileManager.fileExists(atPath: bundle.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        }
     }
 
     public func download(onProgress: @escaping @Sendable (Double) -> Void) async throws {

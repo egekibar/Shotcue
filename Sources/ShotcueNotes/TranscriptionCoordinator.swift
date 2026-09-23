@@ -1,5 +1,6 @@
 import Foundation
 import ShotcueCore
+import os
 
 /// Background transcription queue (spec §5.2: "Panel kapansa da transkripsiyon devam eder").
 /// Runs notes one at a time — WhisperKit is batch and holds the whole model in memory.
@@ -90,6 +91,13 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
 
         let fileURL = fileStore.absoluteURL(for: current.relPath)
         let transcript = try? await transcriber.transcribe(fileURL: fileURL, language: language)
+        // Final review M8: when the model itself could not be loaded, the note is not at fault — it stays `pending`
+        // for the model (the run stops at the next readiness check), and the model's `.failed` state carries the
+        // error that Settings and the inspector show. Only a per-file error (the model still ready) fails the note.
+        if transcript == nil, await transcriber.modelState() != .ready {
+            Self.log.error("the transcription model could not be loaded; pending voice notes wait for it")
+            return
+        }
 
         // Re-read after the (multi-second) transcription: a deletion, an edit or a state change made
         // meanwhile wins, and the result is dropped instead of being saved over it.
@@ -129,6 +137,8 @@ public actor TranscriptionCoordinator: TranscriptionQueue {
         updated.updatedAt = Date()
         try? await taskRepository.save(updated)
     }
+
+    private static let log = Logger(subsystem: "com.shotcue.app", category: "transcription")
 
     static func encode(_ transcript: Transcript) -> String? {
         let encoder = JSONEncoder()

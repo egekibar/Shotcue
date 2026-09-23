@@ -53,14 +53,41 @@ struct WhisperKitTranscriberTests {
         try? FileManager.default.removeItem(at: directory)
     }
 
-    @Test func modelStateIsReadyOnceTheModelFolderExists() async throws {
+    /// Final review M8: an interrupted download leaves the folder behind; only the three CoreML bundles WhisperKit
+    /// loads make the model ready.
+    @Test func aModelFolderWithoutItsBundlesIsNotReady() async throws {
         let directory = emptyModelsDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         let transcriber = WhisperKitTranscriber(
             modelName: WhisperKitTranscriber.defaultModelName,
             modelsDirectory: directory)
         try FileManager.default.createDirectory(at: transcriber.modelFolderURL, withIntermediateDirectories: true)
+        #expect(await transcriber.modelState() == .notDownloaded)
+
+        // Two of the three bundles: still not ready.
+        for name in ["MelSpectrogram", "AudioEncoder"] {
+            try FileManager.default.createDirectory(
+                at: transcriber.modelFolderURL.appendingPathComponent("\(name).mlmodelc", isDirectory: true),
+                withIntermediateDirectories: true)
+        }
+        #expect(await transcriber.modelState() == .notDownloaded)
+    }
+
+    @Test func modelStateIsReadyOnceTheThreeBundlesExist() async throws {
+        let directory = emptyModelsDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let transcriber = WhisperKitTranscriber(
+            modelName: WhisperKitTranscriber.defaultModelName,
+            modelsDirectory: directory)
+        #expect(WhisperKitEngine.requiredBundles == ["MelSpectrogram", "AudioEncoder", "TextDecoder"])
+        for name in WhisperKitEngine.requiredBundles {
+            try FileManager.default.createDirectory(
+                at: transcriber.modelFolderURL.appendingPathComponent("\(name).mlmodelc", isDirectory: true),
+                withIntermediateDirectories: true)
+        }
         #expect(await transcriber.modelState() == .ready)
-        try? FileManager.default.removeItem(at: directory)
+        let engine = WhisperKitEngine(modelName: WhisperKitTranscriber.defaultModelName, modelsDirectory: directory)
+        #expect(await engine.isDownloaded())
     }
 
     @Test func modelFolderFollowsTheHubCacheLayout() async {
