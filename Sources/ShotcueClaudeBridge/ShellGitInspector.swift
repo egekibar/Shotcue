@@ -56,17 +56,30 @@ public struct ShellGitInspector: GitInspector {
 }
 
 extension ShellGitInspector: DiffProvider {
-    /// `git diff <since|HEAD>` of the working tree plus untracked files (spec §6.4 "Diff'i göster").
-    /// `core.quotePath=false` shows non-ASCII names (`özet.md`) as they are instead of octal escapes;
+    /// `git diff <since|HEAD>` of the working tree plus every untracked file diffed against /dev/null
+    /// (spec §6.4 "Diff'i göster"). Nothing is staged: `--no-index` leaves the index alone.
+    /// `core.quotePath=false` shows non-ASCII names (`özet.md`) as they are instead of octal escapes; explicit
+    /// prefixes override a user's `diff.noprefix`/`diff.mnemonicPrefix`, which the parser would not recognise;
     /// `--` keeps a file named like the revision from making it ambiguous.
     public func diff(at path: String, since: String?, maxBytes: Int) async throws -> String {
+        let options = ["--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/"]
         let tracked = try await require(
-            ["-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", since ?? "HEAD", "--"], at: path)
-        let status = try await require(
-            ["-c", "core.quotePath=false", "status", "--porcelain", "--untracked-files=all"], at: path)
-        return DiffText.compose(
-            diff: tracked.stdout,
-            untracked: DiffText.untrackedPaths(fromPorcelain: status.stdout),
-            since: since, maxBytes: maxBytes)
+            ["-c", "core.quotePath=false", "diff"] + options + [since ?? "HEAD", "--"], at: path)
+        let listing = try await require(["ls-files", "--others", "--exclude-standard", "-z"], at: path)
+        var untracked: [String] = []
+        var bytes = tracked.stdout.utf8.count
+        for file in DiffText.paths(fromNulSeparated: listing.stdout) {
+            // Past the cap the rest would be cut anyway; skipping them avoids diffing a large tree for nothing.
+            guard bytes <= maxBytes else { break }
+            // `--no-index` exits 1 when the files differ, which is always the case here.
+            let output = try await capture(
+                ["-c", "core.quotePath=false", "diff", "--no-index"] + options + ["--", "/dev/null", file], at: path)
+            guard output.exitCode <= 1 else {
+                throw GitError.commandFailed(arguments: ["diff", "--no-index", file], exitCode: output.exitCode, stderr: output.stderr)
+            }
+            untracked.append(output.stdout)
+            bytes += output.stdout.utf8.count
+        }
+        return DiffText.compose(tracked: tracked.stdout, untracked: untracked, maxBytes: maxBytes)
     }
 }

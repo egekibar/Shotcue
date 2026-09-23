@@ -35,14 +35,20 @@ struct ShellGitInspectorDiffTests {
         return (dir.path, head)
     }
 
-    @Test func showsTrackedChangesAndUntrackedFilesSinceTheRecordedHead() async throws {
+    @Test func showsTrackedChangesAndUntrackedFileContentsSinceTheRecordedHead() async throws {
         let repo = try makeRepo()
         defer { try? FileManager.default.removeItem(atPath: repo.path) }
         try "first line\nsecond line\n".write(toFile: repo.path + "/a.txt", atomically: true, encoding: .utf8)
-        try "hello\n".write(toFile: repo.path + "/new.txt", atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(atPath: repo.path + "/docs", withIntermediateDirectories: true)
+        try "hello\n".write(toFile: repo.path + "/docs/new file.txt", atomically: true, encoding: .utf8)
         let text = try await ShellGitInspector().diff(at: repo.path, since: repo.head, maxBytes: 100_000)
-        #expect(text.hasPrefix("# İzlenmeyen dosyalar\n?? new.txt\n\n# git diff \(repo.head.prefix(7))\n"))
-        #expect(text.contains("+second line"))
+        let files = UnifiedDiffParser.parse(text).files
+        #expect(files.map(\.path) == ["a.txt", "docs/new file.txt"])
+        #expect(files.map(\.status) == [.modified, .added])
+        #expect(files[0].hunks.first?.lines.last == DiffLine(kind: .added, text: "second line", oldNumber: nil, newNumber: 2))
+        #expect(files[1].hunks.first?.lines == [DiffLine(kind: .added, text: "hello", oldNumber: nil, newNumber: 1)])
+        // The repository is left as it was: untracked files stay untracked.
+        #expect(try git("status", "--porcelain", at: repo.path).contains("?? docs/"))
     }
 
     @Test func showsNonASCIIFileNamesAsTheyAre() async throws {
@@ -54,8 +60,13 @@ struct ShellGitInspectorDiffTests {
         try "ilk\nikinci\n".write(toFile: repo.path + "/çalışma.txt", atomically: true, encoding: .utf8)
         try "özet\n".write(toFile: repo.path + "/özet.md", atomically: true, encoding: .utf8)
         let text = try await ShellGitInspector().diff(at: repo.path, since: nil, maxBytes: 100_000)
-        #expect(text.contains("?? özet.md"))
-        #expect(text.contains("+++ b/çalışma.txt"))
+        #expect(UnifiedDiffParser.parse(text).files.map(\.path) == ["çalışma.txt", "özet.md"])
+    }
+
+    @Test func nothingChangedIsEmpty() async throws {
+        let repo = try makeRepo()
+        defer { try? FileManager.default.removeItem(atPath: repo.path) }
+        #expect(try await ShellGitInspector().diff(at: repo.path, since: repo.head, maxBytes: 100_000) == "")
     }
 
     @Test func defaultsToHeadAndHonoursTheByteCap() async throws {
@@ -63,9 +74,12 @@ struct ShellGitInspectorDiffTests {
         defer { try? FileManager.default.removeItem(atPath: repo.path) }
         try String(repeating: "line\n", count: 200).write(
             toFile: repo.path + "/a.txt", atomically: true, encoding: .utf8)
-        let text = try await ShellGitInspector().diff(at: repo.path, since: nil, maxBytes: 120)
-        #expect(text.hasPrefix("# git diff HEAD"))
-        #expect(text.hasSuffix("… (çıktı 120 bayttan sonra kesildi)"))
+        try "late\n".write(toFile: repo.path + "/z.txt", atomically: true, encoding: .utf8)
+        let text = try await ShellGitInspector().diff(at: repo.path, since: nil, maxBytes: 300)
+        #expect(text.hasSuffix(DiffText.truncationNotice(maxBytes: 300)))
+        let document = UnifiedDiffParser.parse(text)
+        #expect(document.isTruncated)
+        #expect(document.files.map(\.path) == ["a.txt"])
     }
 
     @Test func outsideARepositoryItThrows() async {

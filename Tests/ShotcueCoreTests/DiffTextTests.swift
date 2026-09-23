@@ -5,49 +5,32 @@ import Testing
 
 @Suite("DiffText")
 struct DiffTextTests {
-    @Test func composesUntrackedFilesFirstThenTheTrackedDiff() {
+    @Test func composesTheTrackedDiffThenEachUntrackedFile() {
         let text = DiffText.compose(
-            diff: "diff --git a/a.swift b/a.swift\n+yeni satır\n",
-            untracked: ["new.txt", "docs/x.md"],
-            since: "c42049d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7", maxBytes: 10_000)
+            tracked: "diff --git a/a.swift b/a.swift\n+yeni satır\n",
+            untracked: ["diff --git a/new.txt b/new.txt\n+x\n", "", "diff --git a/y b/y\n"],
+            maxBytes: 10_000)
         #expect(
-            text == "# İzlenmeyen dosyalar\n?? new.txt\n?? docs/x.md\n\n"
-                + "# git diff c42049d\ndiff --git a/a.swift b/a.swift\n+yeni satır")
+            text == "diff --git a/a.swift b/a.swift\n+yeni satır\n"
+                + "diff --git a/new.txt b/new.txt\n+x\ndiff --git a/y b/y")
     }
 
-    @Test func aDiffLargerThanTheCapKeepsTheUntrackedList() {
-        let long = String(repeating: "x", count: 500)
-        let text = DiffText.compose(diff: long, untracked: ["new.txt", "docs/x.md"], since: nil, maxBytes: 100)
-        #expect(text.hasPrefix("# İzlenmeyen dosyalar\n?? new.txt\n?? docs/x.md\n\n# git diff HEAD\n"))
-        #expect(text.hasSuffix("… (çıktı 100 bayttan sonra kesildi)"))
+    @Test func emptyWhenNothingChanged() {
+        #expect(DiffText.compose(tracked: "  \n", untracked: [], maxBytes: 10_000) == "")
     }
 
-    @Test func emptyDiffSaysSoAndHeadIsTheDefaultBase() {
-        let text = DiffText.compose(diff: "  \n", untracked: [], since: nil, maxBytes: 10_000)
-        #expect(text.hasPrefix("# git diff HEAD\n"))
-        #expect(text.contains("(izlenen dosyalarda değişiklik yok)"))
-        #expect(!text.contains("İzlenmeyen"))
-    }
-
-    @Test func truncatesLongOutputWithANotice() {
-        let long = String(repeating: "x", count: 500)
-        let text = DiffText.compose(diff: long, untracked: [], since: nil, maxBytes: 100)
-        #expect(text.utf8.count < 200)
-        #expect(text.hasSuffix("… (çıktı 100 bayttan sonra kesildi)"))
+    @Test func truncatesAtALineBoundaryWithANoticeOnItsOwnLine() {
+        let long = String(repeating: "+line\n", count: 100)
+        let text = DiffText.compose(tracked: long, untracked: [], maxBytes: 20)
+        #expect(text == "+line\n+line\n+line\n" + DiffText.truncationNotice(maxBytes: 20))
+        #expect(DiffText.truncationNotice(maxBytes: 20) == "… (çıktı 20 bayttan sonra kesildi)")
         #expect(DiffText.truncated("kısa", maxBytes: 100) == "kısa")
     }
 
-    @Test func parsesUntrackedPathsFromPorcelain() {
-        let porcelain = " M a.swift\n?? new.txt\nA  b.swift\n?? dir/c.md\n"
-        #expect(DiffText.untrackedPaths(fromPorcelain: porcelain) == ["new.txt", "dir/c.md"])
-    }
-
-    @Test func untrackedPathsKeepGitsQuotingOfSpecialNames() {
-        let porcelain = "?? \"a b.txt\"\n?? \"say \\\"hi\\\".md\"\n?? özet.md\n"
-        #expect(
-            DiffText.untrackedPaths(fromPorcelain: porcelain) == [
-                "\"a b.txt\"", "\"say \\\"hi\\\".md\"", "özet.md",
-            ])
+    @Test func parsesNulSeparatedPathsVerbatim() {
+        let output = "new.txt\0a b.txt\0say \"hi\".md\0özet.md\0"
+        #expect(DiffText.paths(fromNulSeparated: output) == ["new.txt", "a b.txt", "say \"hi\".md", "özet.md"])
+        #expect(DiffText.paths(fromNulSeparated: "").isEmpty)
     }
 
     @Test func fakeProviderRecordsCallsAndReturnsItsResult() async throws {

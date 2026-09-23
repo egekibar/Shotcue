@@ -55,7 +55,9 @@ public struct TaskInspectorView: View {
                 get: { store.isDiffPresented },
                 set: { if !$0 { store.closeDiff() } })
         ) {
-            DiffSheet(text: store.diffText ?? "", onClose: { store.closeDiff() })
+            DiffSheet(
+                document: store.diffDocument ?? DiffDocument(), text: store.diffText ?? "",
+                onClose: { store.closeDiff() })
         }
     }
 

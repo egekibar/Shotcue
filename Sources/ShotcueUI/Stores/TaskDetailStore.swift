@@ -637,7 +637,10 @@ public final class TaskDetailStore {
 
     // MARK: - Diff (Plan 07)
 
+    /// The raw patch, kept for "Tümünü kopyala".
     public private(set) var diffText: String?
+    /// `diffText` parsed once for the comparison screen.
+    public private(set) var diffDocument: DiffDocument?
     public private(set) var isLoadingDiff = false
     public var isDiffPresented = false
 
@@ -657,9 +660,11 @@ public final class TaskDetailStore {
         isLoadingDiff = true
         defer { isLoadingDiff = false }
         do {
-            diffText = try await provider.diff(
+            let text = try await provider.diff(
                 at: project.path, since: run.gitHeadBefore,
                 maxBytes: DiffText.defaultMaxBytes)
+            diffText = text
+            diffDocument = UnifiedDiffParser.parse(text)
             isDiffPresented = true
         } catch {
             lastError = "Diff alınamadı: proje bir git deposu değil ya da git komutu başarısız oldu."
@@ -669,6 +674,7 @@ public final class TaskDetailStore {
     public func closeDiff() {
         isDiffPresented = false
         diffText = nil
+        diffDocument = nil
     }
 
     // MARK: - Attachments

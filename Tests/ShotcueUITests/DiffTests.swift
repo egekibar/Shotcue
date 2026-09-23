@@ -33,19 +33,22 @@ struct TaskDiffTests {
 
     @MainActor
     @Test func showDiffLoadsTheRunsDiffIntoTheSheet() async {
-        let fake = FakeDiffProvider(result: .success("# git diff c42049d\n+x"))
+        let patch = "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b"
+        let fake = FakeDiffProvider(result: .success(patch))
         let (store, run, project, f) = await fixture(diff: fake, gitHeadBefore: head)
         defer { f.cleanUp() }
         #expect(store.canShowDiff(for: run))
         await store.showDiff(runID: run.id)
-        #expect(store.diffText == "# git diff c42049d\n+x")
+        #expect(store.diffText == patch)
+        #expect(store.diffDocument?.files.map(\.path) == ["x"])
+        #expect(store.diffDocument?.additions == 1)
         #expect(store.isDiffPresented)
         #expect(store.isLoadingDiff == false)
         #expect(fake.calls.current.first?.path == project.path)
         #expect(fake.calls.current.first?.since == head)
         #expect(fake.calls.current.first?.maxBytes == DiffText.defaultMaxBytes)
         store.closeDiff()
-        #expect(store.isDiffPresented == false && store.diffText == nil)
+        #expect(store.isDiffPresented == false && store.diffText == nil && store.diffDocument == nil)
     }
 
     @MainActor
@@ -80,12 +83,29 @@ struct TaskDiffTests {
     }
 
     @MainActor
-    @Test func diffSheetKeepsItsInputs() {
-        let sheet = DiffSheet(text: "+x", onClose: {})
-        #expect(sheet.text == "+x")
-        // Rendered one row per line: a single Text holding up to 1 MB would freeze layout.
-        #expect(DiffSheet(text: "a\n+b\n\n-c", onClose: {}).lines == ["a", "+b", "", "-c"])
-        #expect(DiffSheet(text: "", onClose: {}).lines == ["Değişiklik yok."])
+    @Test func diffSheetSelectsTheFirstFileAndSummarises() {
+        let document = UnifiedDiffParser.parse(
+            "diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1,2 @@\n-x\n+y\n+z\n"
+                + "diff --git a/b b/b\nnew file mode 100644\n")
+        let sheet = DiffSheet(document: document, text: "raw", onClose: {})
+        #expect(sheet.text == "raw")
+        #expect(sheet.initialSelection == 0)
+        #expect(sheet.summary == "2 dosya · +2 −1")
+        #expect(DiffSheet(document: DiffDocument(), text: "", onClose: {}).initialSelection == nil)
+    }
+
+    @Test func rowsFlattenHunksWithHeadersAndSizeTheGutterToTheLargestNumber() throws {
+        let file = try #require(
+            UnifiedDiffParser.parse(
+                "diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -9 +9 @@\n-x\n+y\n@@ -120 +120 @@\n-p\n+q\n"
+            ).files.first)
+        let rows = DiffRows(file: file)
+        #expect(rows.rows.count == 6)
+        #expect(rows.rows.map(\.id) == Array(0..<6))
+        if case .hunkHeader(let header) = rows.rows[3].content { #expect(header == "@@ -120 +120 @@") } else {
+            Issue.record("expected a hunk header")
+        }
+        #expect(rows.gutterDigits == 3)
     }
 
     @MainActor
