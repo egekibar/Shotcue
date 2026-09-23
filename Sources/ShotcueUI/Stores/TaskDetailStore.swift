@@ -284,6 +284,9 @@ public final class TaskDetailStore {
         }
     }
 
+    /// Text typed into the inspector that is not saved yet; the quit path commits it (final review I2).
+    public var hasUncommittedDrafts: Bool { !drafts.isEmpty }
+
     /// Commits every field with uncommitted edits (e.g. when the inspector goes away).
     public func commitDrafts() async {
         for field in Array(drafts.keys) {

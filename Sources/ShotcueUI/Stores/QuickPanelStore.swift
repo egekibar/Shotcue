@@ -138,6 +138,21 @@ public final class QuickPanelStore {
         microphoneState = await services.permissions.request(.microphone)
     }
 
+    /// Text or audio that only this panel holds: a typed note not saved yet, or a recording in progress. The quit
+    /// path keeps it (final review I2).
+    public var hasUnsavedWork: Bool {
+        if isRecording || recordingStop != nil { return true }
+        let typed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !typed.isEmpty && noteText != task?.noteText
+    }
+
+    /// Stops a recording in progress (or waits for a stop already running) and stores its voice note; a no-op
+    /// otherwise. The quit path uses it so the `.m4a` is closed and its row exists before the app exits.
+    public func stopRecordingIfNeeded() async {
+        guard isRecording || recordingStop != nil else { return }
+        await stopRecording()
+    }
+
     public func toggleRecording() async {
         if isRecording || recordingStop != nil {
             await stopRecording()

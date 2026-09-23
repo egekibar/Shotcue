@@ -28,6 +28,9 @@ public actor RunCoordinator: TaskDispatcher {
     /// Outside actor isolation so the nonisolated `liveEvents` and the runner's @Sendable
     /// event callback can reach it.
     private let broadcasters = LockBox<[UUID: RunEventBroadcaster]>([:])
+    /// The tasks with a run in flight, mirrored outside actor isolation: the app's quit path must decide
+    /// synchronously whether there are runs to stop (final review I2).
+    private let inFlightTaskIDs = LockBox<Set<UUID>>([])
 
     private var settings: RunSettings
     private var paused = false
@@ -96,6 +99,10 @@ public actor RunCoordinator: TaskDispatcher {
     }
 
     public func isPaused() async -> Bool { paused }
+
+    /// The tasks whose run is in flight (from the git phase until its row is saved), readable synchronously.
+    /// Empty once every run's outcome is recorded.
+    public nonisolated var activeTaskIDs: Set<UUID> { inFlightTaskIDs.current }
 
     public nonisolated func liveEvents(runID: UUID) -> AsyncStream<RunEvent> {
         // Unknown, already finished, or from an earlier launch: an empty, already-finished stream.
@@ -169,6 +176,7 @@ public actor RunCoordinator: TaskDispatcher {
         guard let projectID = task.projectID else { return false }
         let runID = UUID()
         inFlight[task.id] = InFlight(runID: runID, projectID: projectID)
+        inFlightTaskIDs.withLock { _ = $0.insert(task.id) }
         // Registered before anything can learn the run id; `perform` removes it on every exit.
         broadcasters.withLock { $0[runID] = RunEventBroadcaster() }
         Task { await self.execute(taskID: task.id, runID: runID) }
@@ -177,6 +185,7 @@ public actor RunCoordinator: TaskDispatcher {
 
     private func finishInFlight(_ taskID: UUID) async {
         inFlight[taskID] = nil
+        inFlightTaskIDs.withLock { _ = $0.remove(taskID) }
         await pumpQueue()
     }
 

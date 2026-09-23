@@ -99,6 +99,31 @@ final class GatedClaudeRunner: ClaudeRunner, @unchecked Sendable {
     func version() async throws -> String { "gated" }
 }
 
+/// Parks every run until it is cancelled, then ends it the way `ProcessClaudeRunner` does: `.cancelled`.
+final class CancellableClaudeRunner: ClaudeRunner, @unchecked Sendable {
+    private let waiting = Locked<[UUID: CheckedContinuation<Void, Never>]>([:])
+    private let cancelledEarly = Locked<Set<UUID>>([])
+    let started = Locked<[UUID]>([])
+    func run(_ spec: RunSpec, onEvent: @escaping @Sendable (RunEvent) -> Void) async throws -> ClaudeRunResult {
+        started.withLock { $0.append(spec.runID) }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resumeNow = cancelledEarly.withLock { $0.contains(spec.runID) }
+            if resumeNow {
+                continuation.resume()
+            } else {
+                waiting.withLock { $0[spec.runID] = continuation }
+            }
+        }
+        throw ClaudeRunError.cancelled
+    }
+    func cancel(runID: UUID) async {
+        cancelledEarly.withLock { _ = $0.insert(runID) }
+        let continuation = waiting.withLock { $0.removeValue(forKey: runID) }
+        continuation?.resume()
+    }
+    func version() async throws -> String { "cancellable" }
+}
+
 /// The in-memory project repository, except that `project(id:)` parks on a gate.
 final class GatedProjectRepository: ProjectRepository, @unchecked Sendable {
     let base: InMemoryProjectRepository
@@ -824,6 +849,36 @@ struct RunCoordinatorTests {
             let second = await h.status(of: b.id)
             return first == .done && second == .done
         }
+    }
+
+    /// Final review I2: the quit path reads the runs in flight synchronously, pauses the queue, cancels them and
+    /// waits until none is left — without the queue starting the next task in the freed slot.
+    @Test func pausingThenCancellingStopsTheRunsWithoutStartingQueuedOnes() async throws {
+        let first = Project(name: "a", path: Harness.makeProjectDirectory("a"))
+        let second = Project(name: "b", path: Harness.makeProjectDirectory("b"))
+        let running = ShotTask(projectID: first.id, title: "çalışan", status: .ready, sortIndex: 1)
+        let waiting = ShotTask(projectID: second.id, title: "bekleyen", status: .ready, sortIndex: 2)
+        let runner = CancellableClaudeRunner()
+        let h = Harness(
+            projects: [first, second], tasks: [running, waiting], runner: runner,
+            settings: RunSettings(maxConcurrent: 1, keepAwake: false))
+        defer { h.cleanUp() }
+        #expect(h.coordinator.activeTaskIDs.isEmpty)
+
+        try await h.coordinator.enqueue(taskID: running.id)
+        try await h.coordinator.enqueue(taskID: waiting.id)
+        await waitUntil("claude started") { runner.started.current.count == 1 }
+        #expect(h.coordinator.activeTaskIDs == [running.id])
+
+        await h.coordinator.setPaused(true)
+        for taskID in h.coordinator.activeTaskIDs { await h.coordinator.cancel(taskID: taskID) }
+        await waitUntil("settled") { h.coordinator.activeTaskIDs.isEmpty }
+
+        #expect(await h.status(of: running.id) == .cancelled)
+        #expect(await h.runs(of: running.id).first?.state == .cancelled)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(runner.started.current.count == 1)
+        #expect(await h.status(of: waiting.id) == .queued)
     }
 
     @Test func missingProjectDirectoryFailsBeforeTheRunnerIsCalled() async throws {

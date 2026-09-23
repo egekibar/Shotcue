@@ -17,6 +17,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         NSApp.setActivationPolicy(.accessory)
         environment.activationPolicy.install()
 
+        // Final review I2: SIGTERM (`pkill`, `make install`) takes the quit path instead of killing the process.
+        environment.termination.installSignalHandler()
+
         // The notifier owns the category/action identifiers (Plan 04); the app only routes taps.
         UNUserNotificationCenter.current().delegate = self
         environment.notifier.registerCategories()
@@ -71,6 +74,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if LaunchFlags.shouldOpenLibrary {
             environment.windowOpener.openLibrary()
         }
+    }
+
+    /// Final review I2: runs in flight are stopped (after a confirmation when the user quit) and unsaved text and
+    /// audio are kept before AppKit terminates; with nothing to stop or save it terminates at once.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        AppBootstrap.environment.termination.applicationShouldTerminate()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

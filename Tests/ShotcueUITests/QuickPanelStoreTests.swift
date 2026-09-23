@@ -298,6 +298,29 @@ struct QuickPanelStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// Final review I2: the quit path asks whether the panel holds unsaved text or audio, and finishes a recording in
+    /// progress so its file is closed and its voice-note row exists.
+    @MainActor
+    @Test func unsavedWorkIsReportedAndARecordingIsFinishedForQuitting() async throws {
+        let f = try await fixture()
+        #expect(f.store.hasUnsavedWork == false)
+        f.store.noteText = "yazdım ama kaydetmedim"
+        #expect(f.store.hasUnsavedWork)
+        f.store.noteText = "   "
+        #expect(f.store.hasUnsavedWork == false)
+
+        await f.store.toggleRecording()
+        #expect(f.store.hasUnsavedWork)
+        await f.store.stopRecordingIfNeeded()
+        #expect(f.store.isRecording == false)
+        #expect(try await f.bundle.services.tasks.voiceNotes(taskID: f.task.id).count == 1)
+        #expect(f.store.hasUnsavedWork == false)
+        // A second call has nothing left to do.
+        await f.store.stopRecordingIfNeeded()
+        #expect(try await f.bundle.services.tasks.voiceNotes(taskID: f.task.id).count == 1)
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func microphoneDenialDisablesRecording() async throws {
         let bundle = makeFakeServices(

@@ -35,6 +35,8 @@ final class AppEnvironment {
     let quickPanel: QuickPanelController
     let onboarding: OnboardingWindowController
     let captureFlow: CaptureFlowController
+    /// Quit / SIGTERM: stop the runs, keep unsaved work (final review I2).
+    let termination: TerminationController
 
     /// Where `claude` is; resolved without blocking launch (checked by the runner, handoff, diagnostics).
     let claude: ClaudeExecutableLocator
@@ -207,6 +209,9 @@ final class AppEnvironment {
             permissionsStore: permissionsStore,
             quickPanel: quickPanel,
             onboarding: onboarding)
+        self.termination = TerminationController(
+            runCoordinator: runCoordinator, dispatcher: dispatcher, libraryStore: libraryStore,
+            quickPanel: quickPanel)
     }
 
     // MARK: - Settings application
