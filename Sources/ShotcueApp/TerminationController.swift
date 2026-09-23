@@ -34,9 +34,14 @@ final class TerminationController {
     private var signalSource: (any DispatchSourceSignal)?
     /// Set by `quit(relaunching: true)` (onboarding, after the Screen Recording grant); `applicationWillTerminate`
     /// starts the relauncher when it is still set, so only a quit that goes ahead relaunches. A quit the user cancels
-    /// drops it — a later, unrelated quit must not reopen the app — and so does SIGTERM (`make install` opens the new
-    /// build itself).
+    /// drops it — a later, unrelated quit must not reopen the app — and so does SIGTERM: a signal means stop, and a
+    /// relauncher's `open` would race `scripts/install.sh` replacing the bundle.
     private(set) var relaunchRequested = false
+    /// Told when the user cancels the relaunch's quit ("Vazgeç"), so onboarding can show that the restart is still
+    /// needed.
+    private var relaunchCancelled: (() -> Void)?
+    /// A terminate handed to the run loop that has not run yet: a second request (a double click) adds nothing.
+    private var terminateScheduled = false
 
     init(
         runCoordinator: RunCoordinator, dispatcher: any TaskDispatcher, libraryStore: LibraryStore,
@@ -69,6 +74,7 @@ final class TerminationController {
         AppLog.app.notice("SIGTERM: shutting down without a dialog")
         trigger = .signal
         relaunchRequested = false
+        relaunchCancelled = nil
         if confirmationShowing {
             // A user quit is asking about the runs: the signal answers "Durdur ve çık".
             NSApp.stopModal(withCode: .alertFirstButtonReturn)
@@ -92,24 +98,38 @@ final class TerminationController {
     /// Marks the shutdown done and asks AppKit to terminate from the run loop, outside any main-queue block.
     private func terminateWhenFinished() {
         finished = true
-        Self.terminateFromRunLoop()
+        terminateFromRunLoop()
     }
 
     /// Every quit the app starts itself goes through here: the menu's "Çık" and onboarding's relaunch (final review
     /// N1). Their callers may run inside a main-actor Task (onboarding's "Başla") or a main-queue block, and calling
     /// `NSApp.terminate` there hangs the app whenever there are runs to stop or work to save: AppKit waits for the
     /// `.terminateLater` reply inside that block, where no main-queue or main-actor work — the shutdown, the hard
-    /// deadline — can run (measured). `relaunching`: the installed bundle is opened again once this process is gone.
-    func quit(relaunching: Bool = false) {
-        if relaunching { relaunchRequested = true }
-        Self.terminateFromRunLoop()
+    /// deadline — can run (measured). `relaunching`: the installed bundle is opened again once this process is gone;
+    /// `onRelaunchCancelled` runs if the user cancels that quit ("Vazgeç").
+    func quit(relaunching: Bool = false, onRelaunchCancelled: (() -> Void)? = nil) {
+        if relaunching {
+            relaunchRequested = true
+            relaunchCancelled = onRelaunchCancelled
+        }
+        terminateFromRunLoop()
     }
 
     /// The app's one `NSApp.terminate` call. The run loop performs the block outside any main-queue block, so while
     /// AppKit waits for a `.terminateLater` reply the main queue, and with it every main-actor step, keeps running.
-    private static func terminateFromRunLoop() {
+    ///
+    /// Nothing is asked while a shutdown is in progress: that shutdown ends the app itself (or the user cancels it),
+    /// and clicks do reach the app while AppKit waits for its answer — a second terminate inside that wait ends the
+    /// app at once, without asking this controller, before the runs are stopped and the drafts kept (measured).
+    private func terminateFromRunLoop() {
+        guard !inProgress, !terminateScheduled else { return }
+        terminateScheduled = true
         RunLoop.main.perform(inModes: [.default, .modalPanel]) {
-            MainActor.assumeIsolated { NSApp.terminate(nil) }
+            MainActor.assumeIsolated {
+                self.terminateScheduled = false
+                guard !self.inProgress else { return }
+                NSApp.terminate(nil)
+            }
         }
     }
 
@@ -131,11 +151,15 @@ final class TerminationController {
             guard inProgress else { return }
             inProgress = false
             finished = proceed
+            var cancelledRelaunch: (() -> Void)?
             if !proceed {
                 trigger = .user
+                if relaunchRequested { cancelledRelaunch = relaunchCancelled }
                 relaunchRequested = false
+                relaunchCancelled = nil
             }
             NSApp.reply(toApplicationShouldTerminate: proceed)
+            cancelledRelaunch?()
         }
         return .terminateLater
     }
@@ -179,15 +203,24 @@ final class TerminationController {
         return true
     }
 
-    /// "Çalışan N görev durdurulacak." — true for "Durdur ve çık".
+    /// "Çalışan N görev durdurulacak." — true for "Durdur ve çık". For onboarding's relaunch the dialog is about the
+    /// restart the new Screen Recording grant needs — true for "Durdur ve yeniden başlat".
     private func confirmStoppingRuns(count: Int) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Çalışan \(count) görev durdurulacak."
-        alert.informativeText =
-            "Çıkarken çalışan Claude oturumları durdurulur. Yarıda kalan görevi sonra yeniden çalıştırabilir "
-            + "ya da Terminalde devam ettirebilirsin."
-        alert.addButton(withTitle: "Durdur ve çık")
+        let resumeHint =
+            "Yarıda kalan görevi sonra yeniden çalıştırabilir ya da Terminalde devam ettirebilirsin."
+        if relaunchRequested {
+            alert.messageText = "Ekran Kaydı izninin geçerli olması için Shotcue yeniden başlatılacak."
+            alert.informativeText =
+                "Çalışan \(count) görev durdurulacak. \(resumeHint) Vazgeçersen izin, Shotcue yeniden başlayınca "
+                + "geçerli olur."
+            alert.addButton(withTitle: "Durdur ve yeniden başlat")
+        } else {
+            alert.messageText = "Çalışan \(count) görev durdurulacak."
+            alert.informativeText = "Çıkarken çalışan Claude oturumları durdurulur. \(resumeHint)"
+            alert.addButton(withTitle: "Durdur ve çık")
+        }
         let cancel = alert.addButton(withTitle: "Vazgeç")
         cancel.keyEquivalent = "\u{1b}"
         NSApp.activate()

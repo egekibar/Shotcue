@@ -5,10 +5,14 @@ import SwiftUI
 /// when screen recording is missing, and the global hotkey opens it until the grant exists.
 public struct OnboardingView: View {
     public let permissions: PermissionsStore
+    /// Set once the user chose "Vazgeç" when Shotcue asked to restart for a new Screen Recording grant: the grant only
+    /// works after a restart, which the finish button asks for again.
+    public let restartPending: Bool
     public let onDone: () -> Void
 
-    public init(permissions: PermissionsStore, onDone: @escaping () -> Void) {
+    public init(permissions: PermissionsStore, restartPending: Bool = false, onDone: @escaping () -> Void) {
         self.permissions = permissions
+        self.restartPending = restartPending
         self.onDone = onDone
     }
 
@@ -16,6 +20,20 @@ public struct OnboardingView: View {
     public var canFinish: Bool {
         permissions.state(of: .screenRecording) == .granted
     }
+
+    /// The warning under the permission rows: why onboarding cannot finish yet, or that the grant still needs the
+    /// restart the user put off.
+    public var notice: String? {
+        if !canFinish {
+            return "Ekran Kaydı izni olmadan yakalama çalışmaz. İzni verdikten sonra Shotcue'yu yeniden başlat."
+        }
+        if restartPending {
+            return "Ekran Kaydı izni, Shotcue yeniden başlayınca geçerli olur. Hazır olduğunda \"Yeniden başlat\"a bas."
+        }
+        return nil
+    }
+
+    public var finishTitle: String { restartPending ? "Yeniden başlat" : "Başla" }
 
     public var body: some View {
         VStack(spacing: 18) {
@@ -44,21 +62,18 @@ public struct OnboardingView: View {
                 .padding(6)
             }
 
-            if !canFinish {
-                Label(
-                    "Ekran Kaydı izni olmadan yakalama çalışmaz. İzni verdikten sonra Shotcue'yu yeniden başlat.",
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.caption)
-                .foregroundStyle(.orange)
-                .fixedSize(horizontal: false, vertical: true)
+            if let notice {
+                Label(notice, systemImage: canFinish ? "arrow.clockwise.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: 10) {
                 Button("Durumları yenile") {
                     Task { await permissions.refresh() }
                 }
-                Button("Başla") { onDone() }
+                Button(finishTitle) { onDone() }
                     .buttonStyle(.glassProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canFinish)

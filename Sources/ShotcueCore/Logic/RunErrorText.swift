@@ -16,11 +16,12 @@ public struct RunErrorDescription: Hashable, Sendable {
         self.detail = detail
     }
 
-    /// Whether `text` — a run's result text — says nothing this description does not show already. For `claude_error`
-    /// the result text is claude's error line, which is the detail, so the inspector shows it once.
-    public func alreadyShows(_ text: String) -> Bool {
-        guard let detail else { return false }
-        return detail == text.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Whether the run's result text, which the inspector shows above the failure as primary text, already carries the
+    /// detail: for `claude_error` the detail is the result's first line. The inspector then leaves the detail out, so
+    /// claude's reason is shown once, prominently.
+    public func detailIsShown(in resultText: String?) -> Bool {
+        guard let detail, let resultText else { return false }
+        return resultText.contains(detail)
     }
 }
 
@@ -36,7 +37,7 @@ public enum RunErrorText {
             // Free text from before codes existed: it was written to be read as it is.
             return RunErrorDescription(message: stored.trimmingCharacters(in: .whitespacesAndNewlines))
         }
-        guard var text = known(code, exitCode: exitCode, numTurns: numTurns) else {
+        guard var text = known(code, detail: detail, exitCode: exitCode, numTurns: numTurns) else {
             return RunErrorDescription(message: "Çalışma hata ile bitti.", detail: stored)
         }
         text.detail = detail
@@ -45,21 +46,38 @@ public enum RunErrorText {
 
     /// The failure notification's body: the message, then the suggestion. For `claude_error` it is claude's own error
     /// line after the Turkish lead: that line is the reason itself (a rejected key, a usage limit), as the body showed
-    /// before codes existed. Other details (git's stderr, a path) stay in the inspector.
+    /// before codes existed; a login hint follows it after a dash. Other details (git's stderr, a path) stay in the
+    /// inspector.
     public static func notificationBody(for stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil) -> String {
         guard let text = describe(stored, exitCode: exitCode, numTurns: numTurns) else {
             return "Çalışma hata ile bitti."
         }
         if let stored, let line = text.detail, RunErrorCode.parse(stored)?.code == RunErrorCode.claudeError {
-            return "\(claudeErrorLead): \(line)"
+            return ["\(claudeErrorLead): \(line)", text.suggestion].compactMap { $0 }.joined(separator: " — ")
         }
         return [text.message, text.suggestion].compactMap { $0 }.joined(separator: " ")
     }
 
-    /// `claude_error` in Turkish: the inspector shows claude's line under it, the notification after it.
+    /// `claude_error` in Turkish: the inspector shows it under claude's line, the notification before it.
     private static let claudeErrorLead = "claude hata bildirdi"
 
-    private static func known(_ code: String, exitCode: Int32?, numTurns: Int?) -> RunErrorDescription? {
+    /// Spec §8 ("Oturum düşmüş"): what a lost claude session says, whether stderr or claude's own error line tells.
+    private static let loginAgain = "claude ile tekrar giriş yapın."
+
+    /// Parts of claude's error line that mean the session is lost or rejected, compared case-insensitively: "Invalid
+    /// API key · Please run /login", "Not logged in", an API `authentication_error`.
+    private static let authFailureMarks = ["/login", "invalid api key", "authentication", "not logged in"]
+
+    /// Whether claude's error line (a `claude_error` detail) says the session is lost, so the text asks for a new
+    /// login (spec §8).
+    public static func looksLikeAuthFailure(_ line: String?) -> Bool {
+        guard let line = line?.lowercased() else { return false }
+        return authFailureMarks.contains { line.contains($0) }
+    }
+
+    private static func known(_ code: String, detail: String?, exitCode: Int32?, numTurns: Int?)
+        -> RunErrorDescription?
+    {
         switch code {
         case RunErrorCode.cancelled:
             return RunErrorDescription(message: "İptal edildi.")
@@ -79,15 +97,16 @@ public enum RunErrorText {
         case RunErrorCode.claudeLaunchFailed:
             return RunErrorDescription(message: "claude başlatılamadı.")
         case RunErrorCode.claudeNotLoggedIn:
-            return RunErrorDescription(
-                message: "claude ile tekrar giriş yapın.", suggestion: "Terminalde `claude` çalıştırıp giriş yap.")
+            return RunErrorDescription(message: loginAgain, suggestion: "Terminalde `claude` çalıştırıp giriş yap.")
         case RunErrorCode.claudeFailed:
             return RunErrorDescription(
                 message: exitCode.map { "claude hata ile çıktı (kod \($0))." } ?? "claude hata ile çıktı.")
         case RunErrorCode.claudeError, ClaudeRunResult.successSubtype:
             // `success`: what rows written before `claude_error` existed hold for the same failure; claude's line is
-            // then only in the run's result text, which the inspector shows.
-            return RunErrorDescription(message: "\(claudeErrorLead).")
+            // then only in the run's result text, which the inspector shows. A line that says the session is lost
+            // adds the login hint (spec §8).
+            return RunErrorDescription(
+                message: "\(claudeErrorLead).", suggestion: looksLikeAuthFailure(detail) ? loginAgain : nil)
         case RunErrorCode.noResult:
             return RunErrorDescription(message: "claude sonuç satırı üretmeden çıktı.")
         case RunErrorCode.maxTurns:

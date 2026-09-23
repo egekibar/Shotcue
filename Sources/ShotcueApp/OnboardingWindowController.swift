@@ -15,6 +15,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// The relaunch's quit goes through the shutdown like any other (final review N1).
     private let termination: TerminationController
     private var window: NSWindow?
+    private var hosting: NSHostingView<OnboardingView>?
     /// Screen Recording state when the window opened, so we only relaunch on a real transition.
     private var screenRecordingWasGranted = false
 
@@ -40,11 +41,9 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             screenRecordingWasGranted = await service.state(of: .screenRecording) == .granted
         }
 
-        let hosting: NSHostingView<OnboardingView> = NSHostingView(
-            rootView: OnboardingView(
-                permissions: permissionsStore,
-                onDone: { [weak self] in self?.finish() }))
+        let hosting = NSHostingView(rootView: rootView(restartPending: false))
         hosting.sizingOptions = [.intrinsicContentSize]
+        self.hosting = hosting
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 560, height: 480),
@@ -75,38 +74,55 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         window?.delegate = nil
         window = nil
+        hosting = nil
         activationPolicy.end(ActivationPolicyController.onboardingReason)
+    }
+
+    private func rootView(restartPending: Bool) -> OnboardingView {
+        OnboardingView(
+            permissions: permissionsStore, restartPending: restartPending,
+            onDone: { [weak self] in self?.finish() })
     }
 
     /// "Başla": if Screen Recording flipped to granted while the window was open, the app has to be
     /// restarted before `screencapture` will actually work (research 02 §4.1: "İzin verildikten sonra
-    /// uygulamayı yeniden başlatmak gerekir").
+    /// uygulamayı yeniden başlatmak gerekir"). The window stays up until that quit goes ahead, so after "Vazgeç" in
+    /// the restart confirmation it is still there to say the restart is needed.
     private func finish() {
         let service = permissions
         let wasGranted = screenRecordingWasGranted
         Task { @MainActor in
             let isGranted = await service.state(of: .screenRecording) == .granted
+            if isGranted && !wasGranted && relaunchAfterPermissionGrant() { return }
             close()
-            if isGranted && !wasGranted {
-                relaunchAfterPermissionGrant()
-            }
         }
     }
 
-    /// Quits so that the installed bundle starts again. Only meaningful for a real `.app`; the bare SwiftPM
-    /// binary has nothing to relaunch, so it just logs.
+    /// Quits so that the installed bundle starts again; false when there is nothing to relaunch (the bare SwiftPM
+    /// binary, which just logs).
     ///
     /// This runs inside `finish()`'s main-actor Task, so it must not call `NSApp.terminate` itself: with runs in
     /// flight or unsaved work the shutdown could then never run and the app would hang (final review N1).
     /// `TerminationController` asks AppKit from the run loop, runs the shutdown (and its confirmation) first, and the
     /// relauncher starts only once the quit goes ahead (`startRelauncher()`).
-    private func relaunchAfterPermissionGrant() {
+    private func relaunchAfterPermissionGrant() -> Bool {
         guard Bundle.main.bundleURL.pathExtension == "app" else {
             AppLog.app.notice("not running from an .app bundle; skipping relaunch")
-            return
+            return false
         }
         AppLog.app.notice("quitting to relaunch after the Screen Recording grant")
-        termination.quit(relaunching: true)
+        termination.quit(relaunching: true) { [weak self] in self?.showRestartPending() }
+        return true
+    }
+
+    /// "Vazgeç" in the restart confirmation: Shotcue keeps running and the new grant does not work until it restarts.
+    /// The window says so, and its button asks for the restart again.
+    private func showRestartPending() {
+        guard let window, let hosting else { return }
+        AppLog.app.notice("relaunch cancelled; onboarding shows that a restart is still needed")
+        hosting.rootView = rootView(restartPending: true)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
     }
 
     /// Starts the detached `/bin/sh` that opens the installed bundle again once this process is gone. Called from

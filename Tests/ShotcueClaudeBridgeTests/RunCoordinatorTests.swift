@@ -380,11 +380,18 @@ struct RunCoordinatorTests {
         #expect(await h.status(of: task.id) == .failed)
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.kind == .runFailed)
-        #expect(notification.body == "claude hata bildirdi: Invalid API key · Please run /login")
-        // The inspector reads the same row: Turkish text with claude's line under it.
+        // A rejected key is a lost session: spec §8's login hint follows claude's line.
+        #expect(
+            notification.body
+                == "claude hata bildirdi: Invalid API key · Please run /login — claude ile tekrar giriş yapın.")
+        // The inspector reads the same row: claude's line as the result text (primary), the Turkish text and the
+        // login hint under it, and no second copy of the line.
+        #expect(run.resultText == "Invalid API key · Please run /login")
         let failure = try #require(RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns))
         #expect(failure.message == "claude hata bildirdi.")
+        #expect(failure.suggestion == "claude ile tekrar giriş yapın.")
         #expect(failure.detail == "Invalid API key · Please run /login")
+        #expect(failure.detailIsShown(in: run.resultText))
     }
 
     /// Only the first non-empty line is kept (a JSON body can follow it); without a result line the code stands alone.

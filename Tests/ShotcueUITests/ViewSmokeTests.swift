@@ -277,11 +277,37 @@ struct OnboardingViewTests {
         #expect(permissions.allGranted == false)
         // Screen recording is the gate for finishing onboarding.
         #expect(view.canFinish == false)
+        #expect(view.notice?.hasPrefix("Ekran Kaydı izni olmadan yakalama çalışmaz.") == true)
 
         await permissions.request(.screenRecording)
         #expect(permissions.state(of: .screenRecording) == .granted)
         #expect(view.canFinish == true)
+        #expect(view.notice == nil)
+        #expect(view.finishTitle == "Başla")
 
+        view.onDone()
+        #expect(done.current == 1)
+        bundle.cleanUp()
+    }
+
+    /// Final review N1 follow-up: after "Vazgeç" in the restart confirmation the window stays up and says that the
+    /// new Screen Recording grant needs a restart; its button asks for that restart again.
+    @MainActor
+    @Test func aPendingRestartIsShownAndTheButtonRestarts() async {
+        let bundle = makeFakeServices(permissions: [
+            .screenRecording: .granted, .microphone: .granted, .notifications: .granted,
+        ])
+        let permissions = PermissionsStore(services: bundle.services)
+        await permissions.refresh()
+        let done = Locked(0)
+        let view = OnboardingView(permissions: permissions, restartPending: true, onDone: { done.withLock { $0 += 1 } })
+
+        #expect(view.canFinish)
+        #expect(
+            view.notice
+                == "Ekran Kaydı izni, Shotcue yeniden başlayınca geçerli olur. Hazır olduğunda \"Yeniden başlat\"a bas."
+        )
+        #expect(view.finishTitle == "Yeniden başlat")
         view.onDone()
         #expect(done.current == 1)
         bundle.cleanUp()

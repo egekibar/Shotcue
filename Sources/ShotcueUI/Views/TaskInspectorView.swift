@@ -425,9 +425,7 @@ public struct TaskInspectorView: View {
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-                let failure = RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns)
-                // A failed result's text can be claude's error line alone, which the failure below already shows.
-                if let resultText = run.resultText, !resultText.isEmpty, failure?.alreadyShows(resultText) != true {
+                if let resultText = run.resultText, !resultText.isEmpty {
                     Text(resultText)
                         .font(.caption)
                         .lineLimit(3)
@@ -435,7 +433,7 @@ public struct TaskInspectorView: View {
                 }
                 // Final review I6: the row keeps a machine code; it is read in Turkish, with what to do about it
                 // (spec §8: after a limit stop, raise the limit) and the raw detail or unknown code underneath.
-                if let failure {
+                if let failure = RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns) {
                     Text(failure.message)
                         .font(.caption)
                         .lineLimit(2)
@@ -446,7 +444,8 @@ public struct TaskInspectorView: View {
                             .lineLimit(3)
                             .foregroundStyle(.secondary)
                     }
-                    if let detail = failure.detail {
+                    // claude's error line (`claude_error`) is already the result text above, as primary text.
+                    if let detail = failure.detail, !failure.detailIsShown(in: run.resultText) {
                         Text(detail)
                             .font(.caption2.monospaced())
                             .lineLimit(2)

@@ -69,12 +69,16 @@ struct RunErrorTextTests {
         let text = try #require(RunErrorText.describe(stored))
         #expect(text.message == "claude hata bildirdi.")
         #expect(text.detail == "Invalid API key · Please run /login")
+        // A rejected key is a lost session (spec §8): the text asks for a new login.
+        #expect(text.suggestion == "claude ile tekrar giriş yapın.")
         #expect(
-            RunErrorText.notificationBody(for: stored) == "claude hata bildirdi: Invalid API key · Please run /login")
+            RunErrorText.notificationBody(for: stored)
+                == "claude hata bildirdi: Invalid API key · Please run /login — claude ile tekrar giriş yapın.")
 
-        // A line that holds ": " itself stays whole.
+        // A line that holds ": " itself stays whole; an overloaded API is not a login problem.
         let overloaded = RunErrorCode.compose(RunErrorCode.claudeError, detail: "API Error: 529 Overloaded")
         #expect(RunErrorText.describe(overloaded)?.detail == "API Error: 529 Overloaded")
+        #expect(RunErrorText.describe(overloaded)?.suggestion == nil)
         #expect(RunErrorText.notificationBody(for: overloaded) == "claude hata bildirdi: API Error: 529 Overloaded")
         // Without a result line there is nothing to quote.
         #expect(RunErrorText.notificationBody(for: RunErrorCode.claudeError) == "claude hata bildirdi.")
@@ -86,19 +90,49 @@ struct RunErrorTextTests {
         #expect(legacy.detail == nil)
     }
 
-    /// The inspector shows such a run's result text once: it is claude's error line, which the failure's detail shows.
-    @Test func aResultTextTheFailureAlreadyShowsIsNotRepeated() throws {
+    /// Spec §8 ("Oturum düşmüş"): claude's error line for a lost or rejected session adds "claude ile tekrar giriş
+    /// yapın." in the inspector and the RUN_FAILED body, as a login failure on stderr does. Case does not matter.
+    @Test(
+        arguments: [
+            ("Invalid API key · Please run /login", true),
+            ("Not logged in · Please run /login", true),
+            ("OAuth token revoked · Please run /login", true),
+            (#"API Error: 401 {"type":"error","error":{"type":"authentication_error"}}"#, true),
+            ("INVALID API KEY", true),
+            ("Error: not logged in", true),
+            ("API Error: 529 Overloaded", false),
+            ("Credit balance is too low", false),
+            ("Claude AI usage limit reached|1790078400", false),
+        ])
+    func aLostSessionAsksForANewLogin(line: String, isAuthFailure: Bool) throws {
+        #expect(RunErrorText.looksLikeAuthFailure(line) == isAuthFailure)
+        let stored = RunErrorCode.compose(RunErrorCode.claudeError, detail: line)
+        let text = try #require(RunErrorText.describe(stored))
+        #expect(text.message == "claude hata bildirdi.")
+        #expect(text.detail == line)
+        #expect(text.suggestion == (isAuthFailure ? "claude ile tekrar giriş yapın." : nil))
+        let body = RunErrorText.notificationBody(for: stored)
+        #expect(body.hasPrefix("claude hata bildirdi: \(line)"))
+        #expect(body.contains("claude ile tekrar giriş yapın.") == isAuthFailure)
+    }
+
+    /// The inspector shows claude's line once, as the run's result text (primary text): the failure's detail, which
+    /// holds the same line, is not repeated under it.
+    @Test func aDetailTheResultTextAlreadyShowsIsNotRepeated() throws {
         let failure = try #require(
             RunErrorText.describe(
                 RunErrorCode.compose(RunErrorCode.claudeError, detail: "Invalid API key · Please run /login")))
-        #expect(failure.alreadyShows("Invalid API key · Please run /login\n"))
-        // More than the detail holds: the inspector keeps showing the whole text.
-        #expect(!failure.alreadyShows("Invalid API key · Please run /login\nikinci satır"))
+        #expect(failure.detailIsShown(in: "Invalid API key · Please run /login"))
+        #expect(failure.detailIsShown(in: "\nInvalid API key · Please run /login\nikinci satır"))
+        // No result text (or another one): the detail is the only place the line is shown.
+        #expect(!failure.detailIsShown(in: nil))
+        #expect(!failure.detailIsShown(in: "Özet satırı"))
         let branch = try #require(
             RunErrorText.describe(RunErrorCode.compose(RunErrorCode.gitBranchFailed, detail: "fatal: bad ref")))
-        #expect(!branch.alreadyShows("Özet satırı"))
+        #expect(!branch.detailIsShown(in: nil))
+        // Nothing to repeat without a detail.
         let limit = try #require(RunErrorText.describe(RunErrorCode.maxTurns))
-        #expect(!limit.alreadyShows("Özet satırı"))
+        #expect(!limit.detailIsShown(in: "Özet satırı"))
     }
 
     @Test func anUnknownCodeFallsBackToTurkishWithTheRawCodeUnderIt() throws {
