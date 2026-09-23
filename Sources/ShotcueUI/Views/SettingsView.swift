@@ -67,7 +67,8 @@ public struct SettingsView: View {
 
             Section("Sistem") {
                 Toggle("Oturum açılışında başlat", isOn: $store.launchAtLogin)
-                Toggle("Yakında zamanlanmış iş varsa uyanık tut", isOn: $store.keepAwake)
+                // What the switch does: no idle sleep while a run is in progress (final review M5).
+                Toggle("Görev çalışırken Mac'i uyanık tut", isOn: $store.keepAwake)
             }
 
             Section("Depolama") {
