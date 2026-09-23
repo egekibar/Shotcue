@@ -101,7 +101,9 @@ final class AppEnvironment {
             fileStore: fileStore,
             notifier: notifier,
             clock: clock,
-            settings: AppSettingsBridge.runSettings(from: snapshot))
+            settings: AppSettingsBridge.runSettings(from: snapshot),
+            // Final review I1: nothing starts before launch recovery; `AppDelegate` resumes the queue after it.
+            holdsQueueUntilResumed: true)
         self.runCoordinator = runCoordinator
         // Every sender (UI stores through AppServices, the quick panel, the scheduler) goes through this:
         // with `claude` missing, sends are refused up front (spec §8).

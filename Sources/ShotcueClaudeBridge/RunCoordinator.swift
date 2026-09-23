@@ -31,6 +31,9 @@ public actor RunCoordinator: TaskDispatcher {
 
     private var settings: RunSettings
     private var paused = false
+    /// Nothing starts until `resumeQueue()` (final review I1): at launch the app first marks the runs the last
+    /// session left behind, so no run can start before recovery and be taken for one of them.
+    private var queueHeld: Bool
     private var inFlight: [UUID: InFlight] = [:]
     /// Run ids cancelled while in flight but not launched yet (the git phase, for instance).
     private var pendingCancels: Set<UUID> = []
@@ -40,7 +43,7 @@ public actor RunCoordinator: TaskDispatcher {
         runner: any ClaudeRunner, taskRepository: any TaskRepository,
         projectRepository: any ProjectRepository, runRepository: any RunRepository,
         gitInspector: any GitInspector, fileStore: FileStore, notifier: any Notifier,
-        clock: any Clock, settings: RunSettings
+        clock: any Clock, settings: RunSettings, holdsQueueUntilResumed: Bool = false
     ) {
         self.runner = runner
         self.taskRepository = taskRepository
@@ -51,6 +54,7 @@ public actor RunCoordinator: TaskDispatcher {
         self.notifier = notifier
         self.clock = clock
         self.settings = settings
+        self.queueHeld = holdsQueueUntilResumed
         self.logWriter = RunLogWriter(fileStore: fileStore)
     }
 
@@ -103,15 +107,41 @@ public actor RunCoordinator: TaskDispatcher {
 
     // MARK: - App-facing extras
 
-    public func updateSettings(_ settings: RunSettings) { self.settings = settings }
+    /// Applies the Claude settings to the next runs, then starts whatever a raised limit now allows.
+    public func updateSettings(_ settings: RunSettings) async {
+        self.settings = settings
+        await pumpQueue()
+    }
 
-    /// Launch recovery (spec §8): runs left `starting`/`running` by a crash become `failed`.
+    /// Starts the queue (final review I1): tasks queued before a quit or crash, and anything queued since launch,
+    /// start now. The app calls it after `recoverInterruptedRuns()`, and only once `claude` is known to exist, so
+    /// with `claude` missing queued tasks stay queued instead of each failing with "not found".
+    public func resumeQueue() async {
+        queueHeld = false
+        await pumpQueue()
+    }
+
+    /// Launch recovery (spec §8): runs left `starting`/`running` by a crash become `failed`. A task left
+    /// `running` without any active run (a stale whole-row write, or a run row that was never saved) becomes
+    /// `failed` too, with a run row of its own that says so — otherwise it could be neither cancelled nor
+    /// deleted nor rerun. Returns how many runs were marked.
     public func recoverInterruptedRuns() async throws -> Int {
         let stale = try await runRepository.activeRuns()
-        let count = try await runRepository.markInterruptedRuns(at: clock.now)
+        var count = try await runRepository.markInterruptedRuns(at: clock.now)
         for run in stale {
             guard let task = try await taskRepository.task(id: run.taskID), task.status == .running else { continue }
             await apply(.failed, toTask: task.id)
+        }
+        let staleTaskIDs = Set(stale.map(\.taskID))
+        for task in try await taskRepository.tasks(status: .running) where !staleTaskIDs.contains(task.id) {
+            let now = clock.now
+            let runID = UUID()
+            let repair = Run(
+                id: runID, taskID: task.id, state: .failed, startedAt: now, finishedAt: now,
+                error: RunErrorCode.interrupted, logRelPath: fileStore.runLogRelPath(id: runID))
+            try await runRepository.save(repair)
+            await apply(.failed, toTask: task.id)
+            count += 1
         }
         return count
     }
@@ -119,7 +149,7 @@ public actor RunCoordinator: TaskDispatcher {
     // MARK: - Queue
 
     private func pumpQueue() async {
-        guard !paused else { return }
+        guard !paused, !queueHeld else { return }
         while true {
             let queued = ((try? await taskRepository.tasks(status: .queued)) ?? [])
                 .filter { inFlight[$0.id] == nil }

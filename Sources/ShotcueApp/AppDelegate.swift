@@ -32,6 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // Spec §8 then §6.5, in this order: runs interrupted by the last quit are failed first, then the
         // scheduler starts. It owns its 30 s DispatchSourceTimer and the NSWorkspace.didWakeNotification
         // observer; its first timer pass is `interval` away, so launch asks for one immediate reconcile.
+        // Final review I1: the coordinator holds its queue until here, so no run can start before recovery;
+        // then the queue resumes — tasks queued before the quit start again — but only once `claude` is known
+        // to exist (the same wait as `ClaudeGatedDispatcher`): without it, queued tasks stay queued.
         Task { @MainActor in
             do {
                 let recovered = try await environment.runCoordinator.recoverInterruptedRuns()
@@ -44,6 +47,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
             await environment.scheduler.start()
             await environment.scheduler.tick()
+            if await environment.claude.executable() != nil {
+                await environment.runCoordinator.resumeQueue()
+            } else {
+                AppLog.app.notice("claude missing: the run queue stays held, queued tasks stay queued")
+            }
         }
 
         // Voice notes recorded while the model was missing get transcribed now. This can take minutes

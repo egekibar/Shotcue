@@ -50,7 +50,7 @@ public final class GRDBRunRepository: RunRepository, Sendable {
                 .updateAll(
                     db,
                     RunRecord.Columns.state.set(to: RunState.failed.rawValue),
-                    RunRecord.Columns.error.set(to: "interrupted"),
+                    RunRecord.Columns.error.set(to: RunErrorCode.interrupted),
                     RunRecord.Columns.finishedAt.set(to: now.timeIntervalSinceReferenceDate))
         }
     }

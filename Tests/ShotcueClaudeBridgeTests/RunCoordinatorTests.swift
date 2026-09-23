@@ -86,6 +86,19 @@ final class GatedGitInspector: GitInspector, @unchecked Sendable {
     func stashAll(at path: String) async throws { try await base.stashAll(at: path) }
 }
 
+/// Every `run` parks on one gate until the test opens it; `started` lists the runs that reached claude.
+final class GatedClaudeRunner: ClaudeRunner, @unchecked Sendable {
+    let gate = Gate()
+    let started = Locked<[UUID]>([])
+    func run(_ spec: RunSpec, onEvent: @escaping @Sendable (RunEvent) -> Void) async throws -> ClaudeRunResult {
+        started.withLock { $0.append(spec.runID) }
+        await gate.wait()
+        return ClaudeRunResult(subtype: "success", isError: false)
+    }
+    func cancel(runID: UUID) async {}
+    func version() async throws -> String { "gated" }
+}
+
 /// The in-memory project repository, except that `project(id:)` parks on a gate.
 final class GatedProjectRepository: ProjectRepository, @unchecked Sendable {
     let base: InMemoryProjectRepository
@@ -127,9 +140,11 @@ struct Harness {
     let root: URL
 
     /// `snapshotGate` / `projectGate` park the coordinator's git snapshots / project lookups on that gate.
+    /// `holdsQueue` builds the coordinator the way the app does: nothing starts before `resumeQueue()`.
     init(
         projects: [Project], tasks: [ShotTask], runs: [Run] = [], runner: any ClaudeRunner,
-        settings: RunSettings = RunSettings(keepAwake: false), snapshotGate: Gate? = nil, projectGate: Gate? = nil
+        settings: RunSettings = RunSettings(keepAwake: false), snapshotGate: Gate? = nil, projectGate: Gate? = nil,
+        holdsQueue: Bool = false
     ) {
         clock = MutableClock()
         projectRepository = InMemoryProjectRepository(projects)
@@ -152,7 +167,7 @@ struct Harness {
             runner: runner, taskRepository: taskRepository,
             projectRepository: coordinatorProjects, runRepository: runRepository,
             gitInspector: coordinatorGit, fileStore: fileStore,
-            notifier: notifier, clock: clock, settings: settings)
+            notifier: notifier, clock: clock, settings: settings, holdsQueueUntilResumed: holdsQueue)
     }
 
     func cleanUp() { try? FileManager.default.removeItem(at: root) }
@@ -727,6 +742,88 @@ struct RunCoordinatorTests {
         #expect(recovered.state == .failed)
         #expect(recovered.error == "interrupted")
         #expect(try await h.runRepository.activeRuns().isEmpty)
+    }
+
+    /// Final review I1: tasks queued before a quit or crash start again after launch recovery, and only then.
+    @Test func queuedTasksFromTheLastSessionStartOnceTheQueueIsResumed() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let leftOver = ShotTask(projectID: project.id, title: "Dünden kalan", status: .queued, sortIndex: 1)
+        let fresh = ShotTask(projectID: project.id, title: "Yeni", status: .ready, sortIndex: 2)
+        let runner = successRunner()
+        let h = Harness(projects: [project], tasks: [leftOver, fresh], runner: runner, holdsQueue: true)
+        defer { h.cleanUp() }
+
+        _ = try await h.coordinator.recoverInterruptedRuns()
+        // Held until the app resumes it: nothing may start before recovery, whatever pumps meanwhile.
+        try await h.coordinator.enqueue(taskID: fresh.id)
+        await h.coordinator.updateSettings(RunSettings(maxConcurrent: 3, keepAwake: false))
+        await h.coordinator.setPaused(false)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(runner.specs.current.isEmpty)
+        #expect(await h.status(of: leftOver.id) == .queued)
+
+        await h.coordinator.resumeQueue()
+        await waitUntil("both ran") {
+            let left = await h.status(of: leftOver.id)
+            let new = await h.status(of: fresh.id)
+            return left == .done && new == .done
+        }
+        #expect(runner.specs.current.count == 2)
+    }
+
+    /// Final review I1 (+ the reviewer's "task stuck running"): a task left `running` with no active run (a
+    /// stale whole-row write, or a run row that never got saved) can be neither cancelled nor deleted nor rerun.
+    @Test func recoveryFailsARunningTaskThatHasNoActiveRun() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let stuck = ShotTask(projectID: project.id, title: "Takılı", status: .running)
+        let finishedRun = Run(
+            taskID: stuck.id, state: .succeeded, startedAt: Date(timeIntervalSince1970: 10),
+            finishedAt: Date(timeIntervalSince1970: 20), logRelPath: "runs/old.jsonl")
+        let h = Harness(projects: [project], tasks: [stuck], runs: [finishedRun], runner: successRunner())
+        defer { h.cleanUp() }
+
+        #expect(try await h.coordinator.recoverInterruptedRuns() == 1)
+
+        #expect(await h.status(of: stuck.id) == .failed)
+        let runs = await h.runs(of: stuck.id)
+        #expect(runs.count == 2)
+        // The old run keeps its own outcome; the repair is a run row of its own that says why.
+        #expect(runs.first { $0.id == finishedRun.id }?.state == .succeeded)
+        let repair = try #require(runs.first { $0.id != finishedRun.id })
+        #expect(repair.state == .failed)
+        #expect(repair.error == "interrupted")
+        #expect(repair.finishedAt != nil)
+        #expect(try await h.runRepository.activeRuns().isEmpty)
+        // Failed goes through `transition`: the task can be rerun.
+        #expect(TaskStatus.failed.canTransition(to: .queued))
+    }
+
+    /// Final review I1: raising the concurrency limit starts what now fits, without waiting for another send.
+    @Test func updateSettingsStartsWhatTheNewLimitAllows() async throws {
+        let first = Project(name: "a", path: Harness.makeProjectDirectory("a"))
+        let second = Project(name: "b", path: Harness.makeProjectDirectory("b"))
+        let a = ShotTask(projectID: first.id, title: "a", status: .ready, sortIndex: 1)
+        let b = ShotTask(projectID: second.id, title: "b", status: .ready, sortIndex: 2)
+        let runner = GatedClaudeRunner()
+        let h = Harness(
+            projects: [first, second], tasks: [a, b], runner: runner,
+            settings: RunSettings(maxConcurrent: 1, keepAwake: false))
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: a.id)
+        try await h.coordinator.enqueue(taskID: b.id)
+        await waitUntil("one run started") { runner.started.current.count == 1 }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(runner.started.current.count == 1)
+
+        await h.coordinator.updateSettings(RunSettings(maxConcurrent: 2, keepAwake: false))
+        await waitUntil("the second run started") { runner.started.current.count == 2 }
+        runner.gate.open()
+        await waitUntil("both done") {
+            let first = await h.status(of: a.id)
+            let second = await h.status(of: b.id)
+            return first == .done && second == .done
+        }
     }
 
     @Test func missingProjectDirectoryFailsBeforeTheRunnerIsCalled() async throws {
