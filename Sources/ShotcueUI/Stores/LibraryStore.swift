@@ -29,6 +29,12 @@ public final class LibraryStore {
     /// taskID -> total voice-note seconds, for the "0:04 🎙" badge on a card.
     public private(set) var voiceSeconds: [UUID: Double] = [:]
     public private(set) var isPaused = false
+    /// Tasks whose send waits for a voice note's transcript (final review C1); the bottom bar says so.
+    public private(set) var waitingForTranscriptIDs: Set<UUID> = []
+
+    /// How long a send waits for pending transcripts, and how often it looks. Internal so tests can shorten them.
+    @ObservationIgnored var transcriptWaitTimeout: Duration = TranscriptGate.defaultTimeout
+    @ObservationIgnored var transcriptWaitPollInterval: Duration = .milliseconds(500)
 
     public var sortOrder: SortOrder = .newest
     public var viewMode: ViewMode = .grid
@@ -268,13 +274,64 @@ public final class LibraryStore {
     /// "Ayrı ayrı gönder": every selected task becomes its own run.
     public func send(taskIDs: Set<UUID>) async {
         await flushInspectorDrafts(for: taskIDs)
-        for id in ordered(taskIDs) {
-            do {
-                try await services.dispatcher.enqueue(taskID: id)
-            } catch {
-                report(error)
+        await sendWhenTranscribed(ordered(taskIDs))
+    }
+
+    private func transcriptGate() -> TranscriptGate {
+        TranscriptGate(services: services, timeout: transcriptWaitTimeout, pollInterval: transcriptWaitPollInterval)
+    }
+
+    /// Final review C1: each task goes to the dispatcher only with usable text for every voice note. Tasks that
+    /// can go out are enqueued at once; tasks waiting for a transcript (the model is ready) are enqueued once it
+    /// lands, bounded, with `waitingForTranscriptIDs` on screen; the rest are refused in `lastError`.
+    private func sendWhenTranscribed(_ ids: [UUID]) async {
+        let gate = transcriptGate()
+        var problems: [String] = []
+        var waiting: [UUID] = []
+        for id in ids {
+            switch await gate.decide(taskID: id) {
+            case .send:
+                if let problem = await enqueue(id, among: ids.count) { problems.append(problem) }
+            case .refuse(let message):
+                problems.append(problemLine(message, taskID: id, among: ids.count))
+            case .wait:
+                waiting.append(id)
             }
         }
+        if !waiting.isEmpty {
+            waitingForTranscriptIDs.formUnion(waiting)
+            let outcomes = await gate.waitForTranscripts(of: waiting)
+            waitingForTranscriptIDs.subtract(waiting)
+            for id in waiting {
+                switch outcomes[id] ?? .refuse(TranscriptGate.timeoutMessage) {
+                case .send:
+                    if let problem = await enqueue(id, among: ids.count) { problems.append(problem) }
+                case .refuse(let message):
+                    problems.append(problemLine(message, taskID: id, among: ids.count))
+                case .wait:
+                    problems.append(problemLine(TranscriptGate.timeoutMessage, taskID: id, among: ids.count))
+                }
+            }
+        }
+        if !problems.isEmpty { lastError = problems.joined(separator: "\n") }
+    }
+
+    /// Enqueues one task; the problem line when the dispatcher refused it.
+    private func enqueue(_ id: UUID, among count: Int) async -> String? {
+        do {
+            try await services.dispatcher.enqueue(taskID: id)
+            return nil
+        } catch let stateError as TaskStateError {
+            return problemLine(Self.message(for: stateError), taskID: id, among: count)
+        } catch {
+            return problemLine(error.localizedDescription, taskID: id, among: count)
+        }
+    }
+
+    /// With several tasks in one send, each problem names its task.
+    private func problemLine(_ message: String, taskID: UUID, among count: Int) -> String {
+        guard count > 1, let title = allTasks.first(where: { $0.id == taskID })?.title else { return message }
+        return "“\(title)”: \(message)"
     }
 
     /// "Tek task olarak birleştir ve gönder": captures and voice notes of the other tasks move onto the
@@ -284,6 +341,19 @@ public final class LibraryStore {
         let ids = ordered(taskIDs)
         guard let primaryID = ids.first else { return }
         guard ids.count > 1 else { return await send(taskIDs: [primaryID]) }
+        // C1: a note that can never be sent (failed, or no model for a pending one) is refused before anything
+        // moves, so the tasks stay as they were. A transcript on its way is waited for after the merge.
+        let gate = transcriptGate()
+        var refusals: [String] = []
+        for id in ids {
+            if case .refuse(let message) = await gate.decide(taskID: id) {
+                refusals.append(problemLine(message, taskID: id, among: ids.count))
+            }
+        }
+        guard refusals.isEmpty else {
+            lastError = refusals.joined(separator: "\n")
+            return
+        }
         do {
             guard var primary = try await services.tasks.task(id: primaryID) else { return }
             guard primary.status.isEditable else { return }
@@ -320,10 +390,11 @@ public final class LibraryStore {
             primary.updatedAt = services.clock.now
             try await services.tasks.save(primary)
             selectedTaskIDs = [primaryID]
-            try await services.dispatcher.enqueue(taskID: primaryID)
         } catch {
             report(error)
+            return
         }
+        await sendWhenTranscribed([primaryID])
     }
 
     /// "Projeye taşı". Coming out of the inbox the task also becomes `ready` (spec §7); going back to the

@@ -167,6 +167,15 @@ final class AppEnvironment {
         let quickPanel = QuickPanelController(
             makeStore: { taskID in
                 let store = QuickPanelStore(services: services, settings: settings)
+                // ⌘⇧↩ with a transcript on its way closes the panel at once (final review C1); a send that then
+                // cannot go out is reported like any other failed run.
+                store.onSendFailure = { title, message, taskID in
+                    status.lastError = message
+                    Task {
+                        await notifier.notify(
+                            AppNotification(kind: .runFailed, title: title, body: message, taskID: taskID))
+                    }
+                }
                 // `capture(taskID:)` loads the row, the thumbnail and the projects; the panel shows at once
                 // and fills in as soon as the load lands.
                 Task { await store.capture(taskID: taskID) }

@@ -29,12 +29,25 @@ public final class QuickPanelStore {
     /// Plan 06 sets this to hide the panel; the store itself never touches AppKit windows.
     public var onClose: (() -> Void)?
 
+    /// A ⌘⇧↩ that waited for a transcript after the panel closed could not send the task (final review C1):
+    /// the task's current title, the Turkish reason and the task id. The App shows it and posts a notification.
+    public var onSendFailure: ((_ title: String, _ message: String, _ taskID: UUID) -> Void)?
+
+    /// The send finishing in the background after ⌘⇧↩ closed the panel (C1); tests await it.
+    @ObservationIgnored var backgroundSend: Task<Void, Never>?
+    /// How long ⌘⇧↩ waits for a pending transcript, and how often it looks. Internal so tests can shorten them.
+    @ObservationIgnored var transcriptWaitTimeout: Duration = TranscriptGate.defaultTimeout
+    @ObservationIgnored var transcriptPollInterval: Duration = .milliseconds(500)
+
     @ObservationIgnored private let services: AppServices
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private var levelTask: Task<Void, Never>?
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var pendingNoteID: UUID?
     @ObservationIgnored private var pendingRelPath: String?
+    /// The stop in progress: the recorder is finishing the file and the voice-note row is not saved yet.
+    /// Everything that needs the note (save, send, dismiss) waits for it.
+    @ObservationIgnored private var recordingStop: Task<Void, Never>?
     @ObservationIgnored private var isDismissing = false
     @ObservationIgnored private var didClose = false
 
@@ -112,7 +125,7 @@ public final class QuickPanelStore {
     }
 
     public func toggleRecording() async {
-        if isRecording {
+        if isRecording || recordingStop != nil {
             await stopRecording()
         } else {
             await startRecording()
@@ -158,7 +171,21 @@ public final class QuickPanelStore {
         }
     }
 
+    /// Stops the recording and stores its voice-note row. A stop already in progress is awaited instead of
+    /// started twice, so every caller returns only once the note is saved.
     private func stopRecording() async {
+        if let recordingStop {
+            await recordingStop.value
+            return
+        }
+        guard isRecording else { return }
+        let stop = Task { await self.finishRecording() }
+        recordingStop = stop
+        await stop.value
+        recordingStop = nil
+    }
+
+    private func finishRecording() async {
         tickTask?.cancel()
         tickTask = nil
         levelTask?.cancel()
@@ -177,8 +204,11 @@ public final class QuickPanelStore {
             try await services.tasks.save(note)
             voiceNotes.append(note)
             recordingSeconds = info.duration
-            // Transcription keeps running after the panel closes (spec §5.2).
-            await services.transcriptionQueue.enqueue(voiceNoteID: note.id)
+            // Transcription keeps running after the panel closes (spec §5.2). Not awaited: the queue returns
+            // only once the note is transcribed, and nothing here should wait for that (⌘⇧↩ waits, bounded, in
+            // `saveAndSend`).
+            let queue = services.transcriptionQueue
+            Task.detached(priority: .utility) { await queue.enqueue(voiceNoteID: noteID) }
         } catch {
             report(error)
         }
@@ -194,7 +224,7 @@ public final class QuickPanelStore {
     @discardableResult
     public func save() async -> Bool {
         guard let cached = task else { return false }
-        if isRecording { await stopRecording() }
+        if isRecording || recordingStop != nil { await stopRecording() }
         let now = services.clock.now
         do {
             guard var current = try await services.tasks.task(id: cached.id) else {
@@ -244,19 +274,66 @@ public final class QuickPanelStore {
     }
 
     /// `⌘⇧↩`. Needs a project: a project-less task cannot be sent (spec §5.3).
+    ///
+    /// Final review C1: the task goes out only with usable text for every voice note. A transcript still on its
+    /// way (the model is ready) is waited for after the panel has closed; the send then finishes in the
+    /// background and a failure reaches `onSendFailure`. A missing model or a failed transcript is refused here,
+    /// with the panel still open.
     public func saveAndSend() async {
         guard selectedProjectID != nil else {
             lastError = "Göndermek için bir proje seç."
             return
         }
         guard await save(), let current = task else { return }
-        do {
-            try await services.dispatcher.enqueue(taskID: current.id)
-        } catch {
-            report(error)
-            return
+        let gate = TranscriptGate(
+            services: services, timeout: transcriptWaitTimeout, pollInterval: transcriptPollInterval)
+        switch await gate.decide(taskID: current.id) {
+        case .send:
+            do {
+                try await services.dispatcher.enqueue(taskID: current.id)
+            } catch {
+                report(error)
+                return
+            }
+            close()
+        case .refuse(let message):
+            lastError = message
+        case .wait:
+            backgroundSend = Self.sendWhenTranscribed(
+                taskID: current.id, fallbackTitle: current.title, gate: gate, services: services,
+                onFailure: onSendFailure)
+            close()
         }
-        close()
+    }
+
+    /// Waits for the transcript, then enqueues; holds no reference to the (closed) panel's store.
+    private static func sendWhenTranscribed(
+        taskID: UUID, fallbackTitle: String, gate: TranscriptGate, services: AppServices,
+        onFailure: ((String, String, UUID) -> Void)?
+    ) -> Task<Void, Never> {
+        Task {
+            let outcome = await gate.waitForTranscripts(of: [taskID])[taskID] ?? .refuse(TranscriptGate.timeoutMessage)
+            let failure: String?
+            switch outcome {
+            case .send:
+                do {
+                    try await services.dispatcher.enqueue(taskID: taskID)
+                    failure = nil
+                } catch let stateError as TaskStateError {
+                    failure = LibraryStore.message(for: stateError)
+                } catch {
+                    failure = error.localizedDescription
+                }
+            case .refuse(let message):
+                failure = message
+            case .wait:
+                failure = TranscriptGate.timeoutMessage
+            }
+            guard let failure else { return }
+            // The title may have followed the transcript meanwhile.
+            let title = (try? await services.tasks.task(id: taskID))?.title ?? fallbackTitle
+            onFailure?(title, failure, taskID)
+        }
     }
 
     /// "Zamanla…" in the panel footer.
@@ -285,7 +362,7 @@ public final class QuickPanelStore {
     public func dismiss() {
         guard !isDismissing else { return }
         isDismissing = true
-        if isRecording {
+        if isRecording || recordingStop != nil {
             Task { [weak self] in
                 await self?.stopRecording()
                 self?.close()

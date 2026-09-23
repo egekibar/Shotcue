@@ -107,6 +107,15 @@ sqlite3 ~/Library/Application\ Support/Shotcue/shotcue.sqlite ".tables"   # capt
 | P8 | İkon 32 px'te | Finder liste görünümünde / küçük Dock boyutunda Shotcue ikonu: mavi-mor plaka, beyaz köşe ayraçları ve ortadaki amber nokta seçilebiliyor, bulanık bir lekeye dönmüyor | kısmen (ajan): `sips -z 32 32 Resources/AppIcon.icns` çıktısı büyütülerek incelendi — ayraçlar ve nokta ayrı ayrı seçiliyor (Task 8); Finder/Dock'ta bakış PENDING (user) |
 | P9 | `claude` araması açılışı bekletmez | `claude` yalnızca login shell PATH'inde (ör. npm-global, nvm) kuruluysa: uygulama hemen açılır, Ayarlar > Claude sürüm satırı önce "aranıyor…", sonra sürümü gösterir | kısmen (ajan): probe — sabit konum kontrolü ana iş parçacığında 50 µs; login shell yolu zorlanınca (`candidates: []`) `init` 14 µs'de döndü, arama arka planda 0,12 sn'de `~/.local/bin/claude`'u buldu; `sleep 10` kabuğu 3,00 sn zaman aşımında "bulunamadı" oldu ve ertelenmiş runner `notFound` fırlattı; bu sürede ana iş parçacığı 20 ms'lik 141 tik attı (bloke olmadı). "aranıyor…" etiketi PENDING (user, uygun kurulum) |
 
+## Son düzeltme dalgası (tüm dal incelemesi, C1 · I1–I6 · M1–M9)
+
+Kod testleri ajan tarafından koşuldu; aşağıdaki satırlar gerçek uygulamada kullanıcının göreceği davranışı kontrol eder.
+
+| # | Kontrol | Beklenen | Sonuç |
+|---|---|---|---|
+| F1 | Sesli not bekleyen gönderim — model **hazır** (C1) | Hızlı panelde kayıt yap, durdur ve hemen ⌘⇧↩ → panel **hemen kapanır**, run transkript bitince başlar (`select started_at from run order by started_at desc limit 1;` notun transkripti bittikten sonra); "Terminalde devam et" ile açılan oturumun ilk kullanıcı mesajında `VOICE NOTE` bloğu ve transkript görünür. Inspector'dan "Şimdi gönder" / "Yeniden çalıştır" → başlıkta "Sesli not yazıya dökülüyor…" + gönder düğmeleri pasif, bitince `queued`. Kütüphane "Ayrı ayrı gönder" / "Tek görev olarak gönder" → alt çubukta "Sesli not yazıya dökülüyor…" kapsülü. | PENDING (user) |
+| F2 | Sesli not bekleyen gönderim — model **yok** (C1) | Model indirilmemişken sesli notlu bir görevi ⌘⇧↩ / Şimdi gönder / Ayrı ayrı gönder ile gönder → gönderilmez; Türkçe hata "…transkripsiyon modeli indirilmedi. Ayarlar > Ses'ten modeli indir…"; hızlı panel **açık kalır**; `select count(*) from run;` değişmez. Transkripti başarısız olmuş (ve elle yazılmamış) notlu görev → "Sesli not yazıya dökülemedi… transkripti elle yaz ya da Yeniden çevir'e bas" hatası. | PENDING (user) |
+
 ## Tamamlanma ölçütleri (ajanın koşturduğu)
 
 - `make build` → `Build complete!` (derleyici uyarısı yok); `make test` → 404 test geçti (145 + 44 + 49 + 63 + 80 + 23;

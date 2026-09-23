@@ -78,12 +78,21 @@ public struct TaskInspectorView: View {
                         Task { await store.retry() }
                     }
                     .buttonStyle(.glass)
+                    .disabled(store.isWaitingForTranscript)
                 }
                 Button("Şimdi gönder", systemImage: "paperplane.fill") {
                     Task { await store.sendNow() }
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(!store.canSend)
+            }
+            if store.isWaitingForTranscript {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Sesli not yazıya dökülüyor… Bitince görev gönderilecek.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         } else {
             Text("Görev yüklenemedi.").foregroundStyle(.secondary)

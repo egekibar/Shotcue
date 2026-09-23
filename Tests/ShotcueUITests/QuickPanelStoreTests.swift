@@ -105,7 +105,8 @@ struct QuickPanelStoreTests {
         #expect(saved.durationSec == 3.5)
         #expect(saved.editedByUser == false)
         #expect(saved.relPath == f.bundle.services.fileStore.audioRelPath(id: saved.id))
-        #expect(f.bundle.transcriptionQueue.enqueued.current == [saved.id])
+        // Handed to the queue without waiting for the transcription itself.
+        #expect(await waitUntil("enqueued") { f.bundle.transcriptionQueue.enqueued.current == [saved.id] })
         f.bundle.cleanUp()
     }
 
@@ -211,7 +212,7 @@ struct QuickPanelStoreTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(closed.current == 1)
         #expect(try await f.bundle.services.tasks.voiceNotes(taskID: f.task.id).count == 1)
-        #expect(f.bundle.transcriptionQueue.enqueued.current.count == 1)
+        #expect(await waitUntil("enqueued") { f.bundle.transcriptionQueue.enqueued.current.count == 1 })
         f.bundle.cleanUp()
     }
 

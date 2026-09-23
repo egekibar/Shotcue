@@ -24,6 +24,12 @@ public final class TaskDetailStore {
     public var scheduleDate: Date
     public var isSchedulePresented = false
     public var lastError: String?
+    /// A send is waiting for a voice note's transcript (final review C1); the header says so.
+    public private(set) var isWaitingForTranscript = false
+
+    /// How long a send waits for a pending transcript, and how often it looks. Internal so tests can shorten them.
+    @ObservationIgnored var transcriptWaitTimeout: Duration = TranscriptGate.defaultTimeout
+    @ObservationIgnored var transcriptWaitPollInterval: Duration = .milliseconds(500)
 
     @ObservationIgnored private let services: AppServices
     @ObservationIgnored private var streams: [Task<Void, Never>] = []
@@ -193,7 +199,7 @@ public final class TaskDetailStore {
     public var isEditable: Bool { task?.status.isEditable ?? false }
 
     public var canSend: Bool {
-        guard let task else { return false }
+        guard let task, !isWaitingForTranscript else { return false }
         return task.projectID != nil && task.status.canTransition(to: .queued)
     }
 
@@ -427,10 +433,33 @@ public final class TaskDetailStore {
 
     public func sendNow() async {
         await commitDrafts()
-        do {
-            try await services.dispatcher.enqueue(taskID: taskID)
-        } catch {
-            report(error)
+        await sendWhenTranscribed()
+    }
+
+    /// Final review C1: the task goes to the dispatcher only with usable text for every voice note. A pending
+    /// transcript is waited for (bounded, `isWaitingForTranscript` on screen) while the model can produce it;
+    /// otherwise `lastError` says why nothing was sent.
+    private func sendWhenTranscribed() async {
+        guard !isWaitingForTranscript else { return }
+        let gate = TranscriptGate(
+            services: services, timeout: transcriptWaitTimeout, pollInterval: transcriptWaitPollInterval)
+        var decision = await gate.decide(taskID: taskID)
+        if decision == .wait {
+            isWaitingForTranscript = true
+            decision = await gate.waitForTranscripts(of: [taskID])[taskID] ?? .refuse(TranscriptGate.timeoutMessage)
+            isWaitingForTranscript = false
+        }
+        switch decision {
+        case .send:
+            do {
+                try await services.dispatcher.enqueue(taskID: taskID)
+            } catch {
+                report(error)
+            }
+        case .refuse(let message):
+            lastError = message
+        case .wait:
+            lastError = TranscriptGate.timeoutMessage
         }
     }
 
@@ -512,11 +541,7 @@ public final class TaskDetailStore {
     /// "Yeniden çalıştır": failed/cancelled/done all have an edge to `queued`.
     public func retry() async {
         await commitDrafts()
-        do {
-            try await services.dispatcher.enqueue(taskID: taskID)
-        } catch {
-            report(error)
-        }
+        await sendWhenTranscribed()
     }
 
     // MARK: - Handoff
