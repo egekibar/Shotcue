@@ -113,31 +113,41 @@ nonisolated final class DeferredClaudeRunner: ClaudeRunner {
     }
 }
 
-/// `DesktopHandoffService` bakes the `claude` path into the `.command` file it writes, but the path may
-/// only be known after the background search. The service is therefore built per call with whatever the
-/// locator knows by then (`ClaudeFallback` while searching or when missing: the file then fails loudly,
-/// matching the red status in Settings).
+/// The `HandoffService` AppServices gets, around `DesktopHandoffService`.
+///
+/// - Session ids: runs start with `--session-id <uuid lowercased>` (`ClaudeArguments`), while callers
+///   form ids with `UUID.uuidString` (uppercase). Every resume path — the notification's and the
+///   Inspector's "Terminalde devam et", the Inspector's "Desktop'ta aç" — goes through here and gets the
+///   run's own spelling. The composer takes no session id and is passed through untouched.
+/// - The `claude` path: `DesktopHandoffService` bakes it into the `.command` file it writes, but it may only
+///   be known after the locator's background search, so the service is built per call with whatever the
+///   locator knows by then (`ClaudeFallback` while searching or when missing: the file then fails loudly,
+///   matching the red status in Settings).
 nonisolated struct ClaudeHandoff: HandoffService {
-    let locator: ClaudeExecutableLocator
-    let fileStore: FileStore
-    let composerRoute: String
+    private let makeBase: @Sendable () -> any HandoffService
 
-    private var base: DesktopHandoffService {
-        DesktopHandoffService(
-            claudeExecutable: locator.currentExecutable ?? ClaudeFallback.executableURL,
-            fileStore: fileStore,
-            composerRoute: composerRoute)
+    init(makeBase: @escaping @Sendable () -> any HandoffService) {
+        self.makeBase = makeBase
+    }
+
+    init(locator: ClaudeExecutableLocator, fileStore: FileStore, composerRoute: String) {
+        self.init {
+            DesktopHandoffService(
+                claudeExecutable: locator.currentExecutable ?? ClaudeFallback.executableURL,
+                fileStore: fileStore,
+                composerRoute: composerRoute)
+        }
     }
 
     func openInTerminal(sessionID: String) throws {
-        try base.openInTerminal(sessionID: sessionID)
+        try makeBase().openInTerminal(sessionID: sessionID.lowercased())
     }
 
     func openInDesktop(sessionID: String) throws {
-        try base.openInDesktop(sessionID: sessionID)
+        try makeBase().openInDesktop(sessionID: sessionID.lowercased())
     }
 
     func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws {
-        try base.openDesktopComposer(prompt: prompt, projectPath: projectPath, files: files)
+        try makeBase().openDesktopComposer(prompt: prompt, projectPath: projectPath, files: files)
     }
 }
