@@ -68,7 +68,26 @@ public struct FileStore: Sendable {
     /// launch-recovery rows have no session (`--resume` would say "No conversation found") and are skipped.
     public func latestLaunchedRun(in runs: [Run], fileManager: FileManager = .default) -> Run? {
         runs.sorted { $0.startedAt > $1.startedAt }.first { run in
-            run.state == .running || (run.isFinished && hasRunLog(run, fileManager: fileManager))
+            if run.state == .running { return true }
+            guard run.isFinished, hasRunLog(run, fileManager: fileManager) else { return false }
+            // Codex and Antigravity pick their own session id: a run that ended without one has nothing to resume.
+            return run.agent == .claude || resumeSessionID(for: run, fileManager: fileManager) != nil
         }
+    }
+
+    /// The id `run`'s resume command takes: the recorded one, else the `init` event at the top of its log — the
+    /// coordinator records Codex's and Antigravity's session id when the run ends, so a run still going (or one a
+    /// crash cut short) only has it there.
+    public func resumeSessionID(for run: Run, fileManager: FileManager = .default) -> String? {
+        if let id = run.resumeSessionID { return id }
+        guard let handle = try? FileHandle(forReadingFrom: absoluteURL(for: run.logRelPath)) else { return nil }
+        defer { try? handle.close() }
+        let head = String(decoding: (try? handle.read(upToCount: 4096)) ?? Data(), as: UTF8.self)
+        for line in head.split(separator: "\n") {
+            if case .initialized(let sessionID, _)? = StreamJSONParser.parse(line: String(line)), let sessionID {
+                return sessionID
+            }
+        }
+        return nil
     }
 }

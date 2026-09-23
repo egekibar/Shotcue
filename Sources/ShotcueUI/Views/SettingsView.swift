@@ -2,13 +2,16 @@ import ShotcueCore
 import SwiftUI
 
 /// The `Settings` scene's content (spec §6.6): four tabs, each a grouped `Form`.
-/// `claudeVersion`, `transcriberState` and `onDownloadModel` are supplied by Plan 06, because reading
-/// `claude --version` and driving the WhisperKit download belong to the service modules.
+/// The agent versions, `transcriberState` and `onDownloadModel` are supplied by Plan 06, because reading
+/// `<cli> --version` and driving the WhisperKit download belong to the service modules.
 public struct SettingsView: View {
     public let settings: SettingsStore
     public let permissions: PermissionsStore
     public let projects: [Project]
     public let claudeVersion: String?
+    /// `codex --version` / `agy --version`; nil = not found (red).
+    public let codexVersion: String?
+    public let antigravityVersion: String?
     public let transcriberState: TranscriberModelState
     public let onDownloadModel: () -> Void
     /// Shown on the download button ("Modeli indir (≈1,6 GB)", spec §6.2: "boyut gösterilir").
@@ -26,6 +29,8 @@ public struct SettingsView: View {
         permissions: PermissionsStore,
         projects: [Project],
         claudeVersion: String?,
+        codexVersion: String? = nil,
+        antigravityVersion: String? = nil,
         transcriberState: TranscriberModelState,
         onDownloadModel: @escaping () -> Void,
         modelDownloadSize: String? = nil,
@@ -37,6 +42,8 @@ public struct SettingsView: View {
         self.permissions = permissions
         self.projects = projects
         self.claudeVersion = claudeVersion
+        self.codexVersion = codexVersion
+        self.antigravityVersion = antigravityVersion
         self.transcriberState = transcriberState
         self.onDownloadModel = onDownloadModel
         self.modelDownloadSize = modelDownloadSize
@@ -48,7 +55,7 @@ public struct SettingsView: View {
     public var body: some View {
         TabView {
             Tab("Genel", systemImage: "gearshape") { generalTab }
-            Tab("Claude", systemImage: "terminal") { claudeTab }
+            Tab("Ajanlar", systemImage: "terminal") { agentsTab }
             Tab("Ses", systemImage: "mic") { audioTab }
             Tab("İzinler", systemImage: "lock.shield") { permissionsTab }
         }
@@ -129,57 +136,24 @@ public struct SettingsView: View {
         .formStyle(.grouped)
     }
 
-    // MARK: - Claude
+    // MARK: - Ajanlar
 
-    private var claudeTab: some View {
+    private var agentsTab: some View {
         @Bindable var store = settings
         return Form {
-            Section("CLI") {
-                LabeledContent("Sürüm") {
-                    if let claudeVersion {
-                        Label(claudeVersion, systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    } else {
-                        Label("bulunamadı — gönderme devre dışı", systemImage: "xmark.octagon.fill")
-                            .foregroundStyle(.red)
+            Section("Varsayılan ajan") {
+                Picker("Ajan", selection: $store.defaultAgent) {
+                    ForEach(AgentKind.allCases) { agent in
+                        Text(agent.displayName).tag(agent)
                     }
                 }
-                LabeledContent("Yol") {
-                    TextField(
-                        "otomatik bul",
-                        text: Binding(
-                            get: { settings.claudePath ?? "" },
-                            set: { settings.claudePath = $0 })
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 240)
-                }
-                Text("Boş bırakılırsa sırayla ~/.local/bin, /opt/homebrew/bin, /usr/local/bin ve login shell denenir.")
+                Text("Görevler projenin ajanıyla çalışır; ajan seçmemiş projeler bunu kullanır (Proje ayarları).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Varsayılanlar") {
-                Picker(
-                    "Model",
-                    selection: Binding(
-                        get: { settings.defaultModel ?? "" },
-                        set: { settings.defaultModel = $0 })
-                ) {
-                    ForEach(ClaudeModelChoices.options(including: settings.defaultModel), id: \.self) { model in
-                        Text(model.isEmpty ? "CLI varsayılanı" : model).tag(model)
-                    }
-                }
-                LabeledContent("Effort") {
-                    TextField(
-                        "belirtilmedi",
-                        text: Binding(
-                            get: { settings.defaultEffort ?? "" },
-                            set: { settings.defaultEffort = $0 })
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 200)
-                }
+            ForEach(AgentKind.allCases) { agent in
+                agentSection(agent)
             }
 
             Section("Limitler") {
@@ -195,6 +169,9 @@ public struct SettingsView: View {
                 Stepper(
                     "Eş zamanlı çalışma: \(settings.maxConcurrentRuns)",
                     value: $store.maxConcurrentRuns, in: 1...20)
+                Text("Tur ve bütçe limitlerini yalnızca Claude Code uygular; zaman aşımı ve eş zamanlılık her ajan için geçerli.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Yetki modu") {
@@ -203,9 +180,15 @@ public struct SettingsView: View {
                         Text(Self.permissionModeLabel(mode)).tag(mode.rawValue)
                     }
                 }
+                Text(
+                    "Codex'te bypassPermissions sandbox'sız tam erişim, diğerleri proje klasörüyle sınırlı sandbox demek; Antigravity'de bypassPermissions dışındaki modlar terminal sandbox'ını açar."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
                 if settings.claudePermissionMode == .bypassPermissions {
                     Label(
-                        "Uygula modunda Claude dosya değişikliklerini sormadan yapar. Bu bilinçli bir tercih; güvenli tarafta kalmak için acceptEdits'e düşürebilirsin.",
+                        "Uygula modunda ajan dosya değişikliklerini sormadan yapar. Bu bilinçli bir tercih; güvenli tarafta kalmak için acceptEdits'e düşürebilirsin.",
                         systemImage: "exclamationmark.triangle.fill"
                     )
                     .font(.caption)
@@ -224,6 +207,73 @@ public struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// One agent CLI: its version (red when missing), its path, its default model and effort.
+    private func agentSection(_ agent: AgentKind) -> some View {
+        Section(agent.displayName) {
+            LabeledContent("Sürüm") {
+                if let version = version(of: agent) {
+                    Label(version, systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Label("bulunamadı", systemImage: "xmark.octagon.fill")
+                        .foregroundStyle(.red)
+                }
+            }
+            LabeledContent("Yol") {
+                TextField(
+                    "otomatik bul",
+                    text: Binding(
+                        get: { settings.executablePath(for: agent) ?? "" },
+                        set: { settings.setExecutablePath($0, for: agent) })
+                )
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 240)
+            }
+            Picker(
+                "Model",
+                selection: Binding(
+                    get: { settings.defaultModel(for: agent) ?? "" },
+                    set: { settings.setDefaultModel($0, for: agent) })
+            ) {
+                ForEach(AgentModelChoices.options(for: agent, including: settings.defaultModel(for: agent)), id: \.self) {
+                    model in
+                    Text(model.isEmpty ? "CLI varsayılanı" : model).tag(model)
+                }
+            }
+            Picker(
+                "Effort",
+                selection: Binding(
+                    get: { settings.defaultEffort(for: agent) ?? "" },
+                    set: { settings.setDefaultEffort($0, for: agent) })
+            ) {
+                ForEach(effortOptions(for: agent), id: \.self) { effort in
+                    Text(effort.isEmpty ? "belirtilmedi" : effort).tag(effort)
+                }
+            }
+            Text(
+                "Boş bırakılırsa sırayla \(agent.defaultCandidates.map { ($0 as NSString).deletingLastPathComponent }.joined(separator: ", ")) ve login shell denenir."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func version(of agent: AgentKind) -> String? {
+        switch agent {
+        case .claude: claudeVersion
+        case .codex: codexVersion
+        case .antigravity: antigravityVersion
+        }
+    }
+
+    /// The agent's efforts, plus a stored one it does not list (typed before the picker existed).
+    private func effortOptions(for agent: AgentKind) -> [String] {
+        let efforts = AgentModelChoices.efforts(for: agent)
+        guard let stored = settings.defaultEffort(for: agent), !efforts.contains(stored) else { return efforts }
+        return efforts + [stored]
     }
 
     // MARK: - Ses

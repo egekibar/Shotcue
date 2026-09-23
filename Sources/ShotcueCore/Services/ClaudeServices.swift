@@ -4,9 +4,11 @@ public enum ClaudePermissionMode: String, Sendable, Codable, CaseIterable {
     case bypassPermissions, acceptEdits, dontAsk
 }
 
-/// Everything the runner needs to build the `claude -p` command line (spec §6.4).
+/// Everything the runner needs to build the agent's command line (spec §6.4).
 public struct RunSpec: Hashable, Sendable {
     public var runID: UUID
+    /// The CLI the run goes to; `claude` unless the project or Settings picked another.
+    public var agent: AgentKind
     public var prompt: String
     public var projectPath: String
     public var mode: TaskMode
@@ -17,15 +19,19 @@ public struct RunSpec: Hashable, Sendable {
     public var timeout: TimeInterval
     public var permissionMode: ClaudePermissionMode
     public var addDirs: [String]
+    /// The screenshots' absolute paths, for CLIs that attach images (Codex `--image`).
+    public var images: [String]
     public var systemPromptAppend: String
 
     public init(
-        runID: UUID, prompt: String, projectPath: String, mode: TaskMode, model: String? = nil,
+        runID: UUID, agent: AgentKind = .claude, prompt: String, projectPath: String, mode: TaskMode,
+        model: String? = nil,
         effort: String? = nil, maxTurns: Int = 50, maxBudgetUSD: Double = 5, timeout: TimeInterval = 1800,
-        permissionMode: ClaudePermissionMode = .bypassPermissions, addDirs: [String] = [],
+        permissionMode: ClaudePermissionMode = .bypassPermissions, addDirs: [String] = [], images: [String] = [],
         systemPromptAppend: String = PromptBuilder.systemPromptAppend
     ) {
         self.runID = runID
+        self.agent = agent
         self.prompt = prompt
         self.projectPath = projectPath
         self.mode = mode
@@ -36,6 +42,7 @@ public struct RunSpec: Hashable, Sendable {
         self.timeout = timeout
         self.permissionMode = permissionMode
         self.addDirs = addDirs
+        self.images = images
         self.systemPromptAppend = systemPromptAppend
     }
 }
@@ -45,7 +52,7 @@ public protocol ClaudeRunner: Sendable {
     /// exits non-zero without a result line, times out, or is cancelled.
     func run(_ spec: RunSpec, onEvent: @escaping @Sendable (RunEvent) -> Void) async throws -> ClaudeRunResult
     func cancel(runID: UUID) async
-    /// Output of `claude --version`, e.g. "2.1.278 (Claude Code)".
+    /// Output of `<cli> --version`, e.g. "2.1.278 (Claude Code)".
     func version() async throws -> String
 }
 
@@ -57,11 +64,18 @@ public protocol GitInspector: Sendable {
 
 /// Hands a finished (or pending) task to the terminal / Claude Desktop (spec §6.4).
 public protocol HandoffService: Sendable {
-    /// Resumes the session in Terminal from `projectPath`, the run's working directory: claude keeps sessions per
-    /// folder and the resumed session's tools must run in the project (final review M6).
-    func openInTerminal(sessionID: String, projectPath: String) throws
+    /// Resumes `agent`'s session in Terminal from `projectPath`, the run's working directory: the CLIs keep sessions
+    /// per folder and the resumed session's tools must run in the project (final review M6).
+    func openInTerminal(agent: AgentKind, sessionID: String, projectPath: String) throws
     func openInDesktop(sessionID: String) throws
     func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws
+}
+
+extension HandoffService {
+    /// A Claude Code session (every run before other agents existed).
+    public func openInTerminal(sessionID: String, projectPath: String) throws {
+        try openInTerminal(agent: .claude, sessionID: sessionID, projectPath: projectPath)
+    }
 }
 
 /// UI-facing façade over the run coordinator (implemented by `RunCoordinator` in ShotcueClaudeBridge).

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Codex and Antigravity next to Claude Code. Ayarlar → Ajanlar (the former Claude tab) picks the default agent and
+  shows each CLI's version, path, default model and effort; a project can pick its own agent in *Proje ayarları*.
+  Codex runs as `codex exec --json` with the screenshots attached, Antigravity as `agy -p --output-format
+  stream-json`; both logs replay like Claude Code's, and *Terminalde devam et* resumes with `codex resume` /
+  `agy --conversation`. Turn and budget limits apply to Claude Code only; the timeout and concurrency apply to all.
+- A run row shows which agent ran it.
+
 ## [1.1.0] — 2026-09-23
 
 ### Added

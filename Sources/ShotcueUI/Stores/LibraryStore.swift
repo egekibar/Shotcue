@@ -84,6 +84,9 @@ public final class LibraryStore {
     // MARK: - Private state
 
     @ObservationIgnored private let services: AppServices
+
+    /// Settings' default agent, for the project editor's pickers.
+    public var defaultAgent: AgentKind { services.defaultAgent() }
     @ObservationIgnored private let renumber: Renumber
     @ObservationIgnored private var allTasks: [ShotTask] = []
     /// Non-nil while a search is active: the ids the repository matched. The filter then runs over the live

@@ -10,10 +10,12 @@ public enum ClaudeRunError: Error, Equatable, Sendable {
     case noResult
 }
 
-/// Runs `claude -p` in the project directory and streams its stream-json output (spec §6.4).
+/// Runs an agent CLI (`claude -p`, `codex exec`, `agy -p`) in the project directory and streams its NDJSON output
+/// as `RunEvent`s (spec §6.4). One instance per agent: `agent` picks the command line and the parser.
 /// Writes nothing to disk: log persistence belongs to `RunCoordinator`.
 public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
     public let executableURL: URL
+    public let agent: AgentKind
     public let environmentOverrides: [String: String]
     /// How long a SIGINT gets before SIGKILL. 10 s in production; tests shorten it.
     let killGrace: Duration
@@ -35,14 +37,19 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
 
     private let registry = LockBox(Registry())
 
-    public convenience init(executableURL: URL, environmentOverrides: [String: String] = [:]) {
+    public convenience init(
+        executableURL: URL, agent: AgentKind = .claude, environmentOverrides: [String: String] = [:]
+    ) {
         self.init(
-            executableURL: executableURL, environmentOverrides: environmentOverrides,
+            executableURL: executableURL, agent: agent, environmentOverrides: environmentOverrides,
             killGrace: .seconds(10))
     }
 
-    init(executableURL: URL, environmentOverrides: [String: String], killGrace: Duration) {
+    init(
+        executableURL: URL, agent: AgentKind = .claude, environmentOverrides: [String: String], killGrace: Duration
+    ) {
         self.executableURL = executableURL
+        self.agent = agent
         self.environmentOverrides = environmentOverrides
         self.killGrace = killGrace
     }
@@ -59,7 +66,10 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
 
         let process = Process()
         process.executableURL = executableURL
-        process.arguments = ClaudeArguments.build(spec: spec)
+        // The command line follows this runner's agent, whatever the spec says: the router picked the runner by it.
+        var agentSpec = spec
+        agentSpec.agent = agent
+        process.arguments = AgentArguments.build(spec: agentSpec)
         process.currentDirectoryURL = URL(fileURLWithPath: spec.projectPath, isDirectory: true)
         process.environment = claudeEnvironment()
 
@@ -71,10 +81,12 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         process.standardInput = FileHandle.nullDevice
 
         let lastResult = LockBox<ClaudeRunResult?>(nil)
+        let parser = LockBox(AgentStreamParsers.make(for: agent))
         let consume: @Sendable (String) -> Void = { line in
-            guard let event = StreamJSONParser.parse(line: line) else { return }
-            if case .result(let result) = event { lastResult.set(result) }
-            onEvent(event)
+            for event in parser.withLock({ $0.consume(line: line) }) {
+                if case .result(let result) = event { lastResult.set(result) }
+                onEvent(event)
+            }
         }
 
         let sawStdoutEOF = LockBox(false)
@@ -196,13 +208,12 @@ public final class ProcessClaudeRunner: ClaudeRunner, @unchecked Sendable {
         return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// The environment of every `claude` invocation (`run` and `version`): HOME, a PATH that starts with
-    /// claude's own directory (an npm-global install is a `#!/usr/bin/env node` script), no API key, then
-    /// the overrides.
+    /// The environment of every invocation (`run` and `version`): HOME, a PATH that starts with the CLI's own
+    /// directory (an npm-global install is a `#!/usr/bin/env node` script), no API key, then the overrides.
     func claudeEnvironment() -> [String: String] {
-        var environment = ClaudeArguments.environment(
-            base: ProcessInfo.processInfo.environment,
-            claudeDirectory: executableURL.deletingLastPathComponent().path)
+        var environment = AgentArguments.environment(
+            agent: agent, base: ProcessInfo.processInfo.environment,
+            executableDirectory: executableURL.deletingLastPathComponent().path)
         environment.merge(environmentOverrides) { _, override in override }
         return environment
     }

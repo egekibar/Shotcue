@@ -8,8 +8,10 @@ public nonisolated struct ProjectDraft: Identifiable, Hashable, Sendable {
     public var isNew: Bool
     public var name: String
     public var path: String
+    /// Empty string = the default agent from Ayarlar > Ajanlar; otherwise an `AgentKind` raw value.
+    public var agent: String
     public var defaultMode: TaskMode
-    /// Empty string = use the global default from Ayarlar > Claude.
+    /// Empty string = use the agent's global default from Ayarlar > Ajanlar.
     public var defaultModel: String
     /// Empty string = use the global default.
     public var defaultEffort: String
@@ -19,7 +21,6 @@ public nonisolated struct ProjectDraft: Identifiable, Hashable, Sendable {
     public var runInBranch: Bool
     public var stashBeforeRun: Bool
 
-    public static let effortChoices = ["", "low", "medium", "high", "xhigh", "max"]
     public static let defaultDailyTime = DailyTime(hour: 2, minute: 0)
 
     public init(project: Project) {
@@ -27,6 +28,7 @@ public nonisolated struct ProjectDraft: Identifiable, Hashable, Sendable {
         isNew = false
         name = project.name
         path = project.path
+        agent = project.agent?.rawValue ?? ""
         defaultMode = project.defaultMode
         defaultModel = project.defaultModel ?? ""
         defaultEffort = project.defaultEffort ?? ""
@@ -45,6 +47,11 @@ public nonisolated struct ProjectDraft: Identifiable, Hashable, Sendable {
     }
 
     public var dailyTime: DailyTime { DailyTime(hour: dailyHour, minute: dailyMinute) }
+
+    /// The agent the project's tasks will run with once saved.
+    public func effectiveAgent(default fallback: AgentKind) -> AgentKind {
+        AgentKind.resolve(project: AgentKind(stored: agent), default: fallback)
+    }
 
     /// nil when the draft can be saved; otherwise a Turkish message for the editor and `lastError`.
     public func validationMessage(fileManager: FileManager = .default) -> String? {
@@ -67,6 +74,7 @@ public nonisolated struct ProjectDraft: Identifiable, Hashable, Sendable {
         var project = base
         project.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         project.path = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        project.agent = AgentKind(stored: agent)
         project.defaultMode = defaultMode
         let model = defaultModel.trimmingCharacters(in: .whitespacesAndNewlines)
         project.defaultModel = model.isEmpty ? nil : model

@@ -117,11 +117,13 @@ flowchart TB
 |---|---|
 | **macOS** | 26 (Tahoe) ya da üstü |
 | **Mac** | Apple Silicon |
-| **Claude Code** | Kurulu ve Claude aboneliğinle oturum açılmış `claude` CLI'ı (2.1.278 ile denendi) |
+| **Kodlama ajanı** | En az biri: Claude aboneliğinle oturum açılmış `claude` CLI'ı (2.1.278 ile denendi), ChatGPT ile oturum açılmış OpenAI `codex` CLI'ı (0.148 ile denendi) ya da Google'ın Antigravity CLI'ı `agy` (1.2.9 ile denendi) |
 | **Sesli notlar** *(isteğe bağlı)* | Varsayılan WhisperKit modeli için yaklaşık 1,6 GB disk; yalnızca sen istediğinde indirilir (~632 MB'lık bir model de sunulur) |
 | **Git** *(isteğe bağlı)* | Diff görünümü ve proje güvenlik ağları için (`/usr/bin/git`) |
 
-**Shotcue `claude`'u nasıl bulur:** Ayarlar → Claude → *Yol*'a bir yol yazdıysan onu; yoksa sırayla `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude` ve son olarak login shell'inde `which claude` (arka planda, 3 saniye sınırıyla). Bulduğu sürüm Ayarlar'da görünür. `claude` yoksa gönderim bir açıklamayla reddedilir.
+**Shotcue CLI'ları nasıl bulur:** her ajan için Ayarlar → Ajanlar → *Yol*'a bir yol yazdıysan onu; yoksa bilinen kurulum yerlerini (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; `codex` için ChatGPT.app içindeki kopyayı da) ve son olarak login shell'inde `which <cli>` (arka planda, 3 saniye sınırıyla). Her birinin bulunan sürümü Ayarlar'da görünür. Ajanı bulunamayan görevin gönderimi bir açıklamayla reddedilir.
+
+**Codex ve Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* tüm projelerin ajanını seçer; her proje *Proje ayarları*'ndan kendi ajanını seçebilir. Codex görevi `codex exec --json` olarak çalışır (ekran görüntüleri `--image` ile eklenir; *Analiz* salt okunur sandbox'ta, `acceptEdits`/`dontAsk` proje klasörüyle sınırlı sandbox'ta, `bypassPermissions` sandbox'sız). Antigravity görevi `agy -p … --output-format stream-json` olarak çalışır (*Analiz* plan modunda; `bypassPermissions` dışındaki modlarda terminal sandbox'ı açık). İkisinde tur ve bütçe limiti yoktur; zaman aşımı ve eş zamanlılık sınırı geçerlidir. *Terminalde devam et* `codex resume <id>` ya da `agy --conversation <id>` ile devam eder; *Desktop'ta aç* yalnızca Claude Code oturumları içindir.
 
 ## Kurulum
 
@@ -243,7 +245,7 @@ Detay panelinin aktarım (*Aktarım*) düğmeleri:
 
 ## Ayarlar
 
-Claude sekmesi (Ayarlar → Claude) her çalışmaya uygulanır:
+Ajanlar sekmesinde (Ayarlar → Ajanlar) varsayılan ajan, her CLI'ın yolu, varsayılan modeli ve effort'u ile her çalışmaya uygulanan şu ayarlar bulunur:
 
 | Ayar | Varsayılan | |
 |---|---|---|
@@ -252,8 +254,8 @@ Claude sekmesi (Ayarlar → Claude) her çalışmaya uygulanır:
 | *Zaman aşımı* | 30 dk | 1–480 dk |
 | *Eş zamanlı çalışma* | 2 | 1–20 |
 | *Yetki modu* (yalnızca *Uygula*) | `bypassPermissions` | ya da `acceptEdits`, `dontAsk` |
-| *Model* | Claude Code'un varsayılanı | `fable`, `opus`, `sonnet` ya da `haiku`; proje ve görev başına da seçilir |
-| *Effort* | Claude Code'un varsayılanı | proje başına da ayarlanır |
+| *Model* | CLI'ın varsayılanı | ajan başına (Claude Code: `fable`, `opus`, `sonnet`, `haiku`); proje ve görev başına da seçilir |
+| *Effort* | CLI'ın varsayılanı | ajan başına; proje başına da ayarlanır |
 | *Ek sistem talimatı* | boş | Shotcue'nun kendi talimatından sonra eklenir |
 
 *Analiz* görevleri her zaman `dontAsk` ve salt okunur bir araç listesiyle (Read, Glob, Grep, WebFetch, WebSearch ve `git log/diff/status/show`) çalışır. Görevin model seçimi projenin modelinden, projenin modeli de varsayılandan önce gelir. Diğer sekmelerde kısayol kaydedici, panoya kopyalama, oturum açılışında başlatma, *Görev çalışırken Mac'i uyanık tut* (varsayılan açık), depolama klasörü, transkripsiyon dili ve modeli, mikrofon ve izinler bulunur.
@@ -266,7 +268,7 @@ Claude sekmesi (Ayarlar → Claude) her çalışmaya uygulanır:
 > - Shotcue'yu önce bir **deneme deposunda** dene.
 > - Projenin güvenlik ağlarını aç: **Her çalıştırmayı yeni branch'te başlat** (her çalışma yeni bir `shotcue/<görev>-<çalışma>` dalında başlar) ve **Çalıştırmadan önce değişiklikleri stash'le** (her çalışmadan önce `git stash push -u`). Bu git adımlarından biri başarısız olursa çalışma başlamaz. Bir güvenlik ağı açıkken projenin görevleri sırayla çalışır; ikisi de kapalıyken aynı klasörde birden çok çalışma aynı anda dosya düzenleyebilir.
 > - Sınırları dar tut (tur, bütçe, zaman aşımı) ve yalnızca açıklama istediğinde *Analiz* kullan.
-> - Daha temkinli olmak için Ayarlar → Claude → *Yetki modu*'nu `acceptEdits` ya da `dontAsk` yap.
+> - Daha temkinli olmak için Ayarlar → Ajanlar → *Yetki modu*'nu `acceptEdits` ya da `dontAsk` yap.
 
 ## Gizlilik
 

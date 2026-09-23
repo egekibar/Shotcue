@@ -84,8 +84,10 @@ struct SettingsSceneRoot: View {
                 settings: environment.settings,
                 permissions: environment.permissionsStore,
                 projects: status.projects,
-                // SettingsView shows nil as the red "bulunamadı — gönderme devre dışı" state.
-                claudeVersion: status.claudeFound ? status.claudeVersion : nil,
+                // SettingsView shows nil as the red "bulunamadı" state.
+                claudeVersion: status.settingsVersion(of: .claude),
+                codexVersion: status.settingsVersion(of: .codex),
+                antigravityVersion: status.settingsVersion(of: .antigravity),
                 transcriberState: environment.transcriberModel.state,
                 // The one download flow (spec §6.2: explicit consent), shared with the quick panel and inspector.
                 onDownloadModel: { environment.transcriberModel.startDownload() },
@@ -96,7 +98,7 @@ struct SettingsSceneRoot: View {
             Divider()
             DiagnosticsBar(
                 status: status,
-                claudeVersion: status.claudeVersion,
+                defaultAgent: environment.settings.defaultAgent,
                 loginItemStatus: status.loginItemStatusText,
                 run: { environment.runDiagnostics() })
         }

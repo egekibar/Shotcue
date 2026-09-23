@@ -26,6 +26,8 @@ public struct AppServices: Sendable {
     public let clock: any Clock
     /// Backs "Diff'i göster" (Plan 07); nil disables the button.
     public let diff: (any DiffProvider)?
+    /// Settings' default agent (for projects that did not pick one), read when a picker needs the effective agent.
+    public let defaultAgent: @Sendable () -> AgentKind
 
     nonisolated public init(
         projects: any ProjectRepository,
@@ -41,7 +43,8 @@ public struct AppServices: Sendable {
         handoff: any HandoffService,
         fileStore: FileStore,
         clock: any Clock,
-        diff: (any DiffProvider)? = nil
+        diff: (any DiffProvider)? = nil,
+        defaultAgent: @escaping @Sendable () -> AgentKind = { .claude }
     ) {
         self.projects = projects
         self.tasks = tasks
@@ -57,6 +60,12 @@ public struct AppServices: Sendable {
         self.fileStore = fileStore
         self.clock = clock
         self.diff = diff
+        self.defaultAgent = defaultAgent
+    }
+
+    /// The agent a task of `project` runs with.
+    nonisolated public func agent(for project: Project?) -> AgentKind {
+        AgentKind.resolve(project: project?.agent, default: defaultAgent())
     }
 
     /// Absolute URL of a capture / voice note / run log, for AppKit calls and prompt building.

@@ -28,16 +28,17 @@ public struct RunErrorDescription: Hashable, Sendable {
 /// The one place `Run.error` codes become Turkish (final review I6): the inspector's run rows and the RUN_FAILED
 /// notification both read it, and the database keeps the codes.
 public enum RunErrorText {
-    /// nil when nothing is stored. `exitCode` / `numTurns` are the run's own, for the codes that mention them.
-    public static func describe(_ stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil)
-        -> RunErrorDescription?
-    {
+    /// nil when nothing is stored. `exitCode` / `numTurns` are the run's own, for the codes that mention them; `agent`
+    /// is the CLI that ran it (the `claude_*` codes are stored for every agent and name the one that ran).
+    public static func describe(
+        _ stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil, agent: AgentKind = .claude
+    ) -> RunErrorDescription? {
         guard let stored, !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         guard let (code, detail) = RunErrorCode.parse(stored) else {
             // Free text from before codes existed: it was written to be read as it is.
             return RunErrorDescription(message: stored.trimmingCharacters(in: .whitespacesAndNewlines))
         }
-        guard var text = known(code, detail: detail, exitCode: exitCode, numTurns: numTurns) else {
+        guard var text = known(code, detail: detail, exitCode: exitCode, numTurns: numTurns, agent: agent) else {
             return RunErrorDescription(message: "Çalışma hata ile bitti.", detail: stored)
         }
         text.detail = detail
@@ -49,26 +50,43 @@ public enum RunErrorText {
     /// before codes existed. A lost session's login hint comes first: a banner shows the start of the body and cuts the
     /// rest, and claude's line can run to ~250 characters (an API error's JSON body). Other details (git's stderr, a
     /// path) stay in the inspector.
-    public static func notificationBody(for stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil) -> String {
-        guard let text = describe(stored, exitCode: exitCode, numTurns: numTurns) else {
+    public static func notificationBody(
+        for stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil, agent: AgentKind = .claude
+    ) -> String {
+        guard let text = describe(stored, exitCode: exitCode, numTurns: numTurns, agent: agent) else {
             return "Çalışma hata ile bitti."
         }
         if let stored, let line = text.detail, RunErrorCode.parse(stored)?.code == RunErrorCode.claudeError {
             // `claude_error`'s only suggestion is the login hint (`known`).
-            return [text.suggestion, "\(claudeErrorLead): \(line)"].compactMap { $0 }.joined(separator: " ")
+            return [text.suggestion, "\(errorLead(agent)): \(line)"].compactMap { $0 }.joined(separator: " ")
         }
         return [text.message, text.suggestion].compactMap { $0 }.joined(separator: " ")
     }
 
-    /// `claude_error` in Turkish: the inspector shows it under claude's line, the notification before it.
-    private static let claudeErrorLead = "claude hata bildirdi"
+    /// `claude_error` in Turkish: the inspector shows it under the agent's line, the notification before it.
+    private static func errorLead(_ agent: AgentKind) -> String { "\(agent.executableName) hata bildirdi" }
 
-    /// Spec §8 ("Oturum düşmüş"): what a lost claude session says, whether stderr or claude's own error line tells.
-    private static let loginAgain = "claude ile tekrar giriş yapın."
+    /// Spec §8 ("Oturum düşmüş"): what a lost session says, whether stderr or the agent's own error line tells.
+    private static func loginAgain(_ agent: AgentKind) -> String { "\(agent.executableName) ile tekrar giriş yapın." }
 
-    /// Parts of claude's error line that mean the session is lost or rejected, compared case-insensitively: "Invalid
-    /// API key · Please run /login", "Not logged in", an API `authentication_error`.
-    private static let authFailureMarks = ["/login", "invalid api key", "authentication", "not logged in"]
+    /// The command that logs the agent's CLI in again.
+    private static func loginCommand(_ agent: AgentKind) -> String {
+        switch agent {
+        case .claude: "claude"
+        case .codex: "codex login"
+        case .antigravity: "agy"
+        }
+    }
+
+    /// Where the agents' paths and limits are set.
+    static let settingsTab = "Ayarlar > Ajanlar"
+
+    /// Parts of an agent's error line that mean the session is lost or rejected, compared case-insensitively: "Invalid
+    /// API key · Please run /login", "Not logged in", an API `authentication_error`, Codex's "401 Unauthorized",
+    /// Antigravity's "UNAUTHENTICATED".
+    private static let authFailureMarks = [
+        "/login", "invalid api key", "authentication", "not logged in", "unauthorized", "unauthenticated",
+    ]
 
     /// Whether claude's error line (a `claude_error` detail) says the session is lost, so the text asks for a new
     /// login (spec §8).
@@ -77,14 +95,15 @@ public enum RunErrorText {
         return authFailureMarks.contains { line.contains($0) }
     }
 
-    private static func known(_ code: String, detail: String?, exitCode: Int32?, numTurns: Int?)
+    private static func known(_ code: String, detail: String?, exitCode: Int32?, numTurns: Int?, agent: AgentKind)
         -> RunErrorDescription?
     {
+        let cli = agent.executableName
         switch code {
         case RunErrorCode.cancelled:
             return RunErrorDescription(message: "İptal edildi.")
         case RunErrorCode.cancelledBeforeLaunch:
-            return RunErrorDescription(message: "claude başlamadan iptal edildi.")
+            return RunErrorDescription(message: "\(cli) başlamadan iptal edildi.")
         case RunErrorCode.interrupted:
             return RunErrorDescription(
                 message: "Uygulama kapandığı için yarıda kaldı.",
@@ -92,36 +111,37 @@ public enum RunErrorText {
         case RunErrorCode.timeout:
             return RunErrorDescription(
                 message: "Zaman aşımı: çalışma süre sınırında durduruldu.",
-                suggestion: "Gerekirse Ayarlar > Claude'dan zaman aşımını artırıp yeniden çalıştır.")
+                suggestion: "Gerekirse \(settingsTab)'dan zaman aşımını artırıp yeniden çalıştır.")
         case RunErrorCode.claudeNotFound:
             return RunErrorDescription(
-                message: "claude bulunamadı.", suggestion: "Ayarlar > Claude'dan yolu kontrol et.")
+                message: "\(cli) bulunamadı.", suggestion: "\(settingsTab)'dan yolu kontrol et.")
         case RunErrorCode.claudeLaunchFailed:
-            return RunErrorDescription(message: "claude başlatılamadı.")
+            return RunErrorDescription(message: "\(cli) başlatılamadı.")
         case RunErrorCode.claudeNotLoggedIn:
-            return RunErrorDescription(message: loginAgain, suggestion: "Terminalde `claude` çalıştırıp giriş yap.")
+            return RunErrorDescription(
+                message: loginAgain(agent), suggestion: "Terminalde `\(loginCommand(agent))` çalıştırıp giriş yap.")
         case RunErrorCode.claudeFailed:
             return RunErrorDescription(
-                message: exitCode.map { "claude hata ile çıktı (kod \($0))." } ?? "claude hata ile çıktı.")
+                message: exitCode.map { "\(cli) hata ile çıktı (kod \($0))." } ?? "\(cli) hata ile çıktı.")
         case RunErrorCode.claudeError, ClaudeRunResult.successSubtype:
             // `success`: what rows written before `claude_error` existed hold for the same failure; claude's line is
             // then only in the run's result text, which the inspector shows. A line that says the session is lost
             // adds the login hint (spec §8).
             return RunErrorDescription(
-                message: "\(claudeErrorLead).", suggestion: looksLikeAuthFailure(detail) ? loginAgain : nil)
+                message: "\(errorLead(agent)).", suggestion: looksLikeAuthFailure(detail) ? loginAgain(agent) : nil)
         case RunErrorCode.noResult:
-            return RunErrorDescription(message: "claude sonuç satırı üretmeden çıktı.")
+            return RunErrorDescription(message: "\(cli) sonuç satırı üretmeden çıktı.")
         case RunErrorCode.maxTurns:
             return RunErrorDescription(
                 message: numTurns.map { "Tur limiti aşıldı (\($0) tur)." } ?? "Tur limiti aşıldı.",
-                suggestion: "Ayarlar > Claude'dan tur limitini artırıp yeniden çalıştır.")
+                suggestion: "\(settingsTab)'dan tur limitini artırıp yeniden çalıştır.")
         case RunErrorCode.maxBudget:
             return RunErrorDescription(
                 message: "Bütçe limiti aşıldı.",
-                suggestion: "Ayarlar > Claude'dan bütçe limitini artırıp yeniden çalıştır.")
+                suggestion: "\(settingsTab)'dan bütçe limitini artırıp yeniden çalıştır.")
         case RunErrorCode.executionError:
             return RunErrorDescription(
-                message: "Claude çalışırken bir hatayla durdu.", suggestion: "Logu inceleyip yeniden çalıştır.")
+                message: "\(agent.displayName) çalışırken bir hatayla durdu.", suggestion: "Logu inceleyip yeniden çalıştır.")
         case RunErrorCode.voiceNotePending:
             return RunErrorDescription(
                 message: "Sesli not henüz yazıya dökülmediği için gönderilmedi.",
@@ -135,13 +155,13 @@ public enum RunErrorText {
                 message: "Sesli notlar okunamadığı için gönderilmedi.", suggestion: "Yeniden gönder.")
         case RunErrorCode.gitBranchFailed:
             return RunErrorDescription(
-                message: "Yeni git branch'i açılamadı; claude başlatılmadı.",
+                message: "Yeni git branch'i açılamadı; \(cli) başlatılmadı.",
                 suggestion:
                     "Projenin git durumunu düzelt ya da proje ayarlarında \"Her çalıştırmayı yeni branch'te başlat\"ı kapat."
             )
         case RunErrorCode.gitStashFailed:
             return RunErrorDescription(
-                message: "Değişiklikler stash'lenemedi; claude başlatılmadı.",
+                message: "Değişiklikler stash'lenemedi; \(cli) başlatılmadı.",
                 suggestion:
                     "Projenin git durumunu düzelt ya da proje ayarlarında \"Çalıştırmadan önce değişiklikleri stash'le\"yi kapat."
             )
@@ -156,7 +176,7 @@ public enum RunErrorText {
                 suggestion: "Kütüphanede projeye sağ tıklayıp \"Proje ayarları…\"ndan yolu düzelt.")
         case RunErrorCode.taskChangedBeforeLaunch:
             return RunErrorDescription(
-                message: "Görev, claude başlatılmadan önce değişti ya da silindi; çalıştırılmadı.")
+                message: "Görev, \(cli) başlatılmadan önce değişti ya da silindi; çalıştırılmadı.")
         case RunErrorCode.unknownError:
             return RunErrorDescription(message: "Beklenmeyen bir hata oluştu.")
         default:

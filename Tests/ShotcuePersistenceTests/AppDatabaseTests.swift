@@ -33,6 +33,8 @@ struct AppDatabaseTests {
                 "default_effort", "daily_time", "daily_enabled",
                 "daily_last_fired_at", "run_in_branch", "stash_before_run",
                 "sort_index", "created_at",
+                // v2
+                "agent",
             ])
         #expect(
             columns["task"] == [
@@ -57,6 +59,8 @@ struct AppDatabaseTests {
                 "cost_usd", "result_text", "subtype", "exit_code", "error",
                 "log_rel_path", "git_head_before", "git_dirty_before",
                 "git_head_after", "git_branch",
+                // v2
+                "agent", "session_id",
             ])
     }
 
@@ -102,7 +106,7 @@ struct AppDatabaseTests {
         let applied = try await database.reader.read { db in
             try AppDatabase.migrator.appliedIdentifiers(db)
         }
-        #expect(applied == ["v1"])
+        #expect(applied == ["v1", "v2"])
     }
 
     @Test func openCreatesParentDirectoriesAndUsesWALPool() async throws {

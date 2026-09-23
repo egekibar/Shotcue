@@ -6,8 +6,15 @@ import ShotcueCore
 /// Held by `AppEnvironment` (a reference, not view state), so SwiftUI observes it without `@State`.
 @Observable
 final class AppStatusModel {
-    var claudeVersion: String = "kontrol ediliyor…"
-    var claudeFound: Bool = false
+    /// `<cli> --version` per agent ("kontrol ediliyor…" until it answers) and whether the CLI was found.
+    var agentVersions: [AgentKind: String] = Dictionary(
+        uniqueKeysWithValues: AgentKind.allCases.map { ($0, "kontrol ediliyor…") })
+    var agentFound: [AgentKind: Bool] = [:]
+
+    /// What Settings shows for an agent: its version, or nil (the red "bulunamadı").
+    func settingsVersion(of agent: AgentKind) -> String? {
+        agentFound[agent] == true ? agentVersions[agent] : nil
+    }
     var projects: [Project] = []
     /// Microphones for Ayarlar > Ses (`AudioDeviceCatalog`), re-read whenever Settings opens.
     var inputDevices: [(uid: String, name: String)] = []

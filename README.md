@@ -117,11 +117,13 @@ flowchart TB
 |---|---|
 | **macOS** | 26 (Tahoe) or later |
 | **Mac** | Apple Silicon |
-| **Claude Code** | The `claude` CLI, installed and logged in with your Claude subscription (tested with 2.1.278) |
+| **Coding agent** | At least one of: the `claude` CLI logged in with your Claude subscription (tested with 2.1.278), OpenAI's `codex` CLI logged in with ChatGPT (tested with 0.148), or Google's Antigravity CLI `agy` (tested with 1.2.9) |
 | **Voice notes** *(optional)* | About 1.6 GB of disk for the default WhisperKit model, downloaded only when you ask (a ~632 MB model is also offered) |
 | **Git** *(optional)* | For the diff view and the per-project safety nets (`/usr/bin/git`) |
 
-**How Shotcue finds `claude`:** the path in Ayarlar → Claude → *Yol* if you set one; otherwise `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`, and finally `which claude` in your login shell (given 3 seconds, in the background). Settings shows the version it found. Without `claude`, sending is refused with an explanation.
+**How Shotcue finds the CLIs:** for each agent, the path in Ayarlar → Ajanlar → *Yol* if you set one; otherwise the usual install locations (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; for `codex` also the copy inside ChatGPT.app), and finally `which <cli>` in your login shell (given 3 seconds, in the background). Settings shows the version it found for each. A task whose agent is missing is refused with an explanation.
+
+**Codex and Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* picks the agent for every project, and each project can pick its own in *Proje ayarları*. A Codex task runs as `codex exec --json` (the screenshots are attached with `--image`; *Analiz* uses the read-only sandbox, `acceptEdits`/`dontAsk` the workspace-write sandbox, `bypassPermissions` no sandbox). An Antigravity task runs as `agy -p … --output-format stream-json` (*Analiz* in plan mode, the terminal sandbox unless the mode is `bypassPermissions`). Both have no turn or budget limit; the timeout and the concurrency limit apply. *Terminalde devam et* resumes with `codex resume <id>` or `agy --conversation <id>`; *Desktop'ta aç* is for Claude Code sessions only.
 
 ## Install
 
@@ -243,7 +245,7 @@ The inspector's hand-off buttons (*Aktarım*):
 
 ## Settings
 
-The Claude tab (Ayarlar → Claude) applies to every run:
+The Agents tab (Ayarlar → Ajanlar) holds the default agent, each CLI's path, default model and effort, and these settings for every run:
 
 | Setting | Default | |
 |---|---|---|
@@ -252,8 +254,8 @@ The Claude tab (Ayarlar → Claude) applies to every run:
 | *Zaman aşımı* (timeout) | 30 min | 1–480 min |
 | *Eş zamanlı çalışma* (concurrent runs) | 2 | 1–20 |
 | *Yetki modu* (permission mode, *Uygula* only) | `bypassPermissions` | or `acceptEdits`, `dontAsk` |
-| *Model* | Claude Code's default | `fable`, `opus`, `sonnet` or `haiku`; per project and per task too |
-| *Effort* | Claude Code's default | per project too |
+| *Model* | the CLI's default | per agent (Claude Code: `fable`, `opus`, `sonnet`, `haiku`); per project and per task too |
+| *Effort* | the CLI's default | per agent; per project too |
 | *Ek sistem talimatı* (extra system prompt) | empty | appended to Shotcue's own instructions |
 
 *Analiz* tasks always run with `dontAsk` and a read-only tool list (Read, Glob, Grep, WebFetch, WebSearch and `git log/diff/status/show`). A task's model override wins over the project's model, which wins over the default. The other tabs hold the shortcut recorder, clipboard copy, launch at login, *Görev çalışırken Mac'i uyanık tut* (keep the Mac awake while a run is going, on by default), the storage folder, the transcription language and model, the microphone, and the permissions.
@@ -266,7 +268,7 @@ The Claude tab (Ayarlar → Claude) applies to every run:
 > - Try Shotcue on a **test repository** first.
 > - Turn on the project's safety nets: **Her çalıştırmayı yeni branch'te başlat** (every run starts on a new branch, `shotcue/<task>-<run>`) and **Çalıştırmadan önce değişiklikleri stash'le** (`git stash push -u` before every run). If either git step fails, the run does not start. With a safety net on, the project's tasks run one at a time; with both off, several runs can edit the same folder at once.
 > - Keep the limits tight (turns, budget, timeout) and use *Analiz* when you only want an explanation.
-> - For more caution, set Ayarlar → Claude → *Yetki modu* to `acceptEdits` or `dontAsk`.
+> - For more caution, set Ayarlar → Ajanlar → *Yetki modu* to `acceptEdits` or `dontAsk`.
 
 ## Privacy
 

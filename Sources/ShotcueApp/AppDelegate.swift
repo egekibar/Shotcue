@@ -36,8 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // scheduler starts. It owns its 30 s DispatchSourceTimer and the NSWorkspace.didWakeNotification
         // observer; its first timer pass is `interval` away, so launch asks for one immediate reconcile.
         // Final review I1: the coordinator holds its queue until here, so no run can start before recovery;
-        // then the queue resumes — tasks queued before the quit start again — but only once `claude` is known
-        // to exist (the same wait as `ClaudeGatedDispatcher`): without it, queued tasks stay queued.
+        // then the queue resumes — tasks queued before the quit start again — but only once an agent CLI is known
+        // to exist (the same wait as `AgentGatedDispatcher`): without any, queued tasks stay queued.
         Task { @MainActor in
             do {
                 let recovered = try await environment.runCoordinator.recoverInterruptedRuns()
@@ -50,10 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
             await environment.scheduler.start()
             await environment.scheduler.tick()
-            if await environment.claude.executable() != nil {
+            if await environment.locators.anyFound() {
                 await environment.runCoordinator.resumeQueue()
             } else {
-                AppLog.app.notice("claude missing: the run queue stays held, queued tasks stay queued")
+                AppLog.app.notice("no agent CLI found: the run queue stays held, queued tasks stay queued")
             }
         }
 
@@ -142,9 +142,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
 
         case UserNotificationNotifier.terminalAction:
-            // `Run.id` doubles as the Claude session id (Plan 00 Task 1), so the session to resume is
-            // either the run the notification came from or the task's newest run.
-            guard let sessionID = await Self.sessionID(runID: runID, taskID: taskID, environment: environment)
+            // The session to resume is the run the notification came from or the task's newest run; for Claude Code
+            // `Run.id` doubles as the session id (Plan 00 Task 1), Codex and Antigravity report their own.
+            guard let (agent, sessionID) = await Self.session(runID: runID, taskID: taskID, environment: environment)
             else {
                 environment.status.lastError = "Devam edilecek oturum bulunamadı."
                 return
@@ -155,7 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 return
             }
             do {
-                try environment.services.handoff.openInTerminal(sessionID: sessionID, projectPath: projectPath)
+                try environment.services.handoff.openInTerminal(
+                    agent: agent, sessionID: sessionID, projectPath: projectPath)
             } catch {
                 environment.status.lastError = "Terminal açılamadı: \(error.localizedDescription)"
             }
@@ -179,16 +180,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return UUID(uuidString: string)
     }
 
-    /// The notification's run (RUN_DONE: claude ran it), or the task's newest run that actually started claude
-    /// (final review M4, the Inspector's rule). The spelling `--resume` needs is applied by `ClaudeHandoff`, the
-    /// same as for the Inspector's resume buttons.
-    private static func sessionID(
+    /// The notification's run (RUN_DONE: the agent ran it), or the task's newest run that actually started its agent
+    /// (final review M4, the Inspector's rule), with its agent and session id. The spelling `--resume` needs is
+    /// applied by `ClaudeHandoff`, the same as for the Inspector's resume buttons.
+    private static func session(
         runID: UUID?, taskID: UUID?, environment: AppEnvironment
-    ) async -> String? {
-        if let runID { return runID.uuidString }
-        guard let taskID else { return nil }
-        let runs = (try? await environment.services.runs.runs(taskID: taskID)) ?? []
-        return environment.fileStore.latestLaunchedRun(in: runs)?.id.uuidString
+    ) async -> (AgentKind, String)? {
+        let run: Run?
+        if let runID {
+            // A row that cannot be read is taken for a Claude Code run: its id is then the session id.
+            run = (try? await environment.services.runs.run(id: runID)) ?? Run(id: runID, taskID: UUID(), logRelPath: "")
+        } else if let taskID {
+            let runs = (try? await environment.services.runs.runs(taskID: taskID)) ?? []
+            run = environment.fileStore.latestLaunchedRun(in: runs)
+        } else {
+            run = nil
+        }
+        guard let run, let sessionID = environment.fileStore.resumeSessionID(for: run) else { return nil }
+        return (run.agent, sessionID)
     }
 
     /// The folder of the task's project; nil when the task or its project is gone.

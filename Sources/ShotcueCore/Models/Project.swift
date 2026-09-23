@@ -22,11 +22,13 @@ public struct DailyTime: Hashable, Sendable, Codable {
     public var formatted: String { String(format: "%02d:%02d", hour, minute) }
 }
 
-/// A project = a directory on disk where Claude Code runs. Groups in the library are projects.
+/// A project = a directory on disk where the coding agent runs. Groups in the library are projects.
 public struct Project: Identifiable, Hashable, Sendable, Codable {
     public var id: UUID
     public var name: String
     public var path: String
+    /// The agent the project's tasks go to; nil = the default from Settings.
+    public var agent: AgentKind?
     public var defaultMode: TaskMode
     public var defaultModel: String?
     public var defaultEffort: String?
@@ -39,7 +41,7 @@ public struct Project: Identifiable, Hashable, Sendable, Codable {
     public var createdAt: Date
 
     public init(
-        id: UUID = UUID(), name: String, path: String, defaultMode: TaskMode = .implement,
+        id: UUID = UUID(), name: String, path: String, agent: AgentKind? = nil, defaultMode: TaskMode = .implement,
         defaultModel: String? = nil, defaultEffort: String? = nil, dailyTime: DailyTime? = nil,
         dailyEnabled: Bool = false, dailyLastFiredAt: Date? = nil, runInBranch: Bool = false,
         stashBeforeRun: Bool = false, sortIndex: Double = 0, createdAt: Date = Date()
@@ -47,6 +49,7 @@ public struct Project: Identifiable, Hashable, Sendable, Codable {
         self.id = id
         self.name = name
         self.path = path
+        self.agent = agent
         self.defaultMode = defaultMode
         self.defaultModel = defaultModel
         self.defaultEffort = defaultEffort

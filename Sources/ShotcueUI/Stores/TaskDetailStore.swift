@@ -191,14 +191,22 @@ public final class TaskDetailStore {
 
     public var latestRun: Run? { runs.first }
 
+    /// The agent the task runs with: its project's, else the Settings default.
+    public var agent: AgentKind { services.agent(for: project) }
+
     /// The run a resume opens (final review M4): the newest one that actually started claude. Runs refused or
     /// cancelled before launch (C1, I4, claude not found) have no session. Kept in step with `runs`, so the file
     /// checks behind it run when the runs change, not on every render.
     public private(set) var resumableRun: Run?
 
-    /// The claude session id to resume: `run.id` doubles as `--session-id` (spec §6.3). nil disables the
-    /// "Terminalde devam et" / "Desktop'ta aç" buttons.
-    public var sessionID: String? { resumableRun?.id.uuidString }
+    /// The session id to resume: for Claude Code `run.id` doubles as `--session-id` (spec §6.3), Codex and Antigravity
+    /// report their own. nil disables the "Terminalde devam et" / "Desktop'ta aç" buttons.
+    public var sessionID: String? { resumableRun.flatMap { services.fileStore.resumeSessionID(for: $0) } }
+
+    /// "Desktop'ta aç" resumes Claude Code sessions only (Claude Desktop).
+    public var canOpenInDesktop: Bool {
+        sessionID != nil && resumableRun?.agent.supportsDesktopResume == true
+    }
 
     private func refreshResumableRun() {
         resumableRun = services.fileStore.latestLaunchedRun(in: runs)
@@ -592,14 +600,15 @@ public final class TaskDetailStore {
             return
         }
         do {
-            try services.handoff.openInTerminal(sessionID: sessionID, projectPath: projectPath)
+            try services.handoff.openInTerminal(
+                agent: resumableRun?.agent ?? .claude, sessionID: sessionID, projectPath: projectPath)
         } catch {
             report(error)
         }
     }
 
     public func openInDesktop() async {
-        guard let sessionID else {
+        guard let sessionID, canOpenInDesktop else {
             lastError = "Devam ettirilecek bir oturum yok."
             return
         }

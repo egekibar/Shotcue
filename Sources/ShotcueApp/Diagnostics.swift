@@ -13,12 +13,12 @@ struct ProcessOutput: Sendable {
 
 /// Read-only host diagnostics (spec §12; replaces Plan 00 Task 11's temporary `SpikeRunner`).
 ///
-/// Nothing here mutates state: `claude --version` and `claude auth status` only read. The report is
+/// Nothing here mutates state: `<cli> --version`, `claude auth status` and `codex login status` only read. The report is
 /// written to the per-user temporary directory with mode 0600, and only `loggedIn` / `authMethod` /
 /// `subscriptionType` are taken from the auth JSON, so the account e-mail and organisation never reach
 /// a file.
 struct Diagnostics {
-    let claude: ClaudeExecutableLocator
+    let locators: AgentLocators
     let permissions: any PermissionService
     let fileStore: FileStore
     let settings: SettingsStore
@@ -27,11 +27,11 @@ struct Diagnostics {
     static let reportURL = FileManager.default.temporaryDirectory
         .appendingPathComponent("shotcue-diagnostics.txt")
 
-    /// Shown in Settings > Claude (spec §6.4: the tested version is 2.1.278). Waits for the locator's
-    /// background search when it is still running (Settings shows "aranıyor…" meanwhile).
-    func claudeVersion() async -> (text: String, found: Bool) {
-        guard let claudeExecutable = await claude.executable() else { return ("bulunamadı", false) }
-        let result = await Self.run(claudeExecutable, ["--version"])
+    /// Shown in Settings > Ajanlar (spec §6.4: the tested versions are claude 2.1.278, codex-cli 0.148, agy 1.2.9).
+    /// Waits for the locator's background search when it is still running (Settings shows "aranıyor…" meanwhile).
+    func version(of agent: AgentKind) async -> (text: String, found: Bool) {
+        guard let executable = await locators[agent].executable() else { return ("bulunamadı", false) }
+        let result = await Self.run(executable, ["--version"])
         guard result.status == 0, !result.timedOut else {
             return ("okunamadı (exit \(result.status))", false)
         }
@@ -62,8 +62,8 @@ struct Diagnostics {
     private func report(
         transcriberState: TranscriberModelState, loginItemStatus: String, hotKeyLabel: String
     ) async -> String {
-        let version = await claudeVersion()
         let auth = await authSummary()
+        let codexAuth = await codexAuthSummary()
         let signature = await signatureSummary()
         let screenRecording = await permissions.state(of: .screenRecording)
         let microphone = await permissions.state(of: .microphone)
@@ -78,10 +78,15 @@ struct Diagnostics {
             "sürüm: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")"
                 + " (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
         lines.append("imza: \(signature)")
-        lines.append("claude yolu: \(await claude.executable()?.path ?? "bulunamadı")")
-        lines.append("claude ayarı: \(settings.claudePath ?? "(otomatik)")")
-        lines.append("claude sürümü: \(version.text)")
+        lines.append("varsayılan ajan: \(settings.defaultAgent.displayName)")
+        for agent in AgentKind.allCases {
+            let name = agent.executableName
+            lines.append("\(name) yolu: \(await locators[agent].executable()?.path ?? "bulunamadı")")
+            lines.append("\(name) ayarı: \(settings.executablePath(for: agent) ?? "(otomatik)")")
+            lines.append("\(name) sürümü: \(await version(of: agent).text)")
+        }
         lines.append("claude auth: \(auth)")
+        lines.append("codex auth: \(codexAuth)")
         lines.append(
             "izinler: ekran kaydı=\(screenRecording.rawValue)"
                 + " mikrofon=\(microphone.rawValue) bildirimler=\(notifications.rawValue)")
@@ -96,12 +101,23 @@ struct Diagnostics {
     }
 
     private func authSummary() async -> String {
-        guard let claudeExecutable = await claude.executable() else { return "claude yok" }
+        guard let claudeExecutable = await locators.claude.executable() else { return "claude yok" }
         let result = await Self.run(claudeExecutable, ["auth", "status"])
         guard result.status == 0, !result.timedOut, let summary = Self.authSummary(json: result.stdout) else {
             return "okunamadı (exit \(result.status))"
         }
         return summary
+    }
+
+    /// `codex login status` prints one line ("Logged in using ChatGPT"); only a line of that form is copied, so an
+    /// account detail a future version might print cannot reach the report.
+    private func codexAuthSummary() async -> String {
+        guard let codex = await locators.codex.executable() else { return "codex yok" }
+        let result = await Self.run(codex, ["login", "status"])
+        let line = (result.stdout + "\n" + result.stderr).components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { $0.hasPrefix("Logged in using") || $0.hasPrefix("Not logged in") }
+        return line ?? "okunamadı (exit \(result.status))"
     }
 
     /// Whitelist, not blacklist: only these three keys are ever copied out of `claude auth status`, so a
@@ -153,8 +169,8 @@ struct Diagnostics {
     // MARK: - Child processes
 
     /// Runs a short-lived tool on a GCD thread (never blocking the main actor or the cooperative pool).
-    /// `HOME`/`PATH` are set explicitly and `ANTHROPIC_API_KEY` is removed so `claude` reports the
-    /// subscription session, not an API key (spec §6.4). After `timeout` the child gets SIGTERM, then
+    /// `HOME`/`PATH` are set explicitly and the API keys are removed so each CLI reports its subscription
+    /// session, not an API key (spec §6.4). After `timeout` the child gets SIGTERM, then
     /// SIGKILL two seconds later.
     nonisolated static func run(
         _ executable: URL, _ arguments: [String], timeout: TimeInterval = 20
@@ -178,7 +194,9 @@ struct Diagnostics {
         environment["PATH"] =
             "\(executable.deletingLastPathComponent().path):\(NSHomeDirectory())/.local/bin"
             + ":/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        environment.removeValue(forKey: "ANTHROPIC_API_KEY")
+        for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CODEX_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"] {
+            environment.removeValue(forKey: key)
+        }
         process.environment = environment
         process.standardInput = FileHandle.nullDevice
         let outPipe = Pipe()

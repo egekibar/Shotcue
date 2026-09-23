@@ -5,10 +5,11 @@ import ShotcueUI
 
 /// Value-type mirror of every `SettingsStore` field the app has to react to.
 /// Equatable so `AppEnvironment.applySettings()` can skip no-op re-applications.
-/// `sttModel`, `inputDeviceUID`, `storageRootPath` and `claudePath` cannot be applied to a live service —
-/// they are baked into the transcriber, the recorder, the file store and the claude locator at init — but
+/// `sttModel`, `inputDeviceUID`, `storageRootPath` and the agent paths cannot be applied to a live service —
+/// they are baked into the transcriber, the recorder, the file store and the agent locators at init — but
 /// they are part of the snapshot so a change is *noticed* and the user is told a restart is needed.
 struct AppSettingsSnapshot: Equatable, Sendable {
+    var defaultAgent: AgentKind
     var maxConcurrent: Int
     var maxTurns: Int
     var maxBudgetUSD: Double
@@ -16,6 +17,10 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var permissionMode: ClaudePermissionMode
     var model: String?
     var effort: String?
+    var codexModel: String?
+    var codexEffort: String?
+    var antigravityModel: String?
+    var antigravityEffort: String?
     var extraSystemPrompt: String
     var keepAwake: Bool
     var sttLanguage: String
@@ -28,8 +33,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var copyToClipboardOnCapture: Bool
     /// The effective storage root (`SettingsStore.storageRootPath` is optional: nil means the default).
     var storageRootPath: String
-    /// Settings > Claude > Yol; nil = search the default locations.
-    var claudePath: String?
+    /// Settings > Ajanlar > Yol, per agent; a missing entry = search the default locations.
+    var agentPaths: [AgentKind: String]
 }
 
 /// The only place that translates user-facing settings into service inputs. Pure functions only:
@@ -37,6 +42,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
 enum AppSettingsBridge {
     static func snapshot(of settings: SettingsStore) -> AppSettingsSnapshot {
         AppSettingsSnapshot(
+            defaultAgent: settings.defaultAgent,
             maxConcurrent: max(1, settings.maxConcurrentRuns),
             maxTurns: max(1, settings.maxTurns),
             maxBudgetUSD: max(0.01, settings.maxBudgetUSD),
@@ -44,6 +50,10 @@ enum AppSettingsBridge {
             permissionMode: settings.claudePermissionMode,
             model: nonEmpty(settings.defaultModel),
             effort: nonEmpty(settings.defaultEffort),
+            codexModel: nonEmpty(settings.codexDefaultModel),
+            codexEffort: nonEmpty(settings.codexDefaultEffort),
+            antigravityModel: nonEmpty(settings.antigravityDefaultModel),
+            antigravityEffort: nonEmpty(settings.antigravityDefaultEffort),
             extraSystemPrompt: settings.extraSystemPrompt,
             keepAwake: settings.keepAwake,
             sttLanguage: nonEmpty(settings.sttLanguage) ?? "tr",
@@ -54,11 +64,20 @@ enum AppSettingsBridge {
             launchAtLogin: settings.launchAtLogin,
             copyToClipboardOnCapture: settings.copyToClipboardOnCapture,
             storageRootPath: settings.storageRoot.path,
-            claudePath: nonEmpty(settings.claudePath))
+            agentPaths: agentPaths(of: settings))
+    }
+
+    static func agentPaths(of settings: SettingsStore) -> [AgentKind: String] {
+        var paths: [AgentKind: String] = [:]
+        for agent in AgentKind.allCases {
+            paths[agent] = nonEmpty(settings.executablePath(for: agent))
+        }
+        return paths
     }
 
     static func runSettings(from snapshot: AppSettingsSnapshot) -> RunSettings {
         RunSettings(
+            defaultAgent: snapshot.defaultAgent,
             maxConcurrent: snapshot.maxConcurrent,
             maxTurns: snapshot.maxTurns,
             maxBudgetUSD: snapshot.maxBudgetUSD,
@@ -66,6 +85,10 @@ enum AppSettingsBridge {
             permissionMode: snapshot.permissionMode,
             model: snapshot.model,
             effort: snapshot.effort,
+            codexModel: snapshot.codexModel,
+            codexEffort: snapshot.codexEffort,
+            antigravityModel: snapshot.antigravityModel,
+            antigravityEffort: snapshot.antigravityEffort,
             extraSystemPrompt: snapshot.extraSystemPrompt,
             keepAwake: snapshot.keepAwake)
     }

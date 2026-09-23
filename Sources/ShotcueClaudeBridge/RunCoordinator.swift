@@ -236,6 +236,7 @@ public actor RunCoordinator: TaskDispatcher {
                 return
             }
             project = found
+            run.agent = AgentKind.resolve(project: found.agent, default: settings.defaultAgent)
         } catch {
             await failBeforeLaunch(
                 &run, title: queued.title,
@@ -317,7 +318,12 @@ public actor RunCoordinator: TaskDispatcher {
 
         let writer = logWriter
         let broadcaster = broadcasters.withLock { $0[runID] }
+        // Codex and Antigravity pick their own session id and report it in their first event.
+        let reportedSessionID = LockBox<String?>(nil)
         let onEvent: @Sendable (RunEvent) -> Void = { event in
+            if case .initialized(let sessionID?, _) = event {
+                reportedSessionID.withLock { if $0 == nil { $0 = sessionID } }
+            }
             try? writer.append(event, runID: runID)
             broadcaster?.send(event)
         }
@@ -339,6 +345,10 @@ public actor RunCoordinator: TaskDispatcher {
         }
 
         run.finishedAt = clock.now
+        if run.agent != .claude {
+            let resultSessionID = try? outcome.get().sessionID
+            run.sessionID = reportedSessionID.current ?? resultSessionID
+        }
         run.gitHeadAfter = await gitInspector.snapshot(at: project.path)?.head
         let notification = await record(outcome: outcome, into: &run, title: running.title)
         try? await runRepository.save(run)
@@ -356,7 +366,8 @@ public actor RunCoordinator: TaskDispatcher {
         try? await runRepository.save(run)
         await notifier.notify(
             AppNotification(
-                kind: .runFailed, title: task?.title ?? title, body: RunErrorText.notificationBody(for: error),
+                kind: .runFailed, title: task?.title ?? title,
+                body: RunErrorText.notificationBody(for: error, agent: run.agent),
                 taskID: run.taskID, runID: run.id))
     }
 
@@ -412,7 +423,7 @@ public actor RunCoordinator: TaskDispatcher {
             let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
                 kind: .runFailed, title: task?.title ?? title,
-                body: RunErrorText.notificationBody(for: run.error, numTurns: run.numTurns),
+                body: RunErrorText.notificationBody(for: run.error, numTurns: run.numTurns, agent: run.agent),
                 taskID: run.taskID, runID: run.id)
 
         case .failure(let error):
@@ -429,7 +440,7 @@ public actor RunCoordinator: TaskDispatcher {
             let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
                 kind: .runFailed, title: task?.title ?? title,
-                body: RunErrorText.notificationBody(for: run.error, exitCode: run.exitCode),
+                body: RunErrorText.notificationBody(for: run.error, exitCode: run.exitCode, agent: run.agent),
                 taskID: run.taskID, runID: run.id)
         }
     }
@@ -452,18 +463,24 @@ public actor RunCoordinator: TaskDispatcher {
                 mode: task.mode, title: task.title, projectPath: project.path,
                 screenshots: screenshots, noteText: task.noteText, transcripts: transcripts))
         let extra = settings.extraSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let agent = AgentKind.resolve(project: project.agent, default: settings.defaultAgent)
+        let defaults = settings.defaults(for: agent)
         return RunSpec(
             runID: runID,
+            agent: agent,
             prompt: prompt,
             projectPath: project.path,
             mode: task.mode,
-            model: task.modelOverride ?? project.defaultModel ?? settings.model,
-            effort: project.defaultEffort ?? settings.effort,
+            // A value meant for another agent (a task's "opus" after its project moved to Codex) is skipped.
+            model: AgentModelChoices.resolveModel(
+                [task.modelOverride, project.defaultModel, defaults.model], for: agent),
+            effort: AgentModelChoices.resolveEffort([project.defaultEffort, defaults.effort], for: agent),
             maxTurns: settings.maxTurns,
             maxBudgetUSD: settings.maxBudgetUSD,
             timeout: settings.timeout,
             permissionMode: task.mode == .analyze ? .dontAsk : settings.permissionMode,
             addDirs: [fileStore.rootURL.appendingPathComponent(FileStore.capturesDir, isDirectory: true).path],
+            images: screenshots.map(\.absolutePath),
             systemPromptAppend: PromptBuilder.systemPromptAppend + (extra.isEmpty ? "" : "\n\n" + extra))
     }
 
@@ -523,6 +540,15 @@ public actor RunCoordinator: TaskDispatcher {
         return String((firstLine(text) ?? text).prefix(200))
     }
 
+    /// The first stderr line that reads as the failure itself ("Error: …"). Codex logs warnings to stderr before it
+    /// (a models-cache note, an MCP server that needs a login), so its first line is rarely the reason.
+    static func errorLine(_ stderr: String) -> String? {
+        let line = stderr.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { $0.lowercased().hasPrefix("error:") }
+        return line.map { String($0.prefix(200)) }
+    }
+
     /// An error's first line, as the raw detail under a code.
     static func detail(of error: any Error) -> String {
         let text = String(describing: error)
@@ -555,7 +581,7 @@ public actor RunCoordinator: TaskDispatcher {
             if lowered.contains("not logged in") || lowered.contains("login") {
                 return RunErrorCode.compose(RunErrorCode.claudeNotLoggedIn, detail: nil)
             }
-            return RunErrorCode.compose(RunErrorCode.claudeFailed, detail: firstLine(stderr))
+            return RunErrorCode.compose(RunErrorCode.claudeFailed, detail: errorLine(stderr) ?? firstLine(stderr))
         case .timedOut:
             return RunErrorCode.timeout
         case .cancelled:

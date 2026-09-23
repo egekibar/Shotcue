@@ -6,6 +6,7 @@ import ShotcueCore
 import ShotcueNotes
 import ShotcuePersistence
 import ShotcueUI
+import os
 
 /// Single owner of every concrete service, store and AppKit controller (spec §6.7).
 /// Nothing else in the app calls a service initialiser.
@@ -40,8 +41,10 @@ final class AppEnvironment {
     /// In-app updates from GitHub Releases: the check timer, the update window, the install quit.
     let updates: UpdateCoordinator
 
-    /// Where `claude` is; resolved without blocking launch (checked by the runner, handoff, diagnostics).
-    let claude: ClaudeExecutableLocator
+    /// Where each agent CLI is; resolved without blocking launch (checked by the runner, handoff, diagnostics).
+    let locators: AgentLocators
+    /// Settings' default agent, readable off the main actor (the send gate, the UI's pickers).
+    private let defaultAgentBox: OSAllocatedUnfairLock<AgentKind>
 
     private let database: AppDatabase
     private var appliedSnapshot: AppSettingsSnapshot?
@@ -89,17 +92,20 @@ final class AppEnvironment {
             titleMaker: true)
         self.transcription = transcription
 
-        // 5. Claude runner. A missing binary must not stop the app from launching (spec §8), and looking
-        //    for it must not block launch: only the fixed locations are checked here; the login-shell
-        //    fallback runs in the background and the runner waits for it.
+        // 5. Agent runners. A missing binary must not stop the app from launching (spec §8), and looking
+        //    for one must not block launch: only the fixed locations are checked here; the login-shell
+        //    fallbacks run in the background and the runner waits for them.
         let clock = SystemClock()
         let notifier = UserNotificationNotifier(center: .current())
         self.notifier = notifier
-        let claude = ClaudeExecutableLocator(preferredPath: settings.claudePath)
-        self.claude = claude
+        let locators = AgentLocators(paths: snapshot.agentPaths)
+        self.locators = locators
+        let defaultAgentBox = OSAllocatedUnfairLock(initialState: snapshot.defaultAgent)
+        self.defaultAgentBox = defaultAgentBox
+        let defaultAgent: @Sendable () -> AgentKind = { defaultAgentBox.withLock { $0 } }
         let gitInspector = ShellGitInspector()
         let runCoordinator = RunCoordinator(
-            runner: DeferredClaudeRunner(locator: claude),
+            runner: AgentRouterRunner(locators: locators),
             taskRepository: tasks,
             projectRepository: projects,
             runRepository: runs,
@@ -112,8 +118,16 @@ final class AppEnvironment {
             holdsQueueUntilResumed: true)
         self.runCoordinator = runCoordinator
         // Every sender (UI stores through AppServices, the quick panel, the scheduler) goes through this:
-        // with `claude` missing, sends are refused up front (spec §8).
-        let dispatcher = ClaudeGatedDispatcher(base: runCoordinator, locator: claude)
+        // with the task's agent CLI missing, sends are refused up front (spec §8).
+        let dispatcher = AgentGatedDispatcher(
+            base: runCoordinator, locators: locators,
+            agentForTask: { taskID in
+                var project: Project?
+                if let projectID = (try? await tasks.task(id: taskID))??.projectID {
+                    project = (try? await projects.project(id: projectID)) ?? nil
+                }
+                return AgentKind.resolve(project: project?.agent, default: defaultAgent())
+            })
 
         // 6. Scheduler + hand-off.
         self.scheduler = SchedulerDriver(
@@ -123,9 +137,9 @@ final class AppEnvironment {
             clock: clock,
             calendar: .current,
             interval: 30)
-        // `DesktopHandoffService` is built per call by `ClaudeHandoff`, with the path the locator knows by
-        // then (the background search may finish after launch).
-        let handoff = ClaudeHandoff(locator: claude, fileStore: fileStore, composerRoute: "code/new")
+        // `DesktopHandoffService` is built per call by `ClaudeHandoff`, with the paths the locators know by
+        // then (the background searches may finish after launch).
+        let handoff = ClaudeHandoff(locators: locators, fileStore: fileStore, composerRoute: "code/new")
 
         // 7. The façade the UI module sees.
         let services = AppServices(
@@ -143,7 +157,8 @@ final class AppEnvironment {
             fileStore: fileStore,
             clock: clock,
             // "Diff'i göster" (Plan 07): the same inspector that snapshots git around every run.
-            diff: gitInspector)
+            diff: gitInspector,
+            defaultAgent: defaultAgent)
         self.services = services
 
         // 8. Stores (Plan 05) and the shared image cache.
@@ -164,17 +179,19 @@ final class AppEnvironment {
 
         // 9. App-level state and AppKit controllers.
         let status = AppStatusModel()
-        // Until `claude --version` answers, a located binary reads "kontrol ediliyor…" and one still being
+        // Until `<cli> --version` answers, a located binary reads "kontrol ediliyor…" and one still being
         // searched for "aranıyor…" — neither is "bulunamadı" (red) yet.
-        status.claudeFound = claude.current != .missing
-        if claude.current == .searching { status.claudeVersion = "aranıyor…" }
+        for agent in AgentKind.allCases {
+            status.agentFound[agent] = locators[agent].current != .missing
+            if locators[agent].current == .searching { status.agentVersions[agent] = "aranıyor…" }
+        }
         self.status = status
         self.settingsObserver = SettingsObserver()
         self.windowOpener = WindowOpener()
         let activationPolicy = ActivationPolicyController()
         self.activationPolicy = activationPolicy
         self.diagnostics = Diagnostics(
-            claude: claude,
+            locators: locators,
             permissions: permissions,
             fileStore: fileStore,
             settings: settings)
@@ -232,6 +249,7 @@ final class AppEnvironment {
         let previous = appliedSnapshot
         appliedSnapshot = snapshot
 
+        defaultAgentBox.withLock { $0 = snapshot.defaultAgent }
         let runSettings = AppSettingsBridge.runSettings(from: snapshot)
         let coordinator = runCoordinator
         Task { await coordinator.updateSettings(runSettings) }
@@ -256,10 +274,10 @@ final class AppEnvironment {
             previous.sttModel != snapshot.sttModel
                 || previous.inputDeviceUID != snapshot.inputDeviceUID
                 || previous.storageRootPath != snapshot.storageRootPath
-                || previous.claudePath != snapshot.claudePath
+                || previous.agentPaths != snapshot.agentPaths
         {
             status.lastError =
-                "Bu ayar için Shotcue'yu yeniden başlatın (model / giriş cihazı / depolama / claude yolu)."
+                "Bu ayar için Shotcue'yu yeniden başlatın (model / giriş cihazı / depolama / ajan yolu)."
         }
     }
 
@@ -331,16 +349,19 @@ final class AppEnvironment {
 
     // MARK: - Status
 
-    /// `claude --version`, transcriber model state, project list, input devices and login item status.
+    /// `<cli> --version` of every agent, transcriber model state, project list, input devices and login item status.
     func refreshStatus() {
         let transcriberModel = transcriberModel
         let projectRepository = services.projects
         Task { @MainActor in
-            let version = await diagnostics.claudeVersion()
-            status.claudeVersion = version.text
-            status.claudeFound = version.found
-            AppLog.app.notice(
-                "claude \(version.found ? "found" : "missing", privacy: .public): \(version.text, privacy: .public)")
+            for agent in AgentKind.allCases {
+                let version = await diagnostics.version(of: agent)
+                status.agentVersions[agent] = version.text
+                status.agentFound[agent] = version.found
+                AppLog.app.notice(
+                    "\(agent.executableName, privacy: .public) \(version.found ? "found" : "missing", privacy: .public): \(version.text, privacy: .public)"
+                )
+            }
             await transcriberModel.refresh()
             status.projects = (try? await projectRepository.allProjects()) ?? []
         }

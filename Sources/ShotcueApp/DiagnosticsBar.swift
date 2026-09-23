@@ -1,3 +1,4 @@
+import ShotcueCore
 import SwiftUI
 
 /// "Tanılama çalıştır" strip below `SettingsView`; writes the report to the per-user temporary directory
@@ -5,16 +6,23 @@ import SwiftUI
 /// shown, because `SettingsView` has no slot for them.
 struct DiagnosticsBar: View {
     let status: AppStatusModel
-    let claudeVersion: String
+    /// Its CLI missing is shown in red; the other agents are optional.
+    let defaultAgent: AgentKind
     let loginItemStatus: String
     let run: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("claude: \(claudeVersion)")
-                    .font(.caption)
-                    .foregroundStyle(status.claudeFound ? .secondary : Color.red)
+                HStack(spacing: 10) {
+                    ForEach(AgentKind.allCases) { agent in
+                        Text("\(agent.executableName): \(status.agentVersions[agent] ?? "?")")
+                            .font(.caption)
+                            .foregroundStyle(
+                                status.agentFound[agent] == false && agent == defaultAgent
+                                    ? Color.red : .secondary)
+                    }
+                }
                 HStack(spacing: 6) {
                     Text("Girişte başlat: \(loginItemStatus)")
                         .font(.caption)

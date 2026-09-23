@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import ShotcueCore
 
 extension AppDatabase {
     /// Numbered migrations. Never edit an existing migration after it shipped — add "v2".
@@ -91,6 +92,18 @@ extension AppDatabase {
             try db.create(
                 index: "run_on_task_id_started_at", on: "run",
                 columns: ["task_id", "started_at"])
+        }
+
+        // Codex and Antigravity next to Claude Code: a project may pick its agent, and a run records which agent ran
+        // it and that agent's own session id (Claude Code's is `run.id`).
+        migrator.registerMigration("v2") { db in
+            try db.alter(table: "project") { t in
+                t.add(column: "agent", .text)
+            }
+            try db.alter(table: "run") { t in
+                t.add(column: "agent", .text).notNull().defaults(to: AgentKind.claude.rawValue)
+                t.add(column: "session_id", .text)
+            }
         }
 
         return migrator

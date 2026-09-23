@@ -18,6 +18,8 @@ public struct DesktopHandoffService: HandoffService {
     public static let composerPromptLimit = 14_000
 
     public let claudeExecutable: URL
+    /// Codex's and Antigravity's executables, for their resume commands.
+    public let otherExecutables: [AgentKind: URL]
     public let fileStore: FileStore
     /// `code/new` keeps the project context; `cowork/new` is the fallback when file
     /// attachments matter (research 04 §3.3-5).
@@ -25,21 +27,29 @@ public struct DesktopHandoffService: HandoffService {
     private let open: Opener
 
     public init(
-        claudeExecutable: URL, fileStore: FileStore, composerRoute: String = "code/new",
-        open: @escaping Opener = { NSWorkspace.shared.open($0) }
+        claudeExecutable: URL, otherExecutables: [AgentKind: URL] = [:], fileStore: FileStore,
+        composerRoute: String = "code/new", open: @escaping Opener = { NSWorkspace.shared.open($0) }
     ) {
         self.claudeExecutable = claudeExecutable
+        self.otherExecutables = otherExecutables
         self.fileStore = fileStore
         self.composerRoute = composerRoute
         self.open = open
     }
 
-    public func openInTerminal(sessionID: String, projectPath: String) throws {
+    public func openInTerminal(agent: AgentKind, sessionID: String, projectPath: String) throws {
         guard let session = UUID(uuidString: sessionID) else { throw HandoffError.invalidSessionID(sessionID) }
         let url = try Self.writeResumeCommand(
-            claudeExecutable: claudeExecutable, sessionID: session.uuidString.lowercased(),
+            agent: agent, executable: executable(for: agent), sessionID: session.uuidString.lowercased(),
             projectPath: projectPath, fileStore: fileStore)
         guard open(url) else { throw HandoffError.openFailed(url.path) }
+    }
+
+    /// The agent's CLI; a missing one falls back to `~/.local/bin/<name>`, and the command file then fails loudly.
+    public func executable(for agent: AgentKind) -> URL {
+        if agent == .claude { return claudeExecutable }
+        return otherExecutables[agent]
+            ?? URL(fileURLWithPath: "\(NSHomeDirectory())/.local/bin/\(agent.executableName)")
     }
 
     public func openInDesktop(sessionID: String) throws {
@@ -59,12 +69,12 @@ public struct DesktopHandoffService: HandoffService {
 
     /// Writes `runs/<sessionID>-resume.command` with mode 755 and returns its URL.
     static func writeResumeCommand(
-        claudeExecutable: URL, sessionID: String, projectPath: String, fileStore: FileStore
+        agent: AgentKind, executable: URL, sessionID: String, projectPath: String, fileStore: FileStore
     ) throws -> URL {
         let relPath = "\(FileStore.runsDir)/\(sessionID)-resume.command"
         try fileStore.ensureParentDirectory(for: relPath)
         let url = fileStore.absoluteURL(for: relPath)
-        try commandFileContents(claudeExecutable: claudeExecutable, sessionID: sessionID, projectPath: projectPath)
+        try commandFileContents(agent: agent, executable: executable, sessionID: sessionID, projectPath: projectPath)
             .write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
         return url
@@ -88,9 +98,24 @@ public struct DesktopHandoffService: HandoffService {
     /// `cd` into the project first (claude keeps sessions per folder, and the resumed session's tools must run
     /// there), then resume. Every path is single-quoted; the session id is a validated UUID.
     public static func commandFileContents(claudeExecutable: URL, sessionID: String, projectPath: String) -> String {
+        commandFileContents(agent: .claude, executable: claudeExecutable, sessionID: sessionID, projectPath: projectPath)
+    }
+
+    public static func commandFileContents(
+        agent: AgentKind, executable: URL, sessionID: String, projectPath: String
+    ) -> String {
         "#!/bin/zsh\n"
             + "cd -- \(shellQuoted(projectPath)) || exit 1\n"
-            + "\(shellQuoted(claudeExecutable.path)) --resume \(sessionID)\n"
+            + "\(shellQuoted(executable.path)) \(resumeArguments(agent: agent, sessionID: sessionID))\n"
+    }
+
+    /// `claude --resume <id>`, `codex resume <id>`, `agy --conversation <id>`: each CLI's interactive resume.
+    public static func resumeArguments(agent: AgentKind, sessionID: String) -> String {
+        switch agent {
+        case .claude: "--resume \(sessionID)"
+        case .codex: "resume \(sessionID)"
+        case .antigravity: "--conversation \(sessionID)"
+        }
     }
 
     /// `text` as one zsh word: single quotes, each embedded `'` written as `'\''`.

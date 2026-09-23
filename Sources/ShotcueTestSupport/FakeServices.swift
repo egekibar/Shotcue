@@ -178,8 +178,10 @@ public final class FakeNotifier: Notifier, @unchecked Sendable {
 public final class FakeHandoffService: HandoffService, @unchecked Sendable {
     public let actions = Locked<[String]>([])
     public init() {}
-    public func openInTerminal(sessionID: String, projectPath: String) throws {
-        actions.withLock { $0.append("terminal:\(sessionID)@\(projectPath)") }
+    /// Claude Code sessions keep the "terminal:<id>@<path>" form; other agents add their name after "terminal:".
+    public func openInTerminal(agent: AgentKind, sessionID: String, projectPath: String) throws {
+        let prefix = agent == .claude ? "terminal:" : "terminal:\(agent.rawValue):"
+        actions.withLock { $0.append("\(prefix)\(sessionID)@\(projectPath)") }
     }
     public func openInDesktop(sessionID: String) throws { actions.withLock { $0.append("desktop:\(sessionID)") } }
     public func openDesktopComposer(prompt: String, projectPath: String, files: [String]) throws {

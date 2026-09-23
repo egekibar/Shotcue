@@ -312,13 +312,21 @@ public struct TaskInspectorView: View {
                 .pickerStyle(.segmented)
                 .disabled(!store.isEditable)
 
+                LabeledContent("Ajan") {
+                    Text(store.agent.displayName)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 240, alignment: .leading)
+
                 Picker(
                     "Model",
                     selection: Binding<String>(
                         get: { task.modelOverride ?? "" },
                         set: { newValue in Task { await store.setModelOverride(newValue) } })
                 ) {
-                    ForEach(ClaudeModelChoices.options(including: task.modelOverride), id: \.self) { model in
+                    ForEach(
+                        AgentModelChoices.options(for: store.agent, including: task.modelOverride), id: \.self
+                    ) { model in
                         Text(model.isEmpty ? "Proje varsayılanı" : model).tag(model)
                     }
                 }
@@ -423,6 +431,7 @@ public struct TaskInspectorView: View {
                         .foregroundStyle(.secondary)
                 }
                 HStack(spacing: 10) {
+                    Text(run.agent.displayName)
                     Text(Formatting.turns(run.numTurns))
                     Text(Formatting.duration(run.finishedAt.map { $0.timeIntervalSince(run.startedAt) }))
                 }
@@ -436,7 +445,9 @@ public struct TaskInspectorView: View {
                 }
                 // Final review I6: the row keeps a machine code; it is read in Turkish, with what to do about it
                 // (spec §8: after a limit stop, raise the limit) and the raw detail or unknown code underneath.
-                if let failure = RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns) {
+                if let failure = RunErrorText.describe(
+                    run.error, exitCode: run.exitCode, numTurns: run.numTurns, agent: run.agent)
+                {
                     Text(failure.message)
                         .font(.caption)
                         .lineLimit(2)
@@ -482,7 +493,10 @@ public struct TaskInspectorView: View {
                 Button("Desktop'ta aç", systemImage: "app.badge") {
                     Task { await store.openInDesktop() }
                 }
-                .disabled(store.sessionID == nil)
+                .disabled(!store.canOpenInDesktop)
+                .help(
+                    store.resumableRun.map { $0.agent.supportsDesktopResume } == false
+                        ? "Yalnızca Claude Code oturumları Claude Desktop'ta açılır." : "")
             }
             if let run = store.runs.first(where: { $0.id == store.selectedRunID }) ?? store.latestRun {
                 Button("Diff'i göster", systemImage: "plus.forwardslash.minus") {

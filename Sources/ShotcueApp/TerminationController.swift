@@ -232,7 +232,7 @@ final class TerminationController {
             alert.addButton(withTitle: "Durdur ve yeniden başlat")
         } else {
             alert.messageText = "Çalışan \(count) görev durdurulacak."
-            alert.informativeText = "Çıkarken çalışan Claude oturumları durdurulur. \(resumeHint)"
+            alert.informativeText = "Çıkarken çalışan ajan oturumları durdurulur. \(resumeHint)"
             alert.addButton(withTitle: "Durdur ve çık")
         }
         let cancel = alert.addButton(withTitle: "Vazgeç")

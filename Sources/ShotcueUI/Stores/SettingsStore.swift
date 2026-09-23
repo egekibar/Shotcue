@@ -33,9 +33,17 @@ public final class SettingsStore {
         static let launchAtLogin = "launchAtLogin"
         static let copyToClipboardOnCapture = "copyToClipboardOnCapture"
         static let storageRootPath = "storageRootPath"
+        static let defaultAgent = "defaultAgent"
         static let claudePath = "claudePath"
+        static let codexPath = "codexPath"
+        static let antigravityPath = "antigravityPath"
+        /// Claude Code's; the keys predate the other agents.
         static let defaultModel = "defaultModel"
         static let defaultEffort = "defaultEffort"
+        static let codexDefaultModel = "codexDefaultModel"
+        static let codexDefaultEffort = "codexDefaultEffort"
+        static let antigravityDefaultModel = "antigravityDefaultModel"
+        static let antigravityDefaultEffort = "antigravityDefaultEffort"
         static let maxTurns = "maxTurns"
         static let maxBudgetUSD = "maxBudgetUSD"
         static let timeoutMinutes = "timeoutMinutes"
@@ -114,11 +122,101 @@ public final class SettingsStore {
         return FileStore.defaultRoot()
     }
 
-    // MARK: - Claude
+    // MARK: - Agents
+
+    /// The agent of projects that did not pick one. Stored as its raw value; an unknown value reads as Claude Code.
+    public var defaultAgent: AgentKind {
+        get {
+            access(keyPath: \.defaultAgent)
+            return AgentKind(stored: defaults.string(forKey: Key.defaultAgent)) ?? .claude
+        }
+        set { withMutation(keyPath: \.defaultAgent) { defaults.set(newValue.rawValue, forKey: Key.defaultAgent) } }
+    }
 
     public var claudePath: String? {
         get { optionalString(Key.claudePath, keyPath: \.claudePath) }
         set { setOptionalString(newValue, Key.claudePath, keyPath: \.claudePath) }
+    }
+
+    public var codexPath: String? {
+        get { optionalString(Key.codexPath, keyPath: \.codexPath) }
+        set { setOptionalString(newValue, Key.codexPath, keyPath: \.codexPath) }
+    }
+
+    public var antigravityPath: String? {
+        get { optionalString(Key.antigravityPath, keyPath: \.antigravityPath) }
+        set { setOptionalString(newValue, Key.antigravityPath, keyPath: \.antigravityPath) }
+    }
+
+    public var codexDefaultModel: String? {
+        get { optionalString(Key.codexDefaultModel, keyPath: \.codexDefaultModel) }
+        set { setOptionalString(newValue, Key.codexDefaultModel, keyPath: \.codexDefaultModel) }
+    }
+
+    public var codexDefaultEffort: String? {
+        get { optionalString(Key.codexDefaultEffort, keyPath: \.codexDefaultEffort) }
+        set { setOptionalString(newValue, Key.codexDefaultEffort, keyPath: \.codexDefaultEffort) }
+    }
+
+    public var antigravityDefaultModel: String? {
+        get { optionalString(Key.antigravityDefaultModel, keyPath: \.antigravityDefaultModel) }
+        set { setOptionalString(newValue, Key.antigravityDefaultModel, keyPath: \.antigravityDefaultModel) }
+    }
+
+    public var antigravityDefaultEffort: String? {
+        get { optionalString(Key.antigravityDefaultEffort, keyPath: \.antigravityDefaultEffort) }
+        set { setOptionalString(newValue, Key.antigravityDefaultEffort, keyPath: \.antigravityDefaultEffort) }
+    }
+
+    /// Settings > Ajanlar > the agent's path; nil = search the default locations.
+    public func executablePath(for agent: AgentKind) -> String? {
+        switch agent {
+        case .claude: claudePath
+        case .codex: codexPath
+        case .antigravity: antigravityPath
+        }
+    }
+
+    public func setExecutablePath(_ path: String?, for agent: AgentKind) {
+        switch agent {
+        case .claude: claudePath = path
+        case .codex: codexPath = path
+        case .antigravity: antigravityPath = path
+        }
+    }
+
+    /// The agent's default model (Claude Code's is `defaultModel`).
+    public func defaultModel(for agent: AgentKind) -> String? {
+        switch agent {
+        case .claude: defaultModel
+        case .codex: codexDefaultModel
+        case .antigravity: antigravityDefaultModel
+        }
+    }
+
+    public func setDefaultModel(_ model: String?, for agent: AgentKind) {
+        switch agent {
+        case .claude: defaultModel = model
+        case .codex: codexDefaultModel = model
+        case .antigravity: antigravityDefaultModel = model
+        }
+    }
+
+    /// The agent's default effort (Claude Code's is `defaultEffort`).
+    public func defaultEffort(for agent: AgentKind) -> String? {
+        switch agent {
+        case .claude: defaultEffort
+        case .codex: codexDefaultEffort
+        case .antigravity: antigravityDefaultEffort
+        }
+    }
+
+    public func setDefaultEffort(_ effort: String?, for agent: AgentKind) {
+        switch agent {
+        case .claude: defaultEffort = effort
+        case .codex: codexDefaultEffort = effort
+        case .antigravity: antigravityDefaultEffort = effort
+        }
     }
 
     public var defaultModel: String? {

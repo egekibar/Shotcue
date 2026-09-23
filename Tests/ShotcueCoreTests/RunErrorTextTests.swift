@@ -38,13 +38,13 @@ struct RunErrorTextTests {
     @Test func limitStopsSuggestRaisingTheLimit() throws {
         let turns = try #require(RunErrorText.describe(RunErrorCode.maxTurns, numTurns: 30))
         #expect(turns.message == "Tur limiti aşıldı (30 tur).")
-        #expect(turns.suggestion == "Ayarlar > Claude'dan tur limitini artırıp yeniden çalıştır.")
+        #expect(turns.suggestion == "Ayarlar > Ajanlar'dan tur limitini artırıp yeniden çalıştır.")
         let budget = try #require(RunErrorText.describe(RunErrorCode.maxBudget))
         #expect(budget.message == "Bütçe limiti aşıldı.")
-        #expect(budget.suggestion == "Ayarlar > Claude'dan bütçe limitini artırıp yeniden çalıştır.")
+        #expect(budget.suggestion == "Ayarlar > Ajanlar'dan bütçe limitini artırıp yeniden çalıştır.")
         #expect(
             RunErrorText.notificationBody(for: RunErrorCode.maxTurns, numTurns: 30)
-                == "Tur limiti aşıldı (30 tur). Ayarlar > Claude'dan tur limitini artırıp yeniden çalıştır.")
+                == "Tur limiti aşıldı (30 tur). Ayarlar > Ajanlar'dan tur limitini artırıp yeniden çalıştır.")
     }
 
     @Test func aDetailIsShownUnderTheTurkishText() throws {

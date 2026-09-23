@@ -7,6 +7,8 @@ struct RunRecord: ShotcueRecord {
 
     var id: String
     var taskId: String
+    var agent: String
+    var sessionId: String?
     var state: String
     var startedAt: Date
     var finishedAt: Date?
@@ -25,6 +27,8 @@ struct RunRecord: ShotcueRecord {
     enum CodingKeys: String, CodingKey {
         case id
         case taskId = "task_id"
+        case agent
+        case sessionId = "session_id"
         case state
         case startedAt = "started_at"
         case finishedAt = "finished_at"
@@ -56,6 +60,8 @@ struct RunRecord: ShotcueRecord {
     init(_ run: Run) {
         id = run.id.dbKey
         taskId = run.taskID.dbKey
+        agent = run.agent.rawValue
+        sessionId = run.sessionID
         state = run.state.rawValue
         startedAt = run.startedAt
         finishedAt = run.finishedAt
@@ -76,6 +82,9 @@ struct RunRecord: ShotcueRecord {
         try Run(
             id: Self.parsed(CodingKeys.id, id, using: UUID.init(uuidString:)),
             taskID: Self.parsed(CodingKeys.taskId, taskId, using: UUID.init(uuidString:)),
+            // An agent this version does not know is shown as Claude Code rather than hiding the run.
+            agent: AgentKind(rawValue: agent) ?? .claude,
+            sessionID: sessionId,
             state: Self.parsed(CodingKeys.state, state, using: RunState.init(rawValue:)),
             startedAt: startedAt,
             finishedAt: finishedAt,

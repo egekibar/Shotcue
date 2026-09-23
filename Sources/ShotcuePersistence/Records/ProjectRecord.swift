@@ -8,6 +8,7 @@ struct ProjectRecord: ShotcueRecord {
     var id: String
     var name: String
     var path: String
+    var agent: String?
     var defaultMode: String
     var defaultModel: String?
     var defaultEffort: String?
@@ -23,6 +24,7 @@ struct ProjectRecord: ShotcueRecord {
         case id
         case name
         case path
+        case agent
         case defaultMode = "default_mode"
         case defaultModel = "default_model"
         case defaultEffort = "default_effort"
@@ -45,6 +47,7 @@ struct ProjectRecord: ShotcueRecord {
         id = project.id.dbKey
         name = project.name
         path = project.path
+        agent = project.agent?.rawValue
         defaultMode = project.defaultMode.rawValue
         defaultModel = project.defaultModel
         defaultEffort = project.defaultEffort
@@ -62,6 +65,7 @@ struct ProjectRecord: ShotcueRecord {
             id: Self.parsed(CodingKeys.id, id, using: UUID.init(uuidString:)),
             name: name,
             path: path,
+            agent: AgentKind(stored: agent),
             defaultMode: Self.parsed(CodingKeys.defaultMode, defaultMode, using: TaskMode.init(rawValue:)),
             defaultModel: defaultModel,
             defaultEffort: defaultEffort,

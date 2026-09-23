@@ -25,6 +25,7 @@ public struct ProjectEditorView: View {
 
     private func form(_ draft: Binding<ProjectDraft>) -> some View {
         let validation = draft.wrappedValue.validationMessage()
+        let agent = draft.wrappedValue.effectiveAgent(default: store.defaultAgent)
         return VStack(alignment: .leading, spacing: 0) {
             Form {
                 Section("Proje") {
@@ -38,6 +39,12 @@ public struct ProjectEditorView: View {
                     }
                 }
                 Section("Varsayılanlar") {
+                    Picker("Ajan", selection: agentBinding(draft)) {
+                        Text("Genel ayar (\(store.defaultAgent.displayName))").tag("")
+                        ForEach(AgentKind.allCases) { agent in
+                            Text(agent.displayName).tag(agent.rawValue)
+                        }
+                    }
                     Picker("Mod", selection: draft.defaultMode) {
                         Text("Analiz").tag(TaskMode.analyze)
                         Text("Uygula").tag(TaskMode.implement)
@@ -45,13 +52,14 @@ public struct ProjectEditorView: View {
                     .pickerStyle(.segmented)
                     Picker("Model", selection: draft.defaultModel) {
                         ForEach(
-                            ClaudeModelChoices.options(including: draft.wrappedValue.defaultModel), id: \.self
+                            AgentModelChoices.options(for: agent, including: draft.wrappedValue.defaultModel),
+                            id: \.self
                         ) { model in
                             Text(model.isEmpty ? "Genel ayar" : model).tag(model)
                         }
                     }
                     Picker("Effort", selection: draft.defaultEffort) {
-                        ForEach(ProjectDraft.effortChoices, id: \.self) { effort in
+                        ForEach(effortOptions(draft.wrappedValue.defaultEffort, agent: agent), id: \.self) { effort in
                             Text(effort.isEmpty ? "Genel ayar" : effort).tag(effort)
                         }
                     }
@@ -96,6 +104,31 @@ public struct ProjectEditorView: View {
             .padding(16)
         }
         .frame(width: 520, height: 560)
+    }
+
+    /// Switching the agent clears a model or effort the new agent does not take, so the pickers never hold a value
+    /// the run would skip.
+    private func agentBinding(_ draft: Binding<ProjectDraft>) -> Binding<String> {
+        Binding(
+            get: { draft.wrappedValue.agent },
+            set: { newValue in
+                draft.wrappedValue.agent = newValue
+                let agent = draft.wrappedValue.effectiveAgent(default: store.defaultAgent)
+                if !draft.wrappedValue.defaultModel.isEmpty,
+                    !AgentModelChoices.model(draft.wrappedValue.defaultModel, appliesTo: agent)
+                {
+                    draft.wrappedValue.defaultModel = ""
+                }
+                if !AgentModelChoices.efforts(for: agent).contains(draft.wrappedValue.defaultEffort) {
+                    draft.wrappedValue.defaultEffort = ""
+                }
+            })
+    }
+
+    /// The agent's efforts, plus a stored one it does not list so the picker can still show it.
+    private func effortOptions(_ stored: String, agent: AgentKind) -> [String] {
+        let efforts = AgentModelChoices.efforts(for: agent)
+        return stored.isEmpty || efforts.contains(stored) ? efforts : efforts + [stored]
     }
 
     /// Hour/minute of the draft shown through a `DatePicker` (display only; the date part is ignored).
