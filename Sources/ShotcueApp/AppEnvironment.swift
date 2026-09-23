@@ -311,13 +311,27 @@ final class AppEnvironment {
         menuBarStore.start()
     }
 
-    /// Notification "Aç": the library shows the task's own list with the task selected and the inspector
-    /// open. `LibraryStore` drops a selection that is not visible under the current sidebar filter or
-    /// search, so both are pointed at the task first.
+    /// Notification "Aç": opens the library on the task's own list with the task selected and the
+    /// inspector shown. `LibraryStore` streams only while the library window is on screen and drops a
+    /// selection its filtered list does not contain — opened from closed, its first stream pass could
+    /// drop an id selected up front. So the sidebar (and search) are pointed at the task, the window is
+    /// opened, and the task is selected only once the store lists it (polled on the main actor, ≤ 2 s).
     func revealTask(_ taskID: UUID) async {
-        guard let task = try? await services.tasks.task(id: taskID) else { return }
+        guard let task = try? await services.tasks.task(id: taskID) else {
+            windowOpener.openLibrary()
+            return
+        }
         if !libraryStore.searchText.isEmpty { libraryStore.searchText = "" }
         libraryStore.selection = task.projectID.map { .project($0) } ?? .inbox
+        windowOpener.openLibrary()
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !libraryStore.tasks.contains(where: { $0.id == taskID }) {
+            guard ContinuousClock.now < deadline else {
+                AppLog.app.error("reveal: task \(taskID, privacy: .public) not listed within 2 s; library left open")
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
         libraryStore.selectedTaskIDs = [taskID]
         libraryStore.isInspectorPresented = true
     }

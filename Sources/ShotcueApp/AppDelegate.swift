@@ -109,9 +109,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         switch response.actionIdentifier {
         case UserNotificationNotifier.openAction, UNNotificationDefaultActionIdentifier:
-            environment.windowOpener.openLibrary()
+            // `revealTask` opens the library itself, after pointing the sidebar at the task.
             if let taskID {
                 await environment.revealTask(taskID)
+            } else {
+                environment.windowOpener.openLibrary()
             }
 
         case UserNotificationNotifier.terminalAction:
