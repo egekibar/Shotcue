@@ -406,9 +406,9 @@ public actor RunCoordinator: TaskDispatcher {
                     body: Self.doneBody(summary: Self.firstLine(result.result), costUSD: result.totalCostUSD),
                     taskID: run.taskID, runID: run.id)
             }
-            // A limit stop or an execution error: claude's own subtype is the code (final review I6).
+            // A limit stop, an execution error, or an API or auth failure (final review I6; `errorCode(for:)`).
             run.state = .failed
-            run.error = RunErrorCode.isCode(result.subtype) ? result.subtype : RunErrorCode.executionError
+            run.error = Self.errorCode(for: result)
             let task = await apply(.failed, toTask: run.taskID)
             return AppNotification(
                 kind: .runFailed, title: task?.title ?? title,
@@ -529,6 +529,16 @@ public actor RunCoordinator: TaskDispatcher {
     static func detail(of error: any Error) -> String {
         let text = String(describing: error)
         return String((firstLine(text) ?? text).prefix(200))
+    }
+
+    /// The code stored for a result that is not a success (final review I6): claude's own subtype for a limit stop or
+    /// an execution error. claude reports API and auth failures (a rejected key, a usage limit, an overloaded API) as
+    /// subtype `success` with `is_error`; their code keeps claude's first result line, which says what went wrong.
+    static func errorCode(for result: ClaudeRunResult) -> String {
+        if result.subtype == ClaudeRunResult.successSubtype {
+            return RunErrorCode.compose(RunErrorCode.claudeError, detail: firstLine(result.result))
+        }
+        return RunErrorCode.isCode(result.subtype) ? result.subtype : RunErrorCode.executionError
     }
 
     /// The code stored for a runner failure (final review I6); `RunErrorText` turns it into Turkish. The login

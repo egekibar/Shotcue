@@ -357,6 +357,66 @@ struct RunCoordinatorTests {
         #expect(!notification.body.contains("_"))
     }
 
+    /// claude reports API and auth failures (a rejected key, a usage limit, an overloaded API) as a result with subtype
+    /// `success` and `is_error`. The run fails with claude's first result line kept in its code, so the inspector and
+    /// the notification say why instead of showing a raw "success".
+    @Test func anErrorResultWithSubtypeSuccessKeepsClaudesReason() async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Anahtar", status: .ready)
+        let runner = FakeClaudeRunner(
+            outcome: .success(
+                ClaudeRunResult(
+                    subtype: "success", isError: true, result: "Invalid API key · Please run /login",
+                    totalCostUSD: 0, numTurns: 1)))
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        let run = try #require(await h.runs(of: task.id).first)
+        #expect(run.subtype == "success")
+        #expect(run.error == "claude_error: Invalid API key · Please run /login")
+        #expect(await h.status(of: task.id) == .failed)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(notification.kind == .runFailed)
+        // A rejected key is a lost session: spec §8's login hint follows claude's line.
+        #expect(
+            notification.body
+                == "claude hata bildirdi: Invalid API key · Please run /login — claude ile tekrar giriş yapın.")
+        // The inspector reads the same row: claude's line as the result text (primary), the Turkish text and the
+        // login hint under it, and no second copy of the line.
+        #expect(run.resultText == "Invalid API key · Please run /login")
+        let failure = try #require(RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns))
+        #expect(failure.message == "claude hata bildirdi.")
+        #expect(failure.suggestion == "claude ile tekrar giriş yapın.")
+        #expect(failure.detail == "Invalid API key · Please run /login")
+        #expect(failure.detailIsShown(in: run.resultText))
+    }
+
+    /// Only the first non-empty line is kept (a JSON body can follow it); without a result line the code stands alone.
+    @Test(
+        arguments: zip(
+            ["\nAPI Error: 529 Overloaded\n{\"type\":\"error\"}", "", nil] as [String?],
+            ["claude_error: API Error: 529 Overloaded", "claude_error", "claude_error"]))
+    func anErrorResultKeepsOnlyClaudesFirstLine(result: String?, stored: String) async throws {
+        let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
+        let task = ShotTask(projectID: project.id, title: "Yoğun", status: .ready)
+        let runner = FakeClaudeRunner(
+            outcome: .success(ClaudeRunResult(subtype: "success", isError: true, result: result)))
+        let h = Harness(projects: [project], tasks: [task], runner: runner)
+        defer { h.cleanUp() }
+
+        try await h.coordinator.enqueue(taskID: task.id)
+        await waitUntil("run failed") { await h.runs(of: task.id).first?.state == .failed }
+
+        let run = try #require(await h.runs(of: task.id).first)
+        #expect(run.error == stored)
+        let notification = try #require(h.notifier.sent.current.first)
+        #expect(notification.body == RunErrorText.notificationBody(for: run.error, numTurns: run.numTurns))
+        #expect(notification.body.hasPrefix("claude hata bildirdi"))
+    }
+
     @Test func cancelForwardsToTheRunnerWhileRunningAndUnqueuesOtherwise() async throws {
         let project = Project(name: "crm", path: Harness.makeProjectDirectory("crm"))
         let running = ShotTask(projectID: project.id, title: "Çalışan", status: .ready, sortIndex: 1)

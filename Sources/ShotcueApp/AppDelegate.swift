@@ -90,6 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         environment.settingsObserver.stop()
         let scheduler = environment.scheduler
         Task { await scheduler.stop() }
+        // Onboarding asked for a restart after the Screen Recording grant and the quit went ahead (final review N1).
+        if environment.termination.relaunchRequested {
+            OnboardingWindowController.startRelauncher()
+        }
     }
 
     /// Menu-bar app: closing the library window must not quit.

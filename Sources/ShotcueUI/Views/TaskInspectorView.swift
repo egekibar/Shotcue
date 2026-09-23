@@ -447,7 +447,8 @@ public struct TaskInspectorView: View {
                             .lineLimit(3)
                             .foregroundStyle(.secondary)
                     }
-                    if let detail = failure.detail {
+                    // claude's error line (`claude_error`) is already the result text above, as primary text.
+                    if let detail = failure.detail, !failure.detailIsShown(in: run.resultText) {
                         Text(detail)
                             .font(.caption2.monospaced())
                             .lineLimit(2)
