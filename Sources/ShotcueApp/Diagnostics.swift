@@ -18,7 +18,7 @@ struct ProcessOutput: Sendable {
 /// `subscriptionType` are taken from the auth JSON, so the account e-mail and organisation never reach
 /// a file.
 struct Diagnostics {
-    let claudeExecutable: URL?
+    let claude: ClaudeExecutableLocator
     let permissions: any PermissionService
     let fileStore: FileStore
     let settings: SettingsStore
@@ -27,9 +27,10 @@ struct Diagnostics {
     static let reportURL = FileManager.default.temporaryDirectory
         .appendingPathComponent("shotcue-diagnostics.txt")
 
-    /// Shown in Settings > Claude (spec §6.4: the tested version is 2.1.278).
+    /// Shown in Settings > Claude (spec §6.4: the tested version is 2.1.278). Waits for the locator's
+    /// background search when it is still running (Settings shows "aranıyor…" meanwhile).
     func claudeVersion() async -> (text: String, found: Bool) {
-        guard let claudeExecutable else { return ("bulunamadı", false) }
+        guard let claudeExecutable = await claude.executable() else { return ("bulunamadı", false) }
         let result = await Self.run(claudeExecutable, ["--version"])
         guard result.status == 0, !result.timedOut else {
             return ("okunamadı (exit \(result.status))", false)
@@ -77,7 +78,7 @@ struct Diagnostics {
             "sürüm: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")"
                 + " (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
         lines.append("imza: \(signature)")
-        lines.append("claude yolu: \(claudeExecutable?.path ?? "bulunamadı")")
+        lines.append("claude yolu: \(await claude.executable()?.path ?? "bulunamadı")")
         lines.append("claude ayarı: \(settings.claudePath ?? "(otomatik)")")
         lines.append("claude sürümü: \(version.text)")
         lines.append("claude auth: \(auth)")
@@ -95,7 +96,7 @@ struct Diagnostics {
     }
 
     private func authSummary() async -> String {
-        guard let claudeExecutable else { return "claude yok" }
+        guard let claudeExecutable = await claude.executable() else { return "claude yok" }
         let result = await Self.run(claudeExecutable, ["auth", "status"])
         guard result.status == 0, !result.timedOut, let summary = Self.authSummary(json: result.stdout) else {
             return "okunamadı (exit \(result.status))"

@@ -34,8 +34,10 @@ final class AppEnvironment {
     let onboarding: OnboardingWindowController
     let captureFlow: CaptureFlowController
 
+    /// Where `claude` is; resolved without blocking launch (checked by the runner, handoff, diagnostics).
+    let claude: ClaudeExecutableLocator
+
     private let database: AppDatabase
-    private let claudeExecutable: URL?
     private var appliedSnapshot: AppSettingsSnapshot?
 
     init() throws {
@@ -79,19 +81,17 @@ final class AppEnvironment {
             titleMaker: true)
         self.transcription = transcription
 
-        // 5. Claude runner. A missing binary must not stop the app from launching (spec §8).
+        // 5. Claude runner. A missing binary must not stop the app from launching (spec §8), and looking
+        //    for it must not block launch: only the fixed locations are checked here; the login-shell
+        //    fallback runs in the background and the runner waits for it.
         let clock = SystemClock()
         let notifier = UserNotificationNotifier(center: .current())
         self.notifier = notifier
-        let claudeExecutable = ClaudeLocator.locate(preferredPath: settings.claudePath)
-        self.claudeExecutable = claudeExecutable
-        let runner: any ClaudeRunner =
-            claudeExecutable.map {
-                ProcessClaudeRunner(executableURL: $0, environmentOverrides: [:])
-            } ?? MissingClaudeRunner()
+        let claude = ClaudeExecutableLocator(preferredPath: settings.claudePath)
+        self.claude = claude
         let gitInspector = ShellGitInspector()
         let runCoordinator = RunCoordinator(
-            runner: runner,
+            runner: DeferredClaudeRunner(locator: claude),
             taskRepository: tasks,
             projectRepository: projects,
             runRepository: runs,
@@ -110,13 +110,9 @@ final class AppEnvironment {
             clock: clock,
             calendar: .current,
             interval: 30)
-        // `DesktopHandoffService` needs a concrete URL. When `claude` is missing the deep links still
-        // form (they only carry the session id) and the .command file fails loudly on open, which is
-        // the same story Settings already tells.
-        let handoff = DesktopHandoffService(
-            claudeExecutable: claudeExecutable ?? ClaudeFallback.executableURL,
-            fileStore: fileStore,
-            composerRoute: "code/new")
+        // `DesktopHandoffService` is built per call by `ClaudeHandoff`, with the path the locator knows by
+        // then (the background search may finish after launch).
+        let handoff = ClaudeHandoff(locator: claude, fileStore: fileStore, composerRoute: "code/new")
 
         // 7. The façade the UI module sees.
         let services = AppServices(
@@ -151,15 +147,17 @@ final class AppEnvironment {
 
         // 9. App-level state and AppKit controllers.
         let status = AppStatusModel()
-        // Until `claude --version` answers, a located binary reads "kontrol ediliyor…", not "bulunamadı".
-        status.claudeFound = claudeExecutable != nil
+        // Until `claude --version` answers, a located binary reads "kontrol ediliyor…" and one still being
+        // searched for "aranıyor…" — neither is "bulunamadı" (red) yet.
+        status.claudeFound = claude.current != .missing
+        if claude.current == .searching { status.claudeVersion = "aranıyor…" }
         self.status = status
         self.settingsObserver = SettingsObserver()
         self.windowOpener = WindowOpener()
         let activationPolicy = ActivationPolicyController()
         self.activationPolicy = activationPolicy
         self.diagnostics = Diagnostics(
-            claudeExecutable: claudeExecutable,
+            claude: claude,
             permissions: permissions,
             fileStore: fileStore,
             settings: settings)
