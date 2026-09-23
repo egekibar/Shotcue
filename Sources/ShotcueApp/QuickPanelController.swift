@@ -125,6 +125,9 @@ final class QuickPanelController {
     private let thumbnails: ThumbnailCache
     private var panel: QuickPanel?
     private var store: QuickPanelStore?
+    /// Esc reached the current store through this controller (key monitor, `cancelOperation`, `dismiss()`).
+    /// A store that is still closing after Esc (a recording being stored) must not be saved on retirement.
+    private var escapePressed = false
     private let keyMonitor = PanelKeyMonitor()
 
     /// Called after the panel closed through the store (spec §5.1 step 5: the menu bar icon highlights).
@@ -140,6 +143,7 @@ final class QuickPanelController {
     func present(taskID: UUID) {
         retireCurrentStore()
         tearDown()
+        escapePressed = false
 
         let store = makeStore(taskID)
         // Only the store that owns the panel may close it: a retired store finishing late is ignored.
@@ -157,7 +161,10 @@ final class QuickPanelController {
         let fitting = hosting.fittingSize
 
         let panel = QuickPanel(contentView: hosting)
-        panel.onCancel = { [weak store] in store?.dismiss() }
+        panel.onCancel = { [weak self, weak store] in
+            guard let store else { return }
+            self?.cancel(store)
+        }
         self.panel = panel
 
         // Size to the hosted content first, then place: NSHostingView shrinks the panel to its
@@ -180,23 +187,47 @@ final class QuickPanelController {
                 guard let store else { return }
                 Task { await store.saveAndSend() }
             },
-            onCancel: { [weak store] in store?.dismiss() })
+            onCancel: { [weak self, weak store] in
+                guard let store else { return }
+                self?.cancel(store)
+            })
     }
 
     /// Esc semantics from outside the panel: nothing is written, a recording in flight is still stored,
     /// and the panel closes through the store's `onClose` (spec §5.1 step 4).
     func dismiss() {
-        store?.dismiss()
+        guard let store else { return }
+        cancel(store)
     }
 
-    /// A newer capture takes the panel over. The old store still gets its Esc path, so a voice note being
-    /// recorded is stopped and saved; the closure keeps that store alive until it reports closing (its
-    /// own recording task only holds it weakly) and then lets go of itself.
+    private func cancel(_ store: QuickPanelStore) {
+        if store === self.store { escapePressed = true }
+        store.dismiss()
+    }
+
+    /// A newer capture takes the panel over. The closure keeps the old store alive until it reports
+    /// closing (its own recording task only holds it weakly) and then lets go of itself.
+    ///
+    /// A typed note must not be lost: unless Esc was pressed, a non-blank note is saved first — without a
+    /// project, since the old panel's choice was never confirmed, so the task stays a project-less inbox
+    /// draft carrying its note (`save()` also stores a recording in flight). The final `dismiss()` then
+    /// closes the store, which fires `onClose`. A blank note only gets the Esc path, which still stores a
+    /// recording in flight.
     private func retireCurrentStore() {
         guard let retiring = store else { return }
+        let keepsNote =
+            !escapePressed && !retiring.noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         store = nil
         retiring.onClose = { [retiring] in retiring.onClose = nil }
-        retiring.dismiss()
+        guard keepsNote else {
+            retiring.dismiss()
+            return
+        }
+        retiring.selectedProjectID = nil
+        Task {
+            _ = await retiring.save()
+            retiring.dismiss()
+        }
     }
 
     private func tearDown() {
