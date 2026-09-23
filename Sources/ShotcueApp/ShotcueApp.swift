@@ -53,7 +53,8 @@ struct MenuBarSceneRoot: View {
             store: environment.menuBarStore,
             openLibrary: { environment.windowOpener.openLibrary() },
             openSettings: { environment.windowOpener.openSettingsWindow() },
-            quit: { NSApplication.shared.terminate(nil) }
+            // The app's quits go through the termination controller, which asks AppKit from the run loop (N1).
+            quit: { environment.termination.quit() }
         )
         // The task list streams all the time; the pause flag is only read on (re)start, so refresh it
         // whenever the menu opens (the library can toggle it in between).

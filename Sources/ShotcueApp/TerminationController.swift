@@ -12,6 +12,8 @@ import ShotcueUI
 ///   the queue so a freed slot is not filled again, cancels every run through the dispatcher (SIGINT: claude saves the
 ///   turn) and waits, bounded, until their rows are saved, commits the inspector's drafts, and only then lets AppKit
 ///   terminate. Nothing to stop or save: AppKit terminates at once.
+/// - The quits the app starts itself (menu "Çık", onboarding's relaunch) go through `quit(relaunching:)`, which asks
+///   AppKit from the run loop (final review N1).
 final class TerminationController {
     enum Trigger { case user, signal }
 
@@ -30,6 +32,11 @@ final class TerminationController {
     private var finished = false
     private var confirmationShowing = false
     private var signalSource: (any DispatchSourceSignal)?
+    /// Set by `quit(relaunching: true)` (onboarding, after the Screen Recording grant); `applicationWillTerminate`
+    /// starts the relauncher when it is still set, so only a quit that goes ahead relaunches. A quit the user cancels
+    /// drops it — a later, unrelated quit must not reopen the app — and so does SIGTERM (`make install` opens the new
+    /// build itself).
+    private(set) var relaunchRequested = false
 
     init(
         runCoordinator: RunCoordinator, dispatcher: any TaskDispatcher, libraryStore: LibraryStore,
@@ -61,6 +68,7 @@ final class TerminationController {
     private func receivedSIGTERM() {
         AppLog.app.notice("SIGTERM: shutting down without a dialog")
         trigger = .signal
+        relaunchRequested = false
         if confirmationShowing {
             // A user quit is asking about the runs: the signal answers "Durdur ve çık".
             NSApp.stopModal(withCode: .alertFirstButtonReturn)
@@ -84,6 +92,22 @@ final class TerminationController {
     /// Marks the shutdown done and asks AppKit to terminate from the run loop, outside any main-queue block.
     private func terminateWhenFinished() {
         finished = true
+        Self.terminateFromRunLoop()
+    }
+
+    /// Every quit the app starts itself goes through here: the menu's "Çık" and onboarding's relaunch (final review
+    /// N1). Their callers may run inside a main-actor Task (onboarding's "Başla") or a main-queue block, and calling
+    /// `NSApp.terminate` there hangs the app whenever there are runs to stop or work to save: AppKit waits for the
+    /// `.terminateLater` reply inside that block, where no main-queue or main-actor work — the shutdown, the hard
+    /// deadline — can run (measured). `relaunching`: the installed bundle is opened again once this process is gone.
+    func quit(relaunching: Bool = false) {
+        if relaunching { relaunchRequested = true }
+        Self.terminateFromRunLoop()
+    }
+
+    /// The app's one `NSApp.terminate` call. The run loop performs the block outside any main-queue block, so while
+    /// AppKit waits for a `.terminateLater` reply the main queue, and with it every main-actor step, keeps running.
+    private static func terminateFromRunLoop() {
         RunLoop.main.perform(inModes: [.default, .modalPanel]) {
             MainActor.assumeIsolated { NSApp.terminate(nil) }
         }
@@ -107,7 +131,10 @@ final class TerminationController {
             guard inProgress else { return }
             inProgress = false
             finished = proceed
-            if !proceed { trigger = .user }
+            if !proceed {
+                trigger = .user
+                relaunchRequested = false
+            }
             NSApp.reply(toApplicationShouldTerminate: proceed)
         }
         return .terminateLater

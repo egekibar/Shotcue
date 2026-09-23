@@ -195,10 +195,15 @@ final class AppEnvironment {
         // Spec §5.1 step 5: "Panel kapanır; menü çubuğu ikonu kısa süre vurgulanır."
         quickPanel.onClosed = { [weak status] in status?.flashMenuBarIcon() }
         self.quickPanel = quickPanel
+        let termination = TerminationController(
+            runCoordinator: runCoordinator, dispatcher: dispatcher, libraryStore: libraryStore,
+            quickPanel: quickPanel)
+        self.termination = termination
         let onboarding = OnboardingWindowController(
             permissionsStore: permissionsStore,
             permissions: permissions,
-            activationPolicy: activationPolicy)
+            activationPolicy: activationPolicy,
+            termination: termination)
         self.onboarding = onboarding
         self.captureFlow = CaptureFlowController(
             services: services,
@@ -209,9 +214,6 @@ final class AppEnvironment {
             permissionsStore: permissionsStore,
             quickPanel: quickPanel,
             onboarding: onboarding)
-        self.termination = TerminationController(
-            runCoordinator: runCoordinator, dispatcher: dispatcher, libraryStore: libraryStore,
-            quickPanel: quickPanel)
     }
 
     // MARK: - Settings application

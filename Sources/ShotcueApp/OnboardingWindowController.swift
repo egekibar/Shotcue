@@ -12,17 +12,20 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private let permissionsStore: PermissionsStore
     private let permissions: any PermissionService
     private let activationPolicy: ActivationPolicyController
+    /// The relaunch's quit goes through the shutdown like any other (final review N1).
+    private let termination: TerminationController
     private var window: NSWindow?
     /// Screen Recording state when the window opened, so we only relaunch on a real transition.
     private var screenRecordingWasGranted = false
 
     init(
         permissionsStore: PermissionsStore, permissions: any PermissionService,
-        activationPolicy: ActivationPolicyController
+        activationPolicy: ActivationPolicyController, termination: TerminationController
     ) {
         self.permissionsStore = permissionsStore
         self.permissions = permissions
         self.activationPolicy = activationPolicy
+        self.termination = termination
     }
 
     func show() {
@@ -85,24 +88,37 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             let isGranted = await service.state(of: .screenRecording) == .granted
             close()
             if isGranted && !wasGranted {
-                Self.relaunchAfterPermissionGrant()
+                relaunchAfterPermissionGrant()
             }
         }
     }
 
-    /// Quits and starts the installed bundle again. Only meaningful for a real `.app`; the bare SwiftPM
+    /// Quits so that the installed bundle starts again. Only meaningful for a real `.app`; the bare SwiftPM
     /// binary has nothing to relaunch, so it just logs.
     ///
-    /// The new instance is opened by a detached `/bin/sh` only after this process is gone. Launching it
-    /// while this one still runs (`createsNewApplicationInstance`) would make the new instance's Carbon
-    /// registration of the same hotkey fail with `eventHotKeyExistsErr`, because this process still
-    /// holds it until it exits.
-    static func relaunchAfterPermissionGrant() {
-        let bundleURL = Bundle.main.bundleURL
-        guard bundleURL.pathExtension == "app" else {
+    /// This runs inside `finish()`'s main-actor Task, so it must not call `NSApp.terminate` itself: with runs in
+    /// flight or unsaved work the shutdown could then never run and the app would hang (final review N1).
+    /// `TerminationController` asks AppKit from the run loop, runs the shutdown (and its confirmation) first, and the
+    /// relauncher starts only once the quit goes ahead (`startRelauncher()`).
+    private func relaunchAfterPermissionGrant() {
+        guard Bundle.main.bundleURL.pathExtension == "app" else {
             AppLog.app.notice("not running from an .app bundle; skipping relaunch")
             return
         }
+        AppLog.app.notice("quitting to relaunch after the Screen Recording grant")
+        termination.quit(relaunching: true)
+    }
+
+    /// Starts the detached `/bin/sh` that opens the installed bundle again once this process is gone. Called from
+    /// `applicationWillTerminate` when onboarding asked for the relaunch, so a quit the user cancels relaunches
+    /// nothing.
+    ///
+    /// Launching the new instance while this one still runs (`createsNewApplicationInstance`) would make its Carbon
+    /// registration of the same hotkey fail with `eventHotKeyExistsErr`, because this process still holds it until it
+    /// exits.
+    static func startRelauncher() {
+        let bundleURL = Bundle.main.bundleURL
+        guard bundleURL.pathExtension == "app" else { return }
         let relauncher = Process()
         relauncher.executableURL = URL(fileURLWithPath: "/bin/sh")
         // `$1` = our pid, `$2` = bundle path: positional parameters, so the path is never re-parsed.
@@ -126,6 +142,5 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             return
         }
         AppLog.app.notice("relaunching after the Screen Recording grant")
-        NSApp.terminate(nil)
     }
 }
