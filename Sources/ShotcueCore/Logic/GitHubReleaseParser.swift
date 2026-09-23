@@ -6,30 +6,39 @@ public enum GitHubReleaseParser {
         struct Asset: Decodable {
             var name: String
             var size: Int64?
-            var browser_download_url: URL
+            var downloadURL: URL
+            enum CodingKeys: String, CodingKey {
+                case name, size
+                case downloadURL = "browser_download_url"
+            }
         }
-        var tag_name: String
+        var tag: String
         var body: String?
-        var html_url: URL
+        var pageURL: URL
         var prerelease: Bool?
         var assets: [Asset]?
+        enum CodingKeys: String, CodingKey {
+            case body, prerelease, assets
+            case tag = "tag_name"
+            case pageURL = "html_url"
+        }
     }
 
     public static func parse(_ data: Data) throws -> ReleaseInfo {
         guard let payload = try? JSONDecoder().decode(Payload.self, from: data),
-            let version = AppVersion(payload.tag_name)
+            let version = AppVersion(payload.tag)
         else { throw UpdateError.unreadableRelease }
         let assets = payload.assets ?? []
         let dmg = assets.first { $0.name.lowercased().hasSuffix(".dmg") }
         let checksum = dmg.flatMap { dmg in assets.first { $0.name == dmg.name + ".sha256" } }
         return ReleaseInfo(
             version: version,
-            tag: payload.tag_name,
+            tag: payload.tag,
             notes: payload.body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
-            pageURL: payload.html_url,
-            dmgURL: dmg?.browser_download_url,
+            pageURL: payload.pageURL,
+            dmgURL: dmg?.downloadURL,
             dmgSize: dmg?.size ?? 0,
-            checksumURL: checksum?.browser_download_url,
+            checksumURL: checksum?.downloadURL,
             isPrerelease: payload.prerelease == true || version.isPrerelease)
     }
 

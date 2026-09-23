@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- In-app updates from GitHub Releases: a check shortly after launch and then once a day (Ayarlar → Genel →
+  Güncellemeler, also "Güncellemeleri denetle…" in the menu bar). A newer release opens a window with its notes and
+  "Güncelle", "Sonra", "Bu sürümü atla". "Güncelle" downloads the DMG, verifies it against the release's `.sha256`
+  asset, checks the bundle id and version, then quits (the usual confirmation for running tasks) and swaps the app in
+  and reopens it; the old bundle is restored if the swap fails. Releases need both `Shotcue-<version>.dmg` and
+  `Shotcue-<version>.dmg.sha256` (`make dmg` writes both).
+
 ## [1.0.0] — 2026-09-23
 
 First public release. macOS 26 or later on Apple Silicon; the UI is in Turkish.

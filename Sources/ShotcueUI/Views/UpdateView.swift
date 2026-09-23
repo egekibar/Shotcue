@@ -135,10 +135,19 @@ public struct UpdateView: View {
         }
     }
 
-    /// Release notes are Markdown; line breaks are kept, inline styling and links render.
+    /// Release notes are Markdown; line breaks are kept, inline styling and links render. Inline-only parsing leaves
+    /// `## Başlık` lines as they are, so headings are turned into bold lines first.
     static func markdown(_ text: String) -> AttributedString {
-        (try? AttributedString(
-            markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+        let lines = text.components(separatedBy: "\n").map { line -> String in
+            let trimmed = line.drop { $0 == " " }
+            guard trimmed.hasPrefix("#") else { return line }
+            let title = trimmed.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)
+            return title.isEmpty ? "" : "**\(title)**"
+        }
+        let source = lines.joined(separator: "\n")
+        return
+            (try? AttributedString(
+                markdown: source, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
             ?? AttributedString(text)
     }
 }

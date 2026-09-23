@@ -59,26 +59,20 @@ public final class DMGUpdateInstaller: UpdateInstaller {
     private func download(_ url: URL, expectedSize: Int64, progress: @escaping @Sendable (Double) -> Void)
         async throws -> URL
     {
-        let delegate = DownloadProgress(expectedSize: expectedSize, report: progress)
-        let temporary: URL
-        do {
-            let (file, response) = try await session.download(from: url, delegate: delegate)
-            try Self.checkStatus(response)
-            temporary = file
-        } catch let error as UpdateError {
-            throw error
-        } catch {
-            throw UpdateError.network(error.localizedDescription)
-        }
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("shotcue-download-\(UUID().uuidString)", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let destination = folder.appendingPathComponent(url.lastPathComponent)
-            try FileManager.default.moveItem(at: temporary, to: destination)
-            return destination
         } catch {
-            throw UpdateError.installFailed("download move: \(error.localizedDescription)")
+            throw UpdateError.installFailed("download folder: \(error.localizedDescription)")
+        }
+        let destination = folder.appendingPathComponent(url.lastPathComponent)
+        do {
+            return try await DownloadTask(destination: destination, expectedSize: expectedSize, report: progress)
+                .run(url, configuration: session.configuration)
+        } catch {
+            try? FileManager.default.removeItem(at: folder)
+            throw error
         }
     }
 
@@ -167,15 +161,38 @@ public final class DMGUpdateInstaller: UpdateInstaller {
     }
 }
 
-/// Forwards a download's bytes as 0…1. GitHub's asset redirects may not send a length; the release's asset size
-/// fills in then.
-private final class DownloadProgress: NSObject, URLSessionDownloadDelegate, Sendable {
-    let expectedSize: Int64
-    let report: @Sendable (Double) -> Void
+/// One download on a session of its own, reporting 0…1 as bytes arrive.
+///
+/// A session-level delegate, because `URLSession.download(from:delegate:)` never calls a task delegate's
+/// `didWriteData` (measured against the v1.0.0 asset: only the caller's own 0 and 1 arrived). GitHub's asset redirect
+/// may not send a length; the release's asset size fills in then.
+private final class DownloadTask: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let destination: URL
+    private let expectedSize: Int64
+    private let report: @Sendable (Double) -> Void
+    /// The continuation and the moved file (or why it could not be moved); delegate callbacks run on the session's
+    /// own queue, so both sit behind a lock.
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<URL, any Error>?
+    private var outcome: Result<URL, UpdateError>?
 
-    init(expectedSize: Int64, report: @escaping @Sendable (Double) -> Void) {
+    init(destination: URL, expectedSize: Int64, report: @escaping @Sendable (Double) -> Void) {
+        self.destination = destination
         self.expectedSize = expectedSize
         self.report = report
+    }
+
+    func run(_ url: URL, configuration: URLSessionConfiguration) async throws -> URL {
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                lock.withLock { self.continuation = continuation }
+                session.downloadTask(with: url).resume()
+            }
+        } onCancel: {
+            session.invalidateAndCancel()
+        }
     }
 
     func urlSession(
@@ -187,6 +204,31 @@ private final class DownloadProgress: NSObject, URLSessionDownloadDelegate, Send
         report(min(Double(totalBytesWritten) / Double(total), 0.99))
     }
 
+    /// The file at `location` is deleted when this returns, so it is moved here.
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        let result: Result<URL, UpdateError>
+        if let http = downloadTask.response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            result = .failure(.network("HTTP \(http.statusCode)"))
+        } else {
+            do {
+                try FileManager.default.moveItem(at: location, to: destination)
+                result = .success(destination)
+            } catch {
+                result = .failure(.installFailed("download move: \(error.localizedDescription)"))
+            }
+        }
+        lock.withLock { outcome = result }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+        let (continuation, outcome) = lock.withLock {
+            defer { self.continuation = nil }
+            return (self.continuation, self.outcome)
+        }
+        if let error {
+            continuation?.resume(throwing: UpdateError.network(error.localizedDescription))
+        } else {
+            continuation?.resume(with: (outcome ?? .failure(.network("no file"))).mapError { $0 as any Error })
+        }
     }
 }

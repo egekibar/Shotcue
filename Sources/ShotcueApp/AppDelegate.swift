@@ -71,6 +71,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
         }
 
+        // Automatic update checks: the first one shortly after launch, then once a day.
+        environment.updates.start()
+
         if LaunchFlags.shouldOpenLibrary {
             environment.windowOpener.openLibrary()
         }
@@ -90,8 +93,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         environment.settingsObserver.stop()
         let scheduler = environment.scheduler
         Task { await scheduler.stop() }
-        // Onboarding asked for a restart after the Screen Recording grant and the quit went ahead (final review N1).
-        if environment.termination.relaunchRequested {
+        // Onboarding asked for a restart after the Screen Recording grant, or an update is staged, and the quit went
+        // ahead (final review N1). The update helper swaps the bundle before it opens the app.
+        if environment.termination.relaunchRequested, !environment.updates.startSwapIfStaged() {
             OnboardingWindowController.startRelauncher()
         }
     }

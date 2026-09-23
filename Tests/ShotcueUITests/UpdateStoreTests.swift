@@ -164,5 +164,6 @@ struct UpdateViewTests {
         }
         #expect(store.phase == .upToDate)
         #expect(String(UpdateView.markdown("**Yeni:** güncelleme\n- satır").characters).contains("\n"))
+        #expect(String(UpdateView.markdown("## Yenilikler\n- satır").characters) == "Yenilikler\n- satır")
     }
 }

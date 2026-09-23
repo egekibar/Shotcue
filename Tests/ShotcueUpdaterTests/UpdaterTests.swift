@@ -172,3 +172,27 @@ struct BundleSwapperTests {
         return done.processIdentifier
     }
 }
+
+/// Against the real repository: `SHOTCUE_LIVE_UPDATE=1 make test FILTER='LiveUpdate'`. Off by default (network).
+@Suite("LiveUpdate", .enabled(if: ProcessInfo.processInfo.environment["SHOTCUE_LIVE_UPDATE"] == "1"))
+struct LiveUpdateTests {
+    @Test func latestReleaseDownloadsVerifiesAndStages() async throws {
+        let release = try await GitHubReleaseFeed(repo: "egekibar/Shotcue").latest()
+        #expect(release.dmgURL != nil)
+        #expect(release.checksumURL != nil)
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("shotcue-live-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let installed = try UpdateFixture.makeApp(
+            in: root, version: "0.0.1", bundleID: "com.shotcue.app", marker: "old")
+        let reported = Locked<[Double]>([])
+        let staged = try await DMGUpdateInstaller(installedApp: installed, bundleID: "com.shotcue.app")
+            .prepare(release) { value in reported.withLock { $0.append(value) } }
+        defer { try? FileManager.default.removeItem(at: staged.deletingLastPathComponent()) }
+        let info = NSDictionary(contentsOf: staged.appendingPathComponent("Contents/Info.plist"))
+        #expect(info?["CFBundleShortVersionString"] as? String == release.version.description)
+        #expect(reported.current.count > 2)
+        print("live update: \(release.tag) staged at \(staged.path), \(reported.current.count) progress reports")
+    }
+}

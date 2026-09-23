@@ -54,7 +54,8 @@ struct MenuBarSceneRoot: View {
             openLibrary: { environment.windowOpener.openLibrary() },
             openSettings: { environment.windowOpener.openSettingsWindow() },
             // The app's quits go through the termination controller, which asks AppKit from the run loop (N1).
-            quit: { environment.termination.quit() }
+            quit: { environment.termination.quit() },
+            checkForUpdates: { environment.updates.checkNow() }
         )
         // The task list streams all the time; the pause flag is only read on (re)start, so refresh it
         // whenever the menu opens (the library can toggle it in between).
@@ -89,7 +90,9 @@ struct SettingsSceneRoot: View {
                 // The one download flow (spec §6.2: explicit consent), shared with the quick panel and inspector.
                 onDownloadModel: { environment.transcriberModel.startDownload() },
                 modelDownloadSize: environment.transcriberModel.downloadSizeText,
-                inputDevices: status.inputDevices)
+                inputDevices: status.inputDevices,
+                appVersion: environment.updates.appVersionText,
+                onCheckForUpdates: { environment.updates.checkNow() })
             Divider()
             DiagnosticsBar(
                 status: status,

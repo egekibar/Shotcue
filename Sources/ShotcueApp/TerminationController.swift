@@ -16,6 +16,8 @@ import ShotcueUI
 ///   AppKit from the run loop (final review N1).
 final class TerminationController {
     enum Trigger { case user, signal }
+    /// Why a quit relaunches: the confirmation for runs in flight says so.
+    enum RelaunchReason { case permissionGrant, update }
 
     /// How long the runs get to stop: the runner escalates SIGINT to SIGKILL after 10 s.
     static let settleTimeout: Duration = .seconds(12)
@@ -37,6 +39,7 @@ final class TerminationController {
     /// drops it — a later, unrelated quit must not reopen the app — and so does SIGTERM: a signal means stop, and a
     /// relauncher's `open` would race `scripts/install.sh` replacing the bundle.
     private(set) var relaunchRequested = false
+    private var relaunchReason: RelaunchReason = .permissionGrant
     /// Told when the user cancels the relaunch's quit ("Vazgeç"), so onboarding can show that the restart is still
     /// needed.
     private var relaunchCancelled: (() -> Void)?
@@ -108,9 +111,13 @@ final class TerminationController {
     /// deadline — can run (measured). `relaunching`: the installed bundle is opened again once this process is gone;
     /// `onRelaunchCancelled` runs if the user cancels that quit ("Vazgeç"). A relaunch asked for after SIGTERM is not
     /// recorded: that shutdown ends the app and must not reopen it (see `relaunchRequested`).
-    func quit(relaunching: Bool = false, onRelaunchCancelled: (() -> Void)? = nil) {
+    func quit(
+        relaunching: Bool = false, reason: RelaunchReason = .permissionGrant,
+        onRelaunchCancelled: (() -> Void)? = nil
+    ) {
         if relaunching, trigger != .signal {
             relaunchRequested = true
+            relaunchReason = reason
             relaunchCancelled = onRelaunchCancelled
         }
         terminateFromRunLoop()
@@ -205,13 +212,19 @@ final class TerminationController {
     }
 
     /// "Çalışan N görev durdurulacak." — true for "Durdur ve çık". For onboarding's relaunch the dialog is about the
-    /// restart the new Screen Recording grant needs — true for "Durdur ve yeniden başlat".
+    /// restart the new Screen Recording grant needs — true for "Durdur ve yeniden başlat"; for an update, about
+    /// installing it — true for "Durdur ve güncelle".
     private func confirmStoppingRuns(count: Int) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
         let resumeHint =
             "Yarıda kalan görevi sonra yeniden çalıştırabilir ya da Terminalde devam ettirebilirsin."
-        if relaunchRequested {
+        if relaunchRequested, relaunchReason == .update {
+            alert.messageText = "Güncellemeyi kurmak için Shotcue yeniden başlatılacak."
+            alert.informativeText =
+                "Çalışan \(count) görev durdurulacak. \(resumeHint) Vazgeçersen güncelleme şimdilik kurulmaz."
+            alert.addButton(withTitle: "Durdur ve güncelle")
+        } else if relaunchRequested {
             alert.messageText = "Ekran Kaydı izninin geçerli olması için Shotcue yeniden başlatılacak."
             alert.informativeText =
                 "Çalışan \(count) görev durdurulacak. \(resumeHint) Vazgeçersen izin, Shotcue yeniden başlayınca "

@@ -65,6 +65,7 @@ final class ActivationPolicyController {
 
     static let libraryReason = "library"
     static let onboardingReason = "onboarding"
+    static let updateReason = "update"
 
     /// Called once from `applicationDidFinishLaunching`: make the policy match reality in case a window
     /// already exists. Everything after that is driven by the scene root's `onAppear`/`onDisappear`,
