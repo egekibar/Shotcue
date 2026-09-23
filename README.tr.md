@@ -125,6 +125,24 @@ flowchart TB
 
 ## Kurulum
 
+### Homebrew
+
+```bash
+brew install --cask egekibar/tap/shotcue
+```
+
+Cask, [egekibar/tap](https://github.com/egekibar/homebrew-tap) tap'inde duruyor ve kurulumdan sonra karantina işaretini kaldırıyor; böylece Shotcue Gatekeeper uyarısı olmadan açılır. Kısa adı kullanmak için tap'i bir kez ekleyip güvenilir işaretle:
+
+```bash
+brew tap egekibar/tap
+brew trust egekibar/tap
+brew install --cask shotcue
+```
+
+Shotcue kendini güncellediği için (aşağıdaki **Güncellemeler**'e bak) `brew upgrade`, `--greedy` verilmedikçe onu atlar. `brew uninstall --zap --cask shotcue` ayrıca `~/Library/Application Support/Shotcue` altındaki verileri de siler.
+
+### DMG
+
 1. [Son sürümden](https://github.com/egekibar/Shotcue/releases/latest) **`Shotcue-<sürüm>.dmg`** dosyasını indir.
 2. Aç ve **Shotcue**'yu **Applications** (Uygulamalar) klasörüne sürükle.
 3. Shotcue'yu aç. Uygulama notarize edilmediği için macOS ilk açılışı engeller. İki yol var:

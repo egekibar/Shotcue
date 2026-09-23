@@ -125,6 +125,24 @@ flowchart TB
 
 ## Install
 
+### Homebrew
+
+```bash
+brew install --cask egekibar/tap/shotcue
+```
+
+The cask lives in the [egekibar/tap](https://github.com/egekibar/homebrew-tap) tap and clears the quarantine flag after installing, so Shotcue opens without the Gatekeeper prompt. To use the short name, tap and trust it once:
+
+```bash
+brew tap egekibar/tap
+brew trust egekibar/tap
+brew install --cask shotcue
+```
+
+Shotcue updates itself (see **Updates** below), so `brew upgrade` skips it unless you pass `--greedy`. `brew uninstall --zap --cask shotcue` also deletes its data in `~/Library/Application Support/Shotcue`.
+
+### DMG
+
 1. Download **`Shotcue-<version>.dmg`** from the [latest release](https://github.com/egekibar/Shotcue/releases/latest).
 2. Open it and drag **Shotcue** onto **Applications**.
 3. Open Shotcue. It is not notarized, so macOS blocks the first launch. Either:
