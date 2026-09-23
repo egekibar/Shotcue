@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import ShotcueCore
+import os
 
 /// Drives the library window (spec §5.3): sidebar counts, the filtered/sorted content list, multi
 /// selection and every bulk action in the bottom bar.
@@ -557,6 +558,9 @@ public final class LibraryStore {
         return url
     }
 
+    /// Paths are personal data: they never reach the public unified log (final review I5).
+    nonisolated static let fileLog = Logger(subsystem: "com.shotcue.app", category: "files")
+
     nonisolated static let removableFolders: Set<String> = [
         FileStore.capturesDir, FileStore.thumbsDir, FileStore.audioDir, FileStore.runsDir,
     ]
@@ -816,23 +820,26 @@ public final class LibraryStore {
             if let url = Self.removableURL(for: relPath, in: services.fileStore) {
                 urls.append(url)
             } else {
-                NSLog("Shotcue: not deleting unexpected path '%@'", relPath)
+                Self.fileLog.error("not deleting unexpected path '\(relPath, privacy: .private)'")
             }
         }
         guard !urls.isEmpty else { return }
+        let log = Self.fileLog
         await Task.detached(priority: .utility) {
             let fileManager = FileManager.default
             for url in urls {
                 var isDirectory: ObjCBool = false
                 guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
                 guard !isDirectory.boolValue else {
-                    NSLog("Shotcue: not deleting directory '%@'", url.path)
+                    log.error("not deleting directory '\(url.path, privacy: .private)'")
                     continue
                 }
                 do {
                     try fileManager.removeItem(at: url)
                 } catch {
-                    NSLog("Shotcue: could not delete '%@': %@", url.path, error.localizedDescription)
+                    log.error(
+                        "could not delete '\(url.path, privacy: .private)': \(error.localizedDescription, privacy: .private)"
+                    )
                 }
             }
         }.value

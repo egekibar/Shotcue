@@ -38,7 +38,9 @@ nonisolated final class ClaudeExecutableLocator: Sendable {
         search = Task.detached(priority: .userInitiated) {
             let url = await Self.loginShellLocation(arguments: shellArguments)
             state.withLock { $0 = url.map { .found($0) } ?? .missing }
-            AppLog.app.notice("claude login-shell search: \(url?.path ?? "not found", privacy: .public)")
+            AppLog.app.notice(
+                "claude login-shell search: \(url == nil ? "not found" : "found", privacy: .public) \(url?.path ?? "", privacy: .private)"
+            )
             return url
         }
     }

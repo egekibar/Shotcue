@@ -1,5 +1,6 @@
 import Foundation
 import ShotcueCore
+import os
 
 /// Owns the run queue (spec §5.5, §6.4): at most one run per project, a global concurrency limit,
 /// git snapshots around every run, the NDJSON log, notifications and the live event stream.
@@ -456,10 +457,15 @@ public actor RunCoordinator: TaskDispatcher {
             try await taskRepository.save(task)
             return task
         } catch {
-            NSLog("%@", "Shotcue: task \(taskID.uuidString) could not move to \(status.rawValue): \(error)")
+            // A repository error's description can carry the row's values: private (final review I5).
+            Self.log.error(
+                "task \(taskID, privacy: .public) could not move to \(status.rawValue, privacy: .public): \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
+            )
             return nil
         }
     }
+
+    private static let log = Logger(subsystem: "com.shotcue.app", category: "runs")
 
     /// Unregisters first, then finishes: a later `liveEvents` finds nothing and gets a finished stream,
     /// and a subscriber that raced in is finished by the broadcaster itself.

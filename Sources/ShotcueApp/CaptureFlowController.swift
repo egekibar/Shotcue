@@ -120,7 +120,7 @@ final class CaptureFlowController {
 
         // 6. Clipboard (spec §5.1 step 3, optional setting). A failed copy never fails the capture.
         if settings.copyToClipboardOnCapture, !PasteboardWriter.copyPNG(at: destination) {
-            AppLog.app.error("clipboard copy failed for \(relPath, privacy: .public)")
+            AppLog.app.error("clipboard copy failed for \(relPath, privacy: .private)")
         }
 
         // 7. Quick panel. The menu bar highlight follows when the panel closes (spec §5.1 step 5).
@@ -146,7 +146,7 @@ final class CaptureFlowController {
                 try await tasks.save(updated)
             } catch {
                 AppLog.app.error(
-                    "thumbnail failed for \(capture.id, privacy: .public): \(String(describing: error), privacy: .public)"
+                    "thumbnail failed for \(capture.id, privacy: .public): \(String(describing: type(of: error)), privacy: .public): \(String(describing: error), privacy: .private)"
                 )
             }
         }
@@ -155,7 +155,8 @@ final class CaptureFlowController {
     /// Spec §8: capture failures produce a notification plus a visible error, and no task row.
     private func report(title: String, error: Error) async {
         let message = Self.describe(error)
-        AppLog.app.error("\(title, privacy: .public): \(message, privacy: .public)")
+        // The title is one of this file's fixed strings; the message can carry screencapture's stderr or a file name.
+        AppLog.app.error("\(title, privacy: .public): \(message, privacy: .private)")
         status.lastError = "\(title): \(message)"
         await notifier.notify(AppNotification(kind: .runFailed, title: title, body: message))
     }
