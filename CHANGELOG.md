@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-24
+
 ### Added
 
 - Codex and Antigravity next to Claude Code. Ayarlar → Ajanlar (the former Claude tab) picks the default agent and
@@ -15,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stream-json`; both logs replay like Claude Code's, and *Terminalde devam et* resumes with `codex resume` /
   `agy --conversation`. Turn and budget limits apply to Claude Code only; the timeout and concurrency apply to all.
 - A run row shows which agent ran it.
+- `make notarize` builds a Developer ID-signed, notarized and stapled DMG; `make cask` points the egekibar/tap cask
+  at a published release (docs/distribution.md).
 
 ## [1.1.0] — 2026-09-23
 
@@ -69,6 +73,7 @@ First public release. macOS 26 or later on Apple Silicon; the UI is in Turkish.
   report in Settings.
 - `make dmg` builds the release DMG (`dist/Shotcue-<version>.dmg`) and its SHA-256 file.
 
-[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/egekibar/Shotcue/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/egekibar/Shotcue/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/egekibar/Shotcue/releases/tag/v1.0.0
