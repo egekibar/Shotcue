@@ -142,6 +142,29 @@ struct LibraryStoreProjectEditorTests {
         #expect(saved.dailyEnabled && saved.dailyLastFiredAt == clock.now)
     }
 
+    /// The sheet keeps its form alive while it animates out; a late write from it must not reopen the editor.
+    @MainActor
+    @Test func editsArrivingAfterTheEditorClosedAreIgnored() async throws {
+        let f = makeFakeServices()
+        defer { f.cleanUp() }
+        let store = LibraryStore(services: f.services)
+        store.beginCreateProject()
+        store.projectFolderPicked(f.root)
+        var stale = try #require(store.projectDraft)
+        #expect(await store.saveProjectDraft())
+        stale.name = "late"
+        store.editProjectDraft(stale)
+        #expect(store.projectDraft == nil)
+
+        store.beginCreateProject()
+        store.editProjectDraft(stale)
+        #expect(store.projectDraft?.id != stale.id)
+        var current = try #require(store.projectDraft)
+        current.name = "kept"
+        store.editProjectDraft(current)
+        #expect(store.projectDraft?.name == "kept")
+    }
+
     @MainActor
     @Test func anInvalidDraftStaysOpenAndReportsWhy() async {
         let f = makeFakeServices()

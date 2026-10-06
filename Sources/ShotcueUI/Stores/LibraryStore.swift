@@ -668,6 +668,13 @@ public final class LibraryStore {
         isProjectFolderPickerPresented = false
     }
 
+    /// Writes from the editor form. Ignored once the editor closed or moved to another draft: the sheet
+    /// keeps its form alive while animating out, and a late write must not reopen it.
+    public func editProjectDraft(_ draft: ProjectDraft) {
+        guard projectDraft?.id == draft.id else { return }
+        projectDraft = draft
+    }
+
     /// Folder chosen in the editor's picker; fills an empty name with the folder's name.
     public func projectFolderPicked(_ url: URL) {
         guard var draft = projectDraft else { return }

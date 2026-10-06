@@ -12,14 +12,20 @@ public struct ProjectEditorView: View {
 
     public var body: some View {
         @Bindable var bindable = store
-        if let draft = Binding($bindable.projectDraft) {
-            form(draft)
-                .fileImporter(
-                    isPresented: $bindable.isProjectFolderPickerPresented,
-                    allowedContentTypes: [.folder]
-                ) { result in
-                    if case .success(let url) = result { store.projectFolderPicked(url) }
-                }
+        // Not `Binding($bindable.projectDraft)`: that force-unwraps, and saving sets the draft to nil while the
+        // sheet is still animating out, so its fields would read nil and crash. Fall back to the last draft.
+        if let current = store.projectDraft {
+            form(
+                Binding(
+                    get: { store.projectDraft ?? current },
+                    set: { store.editProjectDraft($0) })
+            )
+            .fileImporter(
+                isPresented: $bindable.isProjectFolderPickerPresented,
+                allowedContentTypes: [.folder]
+            ) { result in
+                if case .success(let url) = result { store.projectFolderPicked(url) }
+            }
         }
     }
 
