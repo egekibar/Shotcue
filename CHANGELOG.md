@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-10-06
+
+### Fixed
+
+- Creating a project ("Oluştur" in the project editor) no longer crashes the app as the sheet closes.
+
 ## [1.2.0] — 2026-09-24
 
 ### Added
@@ -73,7 +79,8 @@ First public release. macOS 26 or later on Apple Silicon; the UI is in Turkish.
   report in Settings.
 - `make dmg` builds the release DMG (`dist/Shotcue-<version>.dmg`) and its SHA-256 file.
 
-[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/egekibar/Shotcue/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/egekibar/Shotcue/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/egekibar/Shotcue/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/egekibar/Shotcue/releases/tag/v1.0.0
