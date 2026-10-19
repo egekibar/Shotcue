@@ -7,8 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The transcription model download can be paused and resumed (Ayarlar → Ses → Transkripsiyon: *Duraklat*,
+  *Devam et*). A resumed download picks up from the partial files instead of starting over, also after Shotcue was
+  restarted. The model, or a partial download, can be deleted from there (*Modeli sil*, *İndirileni sil*, after a
+  confirmation), and Settings shows how much disk it takes.
+
 ### Fixed
 
+- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
+  deletes the selected tasks.
+- A click on the library grid's empty space, or Esc, clears the selection.
+- A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
+  sits just outside it.
+- The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
+- *Zamanla…* no longer shows a label broken into one letter per line and an analog clock. The picker (inspector,
+  selection bar and quick panel) now has quick picks (*1 saat sonra*, *Bu akşam 18:00*, *Yarın 09:00*), a calendar
+  for the day, a typed time and a summary line such as "30 Ekim Perşembe, 14:30"; a time in the past cannot be
+  scheduled.
+
+### Fixed
+
+- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
+  deletes the selected tasks.
+- A click on the library grid's empty space, or Esc, clears the selection.
+- A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
+  sits just outside it.
+- The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
 - *Zamanla…* no longer shows a label broken into one letter per line and an analog clock. The picker (inspector,
   selection bar and quick panel) now has quick picks (*1 saat sonra*, *Bu akşam 18:00*, *Yarın 09:00*), a calendar
   for the day, a typed time and a summary line such as "30 Ekim Perşembe, 14:30"; a time in the past cannot be

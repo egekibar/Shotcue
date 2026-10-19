@@ -73,6 +73,8 @@ actor GatedTranscriber: Transcriber {
     }
 
     func downloadModel() async throws {}
+    func deleteModel() async throws {}
+    func modelDiskUsage() async -> Int64? { nil }
 
     func transcribe(fileURL: URL, language: String) async throws -> Transcript {
         transcribedFiles.append(fileURL.lastPathComponent)
@@ -120,6 +122,8 @@ final class ModelLoadFailingTranscriber: Transcriber, @unchecked Sendable {
 
     func modelState() async -> TranscriberModelState { state.current }
     func downloadModel() async throws {}
+    func deleteModel() async throws {}
+    func modelDiskUsage() async -> Int64? { nil }
     func transcribe(fileURL: URL, language: String) async throws -> Transcript {
         calls.withLock { $0.append(fileURL.lastPathComponent) }
         state.set(.failed("model files missing"))

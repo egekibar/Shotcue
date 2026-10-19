@@ -423,4 +423,28 @@ struct LibraryStoreTests {
         f.store.stop()
         f.bundle.cleanUp()
     }
+
+    /// A click on the grid's empty space, or Esc, deselects; the inspector goes back to "Bir görev seç".
+    @MainActor
+    @Test func clearingTheSelectionDeselectsEverything() async {
+        let f = fixture()
+        f.store.start()
+        _ = await waitUntil("loaded") { f.store.projects.count == 2 }
+        f.store.selection = .project(f.projectA.id)
+        let ordered = f.store.sortedTasks.map(\.id)
+
+        f.store.toggleSelection(taskID: ordered[0], extend: false, range: false)
+        f.store.toggleSelection(taskID: ordered[1], extend: true, range: false)
+        #expect(f.store.selectedTaskIDs.count == 2)
+
+        f.store.clearSelection()
+        #expect(f.store.selectedTaskIDs.isEmpty)
+        #expect(f.store.detailStore == nil)
+
+        // Clearing nothing is harmless.
+        f.store.clearSelection()
+        #expect(f.store.selectedTaskIDs.isEmpty)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
 }

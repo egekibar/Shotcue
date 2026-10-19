@@ -245,6 +245,17 @@ public struct QuickPanelView: View {
                         .font(.caption)
                 }
                 .progressViewStyle(.linear)
+            case .paused:
+                Label(
+                    "Model indirmesi duraklatıldı; kayıt saklandı, model inince yazıya dökülür.",
+                    systemImage: "pause.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                Spacer(minLength: 6)
+                Button("İndirmeye devam et") { model.startDownload() }
+                    .buttonStyle(.glass)
+                    .font(.caption)
             case .failed:
                 Label("Model yüklenemedi; kayıt saklandı, yazıya dökülmeyi bekliyor.", systemImage: "arrow.down.circle")
                     .font(.caption)
