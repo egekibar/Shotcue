@@ -482,35 +482,77 @@ public struct TaskInspectorView: View {
 
     // MARK: - Handoff
 
+    /// Equal-width buttons that flow into two columns when the inspector is wide and one when it is narrow (it
+    /// resizes between 300 and 560 pt), so a long title never squeezes its neighbour.
     private var handoffSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("AKTARIM")
-            HStack(spacing: 8) {
-                Button("Terminalde devam et", systemImage: "terminal") {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 8)], alignment: .leading, spacing: 8) {
+                handoffButton("Terminalde devam et", systemImage: "terminal", help: Self.terminalResumeHelp) {
                     Task { await store.openInTerminal() }
                 }
                 .disabled(store.sessionID == nil)
-                Button("Desktop'ta aç", systemImage: "app.badge") {
-                    Task { await store.openInDesktop() }
+
+                if store.showsClaudeResume {
+                    handoffButton("Claude'da devam et", systemImage: "arrow.uturn.forward", help: Self.claudeResumeHelp)
+                    {
+                        Task { await store.openInDesktop() }
+                    }
+                    .disabled(!store.canOpenInDesktop)
                 }
-                .disabled(!store.canOpenInDesktop)
-                .help(
-                    store.resumableRun.map { $0.agent.supportsDesktopResume } == false
-                        ? "Yalnızca Claude Code oturumları Claude Desktop'ta açılır." : "")
-            }
-            if let run = store.runs.first(where: { $0.id == store.selectedRunID }) ?? store.latestRun {
-                Button("Diff'i göster", systemImage: "plus.forwardslash.minus") {
-                    Task { await store.showDiff(runID: run.id) }
+
+                handoffButton(
+                    "Claude'da baştan başlat", systemImage: "arrow.counterclockwise",
+                    help: Self.claudeRestartHelp(projectAgent: store.agent)
+                ) {
+                    Task { await store.openComposer() }
                 }
-                .disabled(!store.canShowDiff(for: run) || store.isLoadingDiff)
+                .disabled(store.project == nil)
+
+                if let run = store.runs.first(where: { $0.id == store.selectedRunID }) ?? store.latestRun {
+                    handoffButton(
+                        "Değişiklikleri göster", systemImage: "plus.forwardslash.minus", help: Self.diffHelp
+                    ) {
+                        Task { await store.showDiff(runID: run.id) }
+                    }
+                    .disabled(!store.canShowDiff(for: run) || store.isLoadingDiff)
+                }
             }
-            Button("Desktop composer'da aç", systemImage: "square.and.pencil") {
-                Task { await store.openComposer() }
-            }
-            .disabled(store.project == nil)
         }
         .buttonStyle(.glass)
         .font(.callout)
+    }
+
+    private func handoffButton(
+        _ title: String, systemImage: String, help: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            // A fixed icon column, so the titles line up although the symbols differ in width.
+            Label {
+                Text(title).lineLimit(1)
+            } icon: {
+                Image(systemName: systemImage).frame(width: 18)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .help(help)
+    }
+
+    // MARK: - Handoff copy
+
+    nonisolated static let terminalResumeHelp =
+        "Son çalışmanın oturumuna, görevin kendi ajanıyla Terminal'de devam eder."
+    nonisolated static let claudeResumeHelp =
+        "Son çalışmanın oturumunu Claude masaüstü uygulamasına aktarır; konuşma geçmişiyle kaldığın yerden devam edersin."
+    nonisolated static let diffHelp = "Bu çalışmanın yaptığı kod değişikliklerini dosya dosya gösterir."
+
+    /// The composer always opens the Claude desktop app, whatever agent the project runs.
+    nonisolated static func claudeRestartHelp(projectAgent: AgentKind) -> String {
+        let base =
+            "Claude masaüstü uygulamasında yeni bir oturum açar; komut hazır gelir, göndermeyi sen yaparsın. "
+            + "Önceki çalışmanın geçmişi gelmez."
+        guard projectAgent != .claude else { return base }
+        return base + " Proje \(projectAgent.displayName) kullansa da görev Claude Code ile başlar."
     }
 
     private func sectionTitle(_ text: String) -> some View {

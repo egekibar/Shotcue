@@ -156,7 +156,7 @@ final class AppEnvironment {
             handoff: handoff,
             fileStore: fileStore,
             clock: clock,
-            // "Diff'i göster" (Plan 07): the same inspector that snapshots git around every run.
+            // "Değişiklikleri göster" (Plan 07): the same inspector that snapshots git around every run.
             diff: gitInspector,
             defaultAgent: defaultAgent)
         self.services = services

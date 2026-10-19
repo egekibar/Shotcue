@@ -123,7 +123,7 @@ flowchart TB
 
 **How Shotcue finds the CLIs:** for each agent, the path in Ayarlar → Ajanlar → *Yol* if you set one; otherwise the usual install locations (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; for `codex` also the copy inside ChatGPT.app), and finally `which <cli>` in your login shell (given 3 seconds, in the background). Settings shows the version it found for each. A task whose agent is missing is refused with an explanation.
 
-**Codex and Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* picks the agent for every project, and each project can pick its own in *Proje ayarları*. A Codex task runs as `codex exec --json` (the screenshots are attached with `--image`; *Analiz* uses the read-only sandbox, `acceptEdits`/`dontAsk` the workspace-write sandbox, `bypassPermissions` no sandbox). An Antigravity task runs as `agy -p … --output-format stream-json` (*Analiz* in plan mode, the terminal sandbox unless the mode is `bypassPermissions`). Both have no turn or budget limit; the timeout and the concurrency limit apply. *Terminalde devam et* resumes with `codex resume <id>` or `agy --conversation <id>`; *Desktop'ta aç* is for Claude Code sessions only.
+**Codex and Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* picks the agent for every project, and each project can pick its own in *Proje ayarları*. A Codex task runs as `codex exec --json` (the screenshots are attached with `--image`; *Analiz* uses the read-only sandbox, `acceptEdits`/`dontAsk` the workspace-write sandbox, `bypassPermissions` no sandbox). An Antigravity task runs as `agy -p … --output-format stream-json` (*Analiz* in plan mode, the terminal sandbox unless the mode is `bypassPermissions`). Both have no turn or budget limit; the timeout and the concurrency limit apply. *Terminalde devam et* resumes with `codex resume <id>` or `agy --conversation <id>`; *Claude'da devam et* is for Claude Code sessions only and is hidden for the others.
 
 ## Install
 
@@ -239,9 +239,9 @@ The inspector's hand-off buttons (*Aktarım*):
 | Button | What it does |
 |---|---|
 | **Terminalde devam et** | Opens Terminal in the project folder and runs `claude --resume <session>` |
-| **Desktop'ta aç** | Opens the session in Claude Desktop (`claude://resume?session=…`) |
-| **Diff'i göster** | Opens a code comparison: the changed files with status badges and +/− counts on the left, the selected file's diff with old and new line numbers on the right. It compares against the commit the run started from; untracked files show as added. *Dosyayı kopyala* and *Tümünü kopyala* copy one file's patch or all of it |
-| **Desktop composer'da aç** | Opens Claude Desktop's composer with the same prompt Shotcue would send; you press send |
+| **Claude'da devam et** | Imports the session, with its conversation, into the Claude desktop app's Code tab (`claude://resume?session=…`), to carry on where the run stopped |
+| **Değişiklikleri göster** | Opens a code comparison: the changed files with status badges and +/− counts on the left, the selected file's diff with old and new line numbers on the right. It compares against the commit the run started from; untracked files show as added. *Dosyayı kopyala* and *Tümünü kopyala* copy one file's patch or all of it |
+| **Claude'da baştan başlat** | Opens a new Code session in the Claude desktop app with the prompt Shotcue would send; you press send. The run's history does not come along, and it starts with Claude Code whatever the project's agent |
 
 ## Settings
 
@@ -333,7 +333,7 @@ The design spec (`docs/superpowers/specs/`), the implementation plans (`docs/sup
 - Transcription uses one language at a time (Turkish or English); the model is a large download the first time.
 - A new transcription model, microphone, storage folder or `claude` path takes effect after restarting Shotcue, and moving the storage folder does not move the existing data.
 - Shotcue passes Claude Code CLI flags that can change between versions; it was tested with Claude Code 2.1.278.
-- *Desktop composer'da aç* passes the screenshots as file links; whether Claude Desktop attaches them depends on Claude Desktop.
+- *Claude'da baştan başlat* passes the screenshots as file links; whether Claude Desktop attaches them depends on Claude Desktop.
 
 ## Contributing
 

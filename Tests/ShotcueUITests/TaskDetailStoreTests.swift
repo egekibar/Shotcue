@@ -239,6 +239,34 @@ struct TaskDetailStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// "Claude'da devam et" only makes sense for a Claude Code session: a Codex or Antigravity run hides it, and a
+    /// task that never ran shows it disabled, like "Terminalde devam et".
+    @MainActor
+    @Test func claudeResumeShowsOnlyForClaudeCodeSessions() async throws {
+        let f = try await fixture(status: .done)
+        #expect(f.store.showsClaudeResume)
+        #expect(f.store.canOpenInDesktop == false)
+
+        let codex = Run(
+            taskID: f.task.id, agent: .codex, sessionID: "t-1", state: .succeeded, startedAt: t0,
+            finishedAt: t0.addingTimeInterval(30), logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try f.bundle.writeFile(codex.logRelPath, contents: "{\"type\":\"thread.started\",\"thread_id\":\"t-1\"}\n")
+        try await f.bundle.services.runs.save(codex)
+        _ = await waitUntil("runs") { f.store.runs.count == 1 }
+        #expect(f.store.showsClaudeResume == false)
+
+        let claude = Run(
+            taskID: f.task.id, state: .succeeded, startedAt: t0.addingTimeInterval(60),
+            finishedAt: t0.addingTimeInterval(90), logRelPath: "runs/\(UUID().uuidString.lowercased()).jsonl")
+        try f.bundle.writeFile(claude.logRelPath, contents: "{\"type\":\"system\",\"subtype\":\"init\"}\n")
+        try await f.bundle.services.runs.save(claude)
+        _ = await waitUntil("runs") { f.store.runs.count == 2 }
+        #expect(f.store.showsClaudeResume)
+        #expect(f.store.canOpenInDesktop)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func resumeIsOffWhenNoRunStartedClaude() async throws {
         let f = try await fixture(status: .ready)

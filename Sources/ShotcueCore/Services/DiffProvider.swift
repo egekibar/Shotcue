@@ -1,6 +1,6 @@
 import Foundation
 
-/// Working-tree changes since a commit, for the Inspector's "Diff'i göster" (spec §6.4).
+/// Working-tree changes since a commit, for the Inspector's "Değişiklikleri göster" (spec §6.4).
 public protocol DiffProvider: Sendable {
     /// Unified `git diff <since>` (against HEAD when `since` is nil) followed by a `--no-index` diff of every
     /// untracked file in `path`, joined by `DiffText.compose` and capped at `maxBytes`.
