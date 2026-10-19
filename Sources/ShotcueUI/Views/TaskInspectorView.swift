@@ -370,27 +370,13 @@ public struct TaskInspectorView: View {
                                 get: { store.isSchedulePresented },
                                 set: { store.isSchedulePresented = $0 })
                         ) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                DatePicker(
-                                    "Tarih ve saat",
-                                    selection: Binding(
-                                        get: { store.scheduleDate },
-                                        set: { store.scheduleDate = $0 })
-                                )
-                                .datePickerStyle(.graphical)
-                                HStack {
-                                    Spacer()
-                                    Button("Vazgeç") { store.isSchedulePresented = false }
-                                    Button("Zamanla") {
-                                        let when = store.scheduleDate
-                                        store.isSchedulePresented = false
-                                        Task { await store.schedule(at: when) }
-                                    }
-                                    .buttonStyle(.glassProminent)
-                                }
-                            }
-                            .padding(16)
-                            .frame(width: 320)
+                            ScheduleDateForm(
+                                date: Binding(get: { store.scheduleDate }, set: { store.scheduleDate = $0 }),
+                                onCancel: { store.isSchedulePresented = false },
+                                onSchedule: { when in
+                                    store.isSchedulePresented = false
+                                    Task { await store.schedule(at: when) }
+                                })
                         }
                         Button("Günlük kuyruğa al", systemImage: "calendar.badge.clock") {
                             Task { await store.addToDailyQueue() }
@@ -427,7 +413,7 @@ public struct TaskInspectorView: View {
 
     private func runRow(_ run: Run) -> some View {
         Button {
-            Task { await store.selectRun(run.id) }
+            Task { await store.toggleRun(run.id) }
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
@@ -436,6 +422,12 @@ public struct TaskInspectorView: View {
                     Text(Formatting.relativeDate(run.startedAt, now: Date()))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                    // The row opens and closes its log; the chevron says which.
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(store.selectedRunID == run.id ? 90 : 0))
+                        .animation(.snappy(duration: 0.15), value: store.selectedRunID)
                 }
                 HStack(spacing: 10) {
                     Text(run.agent.displayName)
@@ -485,6 +477,7 @@ public struct TaskInspectorView: View {
             }
         }
         .buttonStyle(.plain)
+        .help(store.selectedRunID == run.id ? "Logu kapat" : "Logu göster")
     }
 
     // MARK: - Handoff

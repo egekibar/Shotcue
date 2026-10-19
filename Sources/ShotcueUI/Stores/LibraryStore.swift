@@ -22,6 +22,8 @@ public final class LibraryStore {
     public private(set) var projects: [Project] = []
     /// The tasks shown in the content area: `allTasks` (or the search result) filtered by `selection`.
     public private(set) var tasks: [ShotTask] = []
+    /// How many tasks the sidebar selection holds before `statusFilter` narrows it ("3 / 12 öğe").
+    public private(set) var unfilteredTaskCount = 0
     public private(set) var counts: [SidebarSelection: Int] = [:]
     /// Built whenever exactly one task is selected, so the inspector has something to show.
     public private(set) var detailStore: TaskDetailStore?
@@ -52,9 +54,49 @@ public final class LibraryStore {
         }
         set {
             withMutation(keyPath: \.selection) { storedSelection = newValue }
+            // The filter belongs to the place it was set in; another project starts unfiltered.
+            withMutation(keyPath: \.statusFilter) { storedStatusFilter = [] }
             selectedTaskIDs = []
             recompute()
         }
+    }
+
+    /// The toolbar's status filter over a project or the inbox; empty shows every status. Setting it re-filters
+    /// the content list (grid and list alike) and drops selected tasks it hides.
+    public var statusFilter: Set<TaskStatus> {
+        get {
+            access(keyPath: \.statusFilter)
+            return storedStatusFilter
+        }
+        set {
+            guard isStatusFilterAvailable else { return }
+            withMutation(keyPath: \.statusFilter) { storedStatusFilter = newValue }
+            recompute()
+        }
+    }
+
+    /// A sidebar status already filters by status, so the toolbar filter is off there.
+    public var isStatusFilterAvailable: Bool {
+        if case .status = selection { return false }
+        return true
+    }
+
+    public var isStatusFilterActive: Bool { isStatusFilterAvailable && !statusFilter.isEmpty }
+
+    /// The window subtitle: "12 öğe", or "3 / 12 öğe" while the status filter hides some.
+    public var itemCountText: String {
+        isStatusFilterActive ? "\(tasks.count) / \(unfilteredTaskCount) öğe" : "\(tasks.count) öğe"
+    }
+
+    public func toggleStatusFilter(_ status: TaskStatus) {
+        var next = statusFilter
+        if next.contains(status) { next.remove(status) } else { next.insert(status) }
+        statusFilter = next
+    }
+
+    /// "Tümü".
+    public func clearStatusFilter() {
+        statusFilter = []
     }
 
     /// `⌘F` text. Setting it schedules a debounced repository search; `runSearch()` is the immediate one.
@@ -97,6 +139,7 @@ public final class LibraryStore {
     @ObservationIgnored private var decorationTask: Task<Void, Never>?
     @ObservationIgnored private var detailStartTask: Task<Void, Never>?
     @ObservationIgnored private var storedSelection: SidebarSelection = .inbox
+    @ObservationIgnored private var storedStatusFilter: Set<TaskStatus> = []
     @ObservationIgnored private var storedSearchText = ""
     @ObservationIgnored private var storedSelectedIDs: Set<UUID> = []
 
@@ -742,7 +785,9 @@ public final class LibraryStore {
         // title changed shows the change, a deleted one disappears. Rows created after the search are not matched
         // until the next search.
         let base = searchResultIDs.map { ids in allTasks.filter { ids.contains($0.id) } } ?? allTasks
-        tasks = filtered(base)
+        let inSelection = filtered(base)
+        unfilteredTaskCount = inSelection.count
+        tasks = isStatusFilterActive ? inSelection.filter { storedStatusFilter.contains($0.status) } : inSelection
         counts = makeCounts(allTasks)
         let visible = Set(tasks.map(\.id))
         let trimmed = storedSelectedIDs.intersection(visible)

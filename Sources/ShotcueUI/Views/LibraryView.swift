@@ -16,6 +16,7 @@ public struct LibraryView: View {
     public static let useNativeReorder = false
 
     @UIState private var isSortMenuPresented = false
+    @UIState private var isFilterMenuPresented = false
 
     public init(store: LibraryStore, thumbnails: ThumbnailCache? = nil) {
         self.store = store
@@ -33,7 +34,7 @@ public struct LibraryView: View {
         } detail: {
             content
                 .navigationTitle(navigationTitle)
-                .navigationSubtitle("\(store.sortedTasks.count) öğe")
+                .navigationSubtitle(store.itemCountText)
                 .searchable(text: $bindable.searchText, placement: .toolbar, prompt: "Başlık, not, transkript")
                 .toolbar { toolbarContent }
                 .safeAreaInset(edge: .bottom) {
@@ -343,25 +344,60 @@ public struct LibraryView: View {
 
     // MARK: - Toolbar and bottom bar
 
+    /// Several statuses can be ticked; the popover stays open so more can be added. "Tümü" clears the filter.
+    private var filterChoices: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            choiceRow(isOn: store.statusFilter.isEmpty) {
+                Text("Tümü")
+            } action: {
+                store.clearStatusFilter()
+            }
+            Divider().padding(.vertical, 4)
+            ForEach(TaskStatus.allCases, id: \.self) { status in
+                choiceRow(isOn: store.statusFilter.contains(status)) {
+                    // The icon in the status color, the text plain, as in the sidebar.
+                    Label {
+                        Text(StatusPresentation.label(for: status))
+                    } icon: {
+                        Image(systemName: StatusPresentation.symbol(for: status))
+                            .foregroundStyle(StatusPresentation.tint(for: status))
+                    }
+                } action: {
+                    store.toggleStatusFilter(status)
+                }
+            }
+        }
+        .padding(6)
+        .frame(minWidth: 170)
+    }
+
+    private func choiceRow(
+        isOn: Bool, @ViewBuilder label: () -> some View, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark")
+                    .font(.caption.weight(.semibold))
+                    .opacity(isOn ? 1 : 0)
+                label()
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+
     private var sortChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(SortOrder.allCases, id: \.self) { order in
-                Button {
+                choiceRow(isOn: order == store.sortOrder) {
+                    Text(order.label)
+                } action: {
                     store.sortOrder = order
                     isSortMenuPresented = false
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark")
-                            .font(.caption.weight(.semibold))
-                            .opacity(order == store.sortOrder ? 1 : 0)
-                        Text(order.label)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(6)
@@ -387,6 +423,24 @@ public struct LibraryView: View {
             }
             .help("Sırala")
             .popover(isPresented: $isSortMenuPresented, arrowEdge: .bottom) { sortChoices }
+
+            // A plain button for the same reason as the sort one; filled while a filter hides tasks.
+            Button {
+                isFilterMenuPresented.toggle()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(
+                        systemName: store.isStatusFilterActive
+                            ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    if store.isStatusFilterActive {
+                        Text("\(store.statusFilter.count) durum")
+                    }
+                }
+                .fixedSize()
+            }
+            .disabled(!store.isStatusFilterAvailable)
+            .help(store.isStatusFilterAvailable ? "Duruma göre filtrele" : "Kenar çubuğunda bir durum seçili")
+            .popover(isPresented: $isFilterMenuPresented, arrowEdge: .bottom) { filterChoices }
 
             Picker(
                 "Görünüm",
@@ -499,29 +553,14 @@ public struct LibraryView: View {
     }
 
     private var schedulePopover: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Ne zaman gönderilsin?").font(.headline)
-            DatePicker(
-                "Tarih ve saat",
-                selection: Binding(
-                    get: { store.scheduleDate },
-                    set: { store.scheduleDate = $0 })
-            )
-            .datePickerStyle(.graphical)
-            HStack {
-                Spacer()
-                Button("Vazgeç") { store.isSchedulePresented = false }
-                Button("Zamanla") {
-                    let ids = store.selectedTaskIDs
-                    let when = store.scheduleDate
-                    store.isSchedulePresented = false
-                    Task { await store.schedule(taskIDs: ids, at: when) }
-                }
-                .buttonStyle(.glassProminent)
-            }
-        }
-        .padding(16)
-        .frame(width: 320)
+        ScheduleDateForm(
+            date: Binding(get: { store.scheduleDate }, set: { store.scheduleDate = $0 }),
+            onCancel: { store.isSchedulePresented = false },
+            onSchedule: { when in
+                let ids = store.selectedTaskIDs
+                store.isSchedulePresented = false
+                Task { await store.schedule(taskIDs: ids, at: when) }
+            })
     }
 
     // MARK: - Inspector
