@@ -29,6 +29,48 @@ nonisolated final class DownloadProbeTranscriber: Transcriber, @unchecked Sendab
         }
         state.set(.ready)
     }
+    func deleteModel() async throws { state.set(.notDownloaded) }
+    func modelDiskUsage() async -> Int64? { nil }
+    func transcribe(fileURL: URL, language: String) async throws -> Transcript {
+        Transcript(text: "", language: language, engine: engineName)
+    }
+}
+
+/// Downloads until cancelled, then pauses where it stopped — as `WhisperKitTranscriber` does. A second download
+/// finishes. Tracks what is on disk so deletion can be observed.
+nonisolated final class PausableTranscriber: Transcriber, @unchecked Sendable {
+    let engineName = "pausable"
+    let state = Locked<TranscriberModelState>(.notDownloaded)
+    let downloads = Locked(0)
+    let deletions = Locked(0)
+    let bytesOnDisk = Locked<Int64?>(nil)
+
+    func modelState() async -> TranscriberModelState { state.current }
+    func downloadModel() async throws {
+        let attempt = downloads.withLock { count -> Int in
+            count += 1
+            return count
+        }
+        state.set(.downloading(progress: 0.3))
+        bytesOnDisk.set(500_000_000)
+        guard attempt == 1 else {
+            bytesOnDisk.set(1_500_000_000)
+            state.set(.ready)
+            return
+        }
+        do {
+            try await Task.sleep(for: .seconds(60))
+        } catch {
+            state.set(.paused(progress: 0.3))
+            throw CancellationError()
+        }
+    }
+    func deleteModel() async throws {
+        deletions.withLock { $0 += 1 }
+        bytesOnDisk.set(nil)
+        state.set(.notDownloaded)
+    }
+    func modelDiskUsage() async -> Int64? { bytesOnDisk.current }
     func transcribe(fileURL: URL, language: String) async throws -> Transcript {
         Transcript(text: "", language: language, engine: engineName)
     }
@@ -99,6 +141,71 @@ struct TranscriberModelStoreTests {
         #expect(store.downloadTask == nil)
     }
 
+    @MainActor
+    @Test func aPausedDownloadResumesAndThenTranscribesWhatWaited() async {
+        let transcriber = PausableTranscriber()
+        let queue = FakeTranscriptionQueue()
+        let store = TranscriberModelStore(
+            transcriber: transcriber, transcriptionQueue: queue,
+            modelName: "openai_whisper-large-v3-v20240930_turbo")
+        store.progressPollInterval = .milliseconds(10)
+
+        store.startDownload()
+        #expect(await waitUntil("progress") { store.state == .downloading(progress: 0.3) })
+        store.pauseDownload()
+        await store.downloadTask?.value
+        #expect(store.state == .paused(progress: 0.3))
+        #expect(store.downloadTask == nil)
+        #expect(store.diskUsage == 500_000_000)
+        // Pausing is not a failure, and nothing waited for the model is processed yet.
+        #expect(queue.processPendingCalls.current == 0)
+
+        store.startDownload()
+        // Resuming starts from where it paused, not from 0.
+        #expect(store.state == .downloading(progress: 0.3))
+        await store.downloadTask?.value
+        #expect(store.state == .ready)
+        #expect(transcriber.downloads.current == 2)
+        #expect(store.diskUsage == 1_500_000_000)
+        #expect(await waitUntil("pending notes processed") { queue.processPendingCalls.current == 1 })
+    }
+
+    @MainActor
+    @Test func deletingStopsADownloadAndForgetsIt() async {
+        let transcriber = PausableTranscriber()
+        let store = TranscriberModelStore(
+            transcriber: transcriber, transcriptionQueue: FakeTranscriptionQueue(),
+            modelName: "openai_whisper-large-v3-v20240930_turbo")
+        store.progressPollInterval = .milliseconds(10)
+
+        store.startDownload()
+        #expect(await waitUntil("progress") { store.state == .downloading(progress: 0.3) })
+        await store.deleteModel()
+
+        #expect(transcriber.deletions.current == 1)
+        #expect(store.downloadTask == nil)
+        #expect(store.state == .notDownloaded)
+        #expect(store.diskUsage == nil)
+        #expect(store.isDeleting == false)
+    }
+
+    @MainActor
+    @Test func deletingAReadyModel() async {
+        let transcriber = FakeTranscriber(state: .ready)
+        transcriber.diskUsage.set(1_500_000_000)
+        let store = TranscriberModelStore(
+            transcriber: transcriber, transcriptionQueue: FakeTranscriptionQueue(),
+            modelName: "openai_whisper-large-v3-v20240930_turbo")
+        await store.refresh()
+        #expect(store.diskUsage == 1_500_000_000)
+        #expect(store.diskUsageText?.contains("GB") == true)
+
+        await store.deleteModel()
+        #expect(transcriber.deletions.current == 1)
+        #expect(store.state == .notDownloaded)
+        #expect(store.diskUsageText == nil)
+    }
+
     @Test func downloadSizesAreShownForBothModels() {
         #expect(
             TranscriberModelStore.downloadSizeText(forModel: "openai_whisper-large-v3-v20240930_turbo") == "≈1,6 GB")
@@ -113,6 +220,9 @@ struct TranscriberModelStoreTests {
         #expect(VoiceNoteStatus.of(pending, model: .notDownloaded) == .waitingForModel)
         #expect(VoiceNoteStatus.of(pending, model: .downloading(progress: 0.5)) == .modelDownloading(0.5))
         #expect(VoiceNoteStatus.of(pending, model: .failed("x")) == .modelUnavailable)
+        #expect(VoiceNoteStatus.of(pending, model: .paused(progress: 0.3)) == .modelPaused)
+        #expect(VoiceNoteStatus.modelPaused.label == "model indirme duraklatıldı")
+        #expect(VoiceNoteStatus.modelPaused.offersModelDownload)
         #expect(VoiceNoteStatus.waitingForModel.label == "model indirilmedi")
         #expect(VoiceNoteStatus.transcribing.label == "çevriliyor")
         #expect(VoiceNoteStatus.waitingForModel.offersModelDownload)

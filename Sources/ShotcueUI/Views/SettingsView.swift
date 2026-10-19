@@ -13,9 +13,16 @@ public struct SettingsView: View {
     public let codexVersion: String?
     public let antigravityVersion: String?
     public let transcriberState: TranscriberModelState
+    /// Starts the download, or resumes a paused one from its partial files.
     public let onDownloadModel: () -> Void
+    /// "Duraklat" while the model downloads.
+    public let onPauseDownload: () -> Void
+    /// "Modeli sil" / "İndirileni sil", after the confirmation.
+    public let onDeleteModel: () -> Void
     /// Shown on the download button ("Modeli indir (≈1,6 GB)", spec §6.2: "boyut gösterilir").
     public let modelDownloadSize: String?
+    /// What the model (or its partial download) takes on disk ("1,5 GB"); nil when nothing is there.
+    public let modelDiskUsage: String?
     /// Input devices for the "Giriş cihazı" picker; empty → a UID text field is shown instead.
     /// Filled by the App layer from `AudioDeviceCatalog.inputDevices()` (ShotcueNotes).
     public let inputDevices: [(uid: String, name: String)]
@@ -33,7 +40,10 @@ public struct SettingsView: View {
         antigravityVersion: String? = nil,
         transcriberState: TranscriberModelState,
         onDownloadModel: @escaping () -> Void,
+        onPauseDownload: @escaping () -> Void = {},
+        onDeleteModel: @escaping () -> Void = {},
         modelDownloadSize: String? = nil,
+        modelDiskUsage: String? = nil,
         inputDevices: [(uid: String, name: String)] = [],
         appVersion: String? = nil,
         onCheckForUpdates: (() -> Void)? = nil
@@ -46,11 +56,16 @@ public struct SettingsView: View {
         self.antigravityVersion = antigravityVersion
         self.transcriberState = transcriberState
         self.onDownloadModel = onDownloadModel
+        self.onPauseDownload = onPauseDownload
+        self.onDeleteModel = onDeleteModel
         self.modelDownloadSize = modelDownloadSize
+        self.modelDiskUsage = modelDiskUsage
         self.inputDevices = inputDevices
         self.appVersion = appVersion
         self.onCheckForUpdates = onCheckForUpdates
     }
+
+    @UIState private var confirmsModelDeletion = false
 
     public var body: some View {
         TabView {
@@ -295,22 +310,24 @@ public struct SettingsView: View {
                     Text(Self.modelStateLabel(transcriberState))
                         .foregroundStyle(Self.modelStateTint(transcriberState))
                 }
-                if case .downloading(let progress) = transcriberState {
-                    ProgressView(value: progress) {
-                        Text("Model indiriliyor")
-                    }
-                    .progressViewStyle(.linear)
-                } else if case .ready = transcriberState {
-                    EmptyView()
-                } else {
-                    Button(modelDownloadSize.map { "Modeli indir (\($0))" } ?? "Modeli indir") { onDownloadModel() }
-                        .buttonStyle(.glassProminent)
+                if let modelDiskUsage, !Self.isDownloading(transcriberState) {
+                    LabeledContent("Diskte", value: modelDiskUsage)
                 }
+                modelControls
                 Text(
                     "Model hazır olmadan da sesli not alınabilir; transkripsiyon bekler ve model gelince kuyruk işlenir."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            }
+            .confirmationDialog(
+                Self.deleteModelTitle(transcriberState), isPresented: $confirmsModelDeletion,
+                titleVisibility: .visible
+            ) {
+                Button("Sil", role: .destructive) { onDeleteModel() }
+                Button("Vazgeç", role: .cancel) {}
+            } message: {
+                Text("Sesli notlar, model yeniden indirilene kadar yazıya dökülmez.")
             }
 
             Section("Giriş cihazı") {
@@ -396,12 +413,59 @@ public struct SettingsView: View {
         .formStyle(.grouped)
     }
 
+    /// Revize-1: the download can be paused and resumed, and the model or a partial download deleted.
+    @ViewBuilder
+    private var modelControls: some View {
+        switch transcriberState {
+        case .downloading(let progress):
+            HStack {
+                ProgressView(value: progress) {
+                    Text("Model indiriliyor")
+                }
+                .progressViewStyle(.linear)
+                Button("Duraklat", systemImage: "pause.fill") { onPauseDownload() }
+            }
+        case .paused:
+            HStack {
+                Button("Devam et", systemImage: "arrow.down.circle") { onDownloadModel() }
+                    .buttonStyle(.glassProminent)
+                Button("İndirileni sil", systemImage: "trash", role: .destructive) { confirmsModelDeletion = true }
+            }
+        case .ready:
+            Button("Modeli sil", systemImage: "trash", role: .destructive) { confirmsModelDeletion = true }
+        case .failed:
+            HStack {
+                Button("Tekrar dene", systemImage: "arrow.clockwise") { onDownloadModel() }
+                    .buttonStyle(.glassProminent)
+                if modelDiskUsage != nil {
+                    Button("İndirileni sil", systemImage: "trash", role: .destructive) {
+                        confirmsModelDeletion = true
+                    }
+                }
+            }
+        case .notDownloaded:
+            Button(modelDownloadSize.map { "Modeli indir (\($0))" } ?? "Modeli indir") { onDownloadModel() }
+                .buttonStyle(.glassProminent)
+        }
+    }
+
     // MARK: - Pure copy helpers
+
+    nonisolated static func isDownloading(_ state: TranscriberModelState) -> Bool {
+        if case .downloading = state { return true }
+        return false
+    }
+
+    nonisolated public static func deleteModelTitle(_ state: TranscriberModelState) -> String {
+        state == .ready ? "Model silinsin mi?" : "İndirilen kısım silinsin mi?"
+    }
 
     nonisolated public static func modelStateLabel(_ state: TranscriberModelState) -> String {
         switch state {
         case .notDownloaded: "İndirilmedi"
         case .downloading(let progress): "İndiriliyor… %\(Int((progress * 100).rounded()))"
+        case .paused(let progress?): "Duraklatıldı %\(Int((progress * 100).rounded()))"
+        case .paused(nil): "Duraklatıldı"
         case .ready: "Hazır"
         case .failed(let message): "Hata: \(message)"
         }
@@ -411,6 +475,7 @@ public struct SettingsView: View {
         switch state {
         case .notDownloaded: .orange
         case .downloading: .blue
+        case .paused: .orange
         case .ready: .green
         case .failed: .red
         }

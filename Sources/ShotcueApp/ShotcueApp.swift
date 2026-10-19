@@ -91,7 +91,10 @@ struct SettingsSceneRoot: View {
                 transcriberState: environment.transcriberModel.state,
                 // The one download flow (spec §6.2: explicit consent), shared with the quick panel and inspector.
                 onDownloadModel: { environment.transcriberModel.startDownload() },
+                onPauseDownload: { environment.transcriberModel.pauseDownload() },
+                onDeleteModel: { Task { await environment.transcriberModel.deleteModel() } },
                 modelDownloadSize: environment.transcriberModel.downloadSizeText,
+                modelDiskUsage: environment.transcriberModel.diskUsageText,
                 inputDevices: status.inputDevices,
                 appVersion: environment.updates.appVersionText,
                 onCheckForUpdates: { environment.updates.checkNow() })
