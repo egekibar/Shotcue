@@ -1,0 +1,7 @@
+/* ShotcueUI strings (tr). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Settings > General > Language */
+"Language" = "Dil";
+"System language" = "Sistem dili";
+"Restart Shotcue to switch the language." = "Dili değiştirmek için Shotcue'yu yeniden başlat.";
+"Restart now" = "Şimdi yeniden başlat";

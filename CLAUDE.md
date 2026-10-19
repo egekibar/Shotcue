@@ -30,6 +30,8 @@ Spec: docs/superpowers/specs/2026-09-22-shotcue-design.md · Plans: docs/superpo
 - NSApp.activate(ignoringOtherApps:) inside the quick panel (kills non-activating behavior).
 - Foundation Timer for scheduling (use DispatchSourceTimer); `claude --bare` (drops subscription auth); ad-hoc codesign (`--sign -`).
 - Naming: the task model is `ShotTask` (never `Task`). Code, identifiers, commits in English; UI strings in Turkish.
+- Localization (Plan 08, in progress): new UI strings go into `Sources/<Module>/Resources/{en,tr}.lproj/Localizable.strings`
+  with the English text as key, read through `L10n.bundle`. `.xcstrings` cannot be used (needs Xcode's `xcstringstool`).
 
 ## Workflow
 - TDD: failing test → minimal code → green → commit. Swift Testing (`#expect`, `#require`), no XCTest.
