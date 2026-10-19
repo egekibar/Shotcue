@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A run's log in the inspector closes again: a click on the open run hides it, and a chevron on each run shows
+  whether its log is open.
+
 ## [1.2.2] — 2026-10-06
 
 ### Fixed

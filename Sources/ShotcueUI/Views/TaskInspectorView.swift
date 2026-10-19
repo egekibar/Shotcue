@@ -420,7 +420,7 @@ public struct TaskInspectorView: View {
 
     private func runRow(_ run: Run) -> some View {
         Button {
-            Task { await store.selectRun(run.id) }
+            Task { await store.toggleRun(run.id) }
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
@@ -429,6 +429,12 @@ public struct TaskInspectorView: View {
                     Text(Formatting.relativeDate(run.startedAt, now: Date()))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                    // The row opens and closes its log; the chevron says which.
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(store.selectedRunID == run.id ? 90 : 0))
+                        .animation(.snappy(duration: 0.15), value: store.selectedRunID)
                 }
                 HStack(spacing: 10) {
                     Text(run.agent.displayName)
@@ -478,6 +484,7 @@ public struct TaskInspectorView: View {
             }
         }
         .buttonStyle(.plain)
+        .help(store.selectedRunID == run.id ? "Logu kapat" : "Logu göster")
     }
 
     // MARK: - Handoff
