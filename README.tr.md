@@ -118,7 +118,7 @@ flowchart TB
 | **macOS** | 26 (Tahoe) ya da üstü |
 | **Mac** | Apple Silicon |
 | **Kodlama ajanı** | En az biri: Claude aboneliğinle oturum açılmış `claude` CLI'ı (2.1.278 ile denendi), ChatGPT ile oturum açılmış OpenAI `codex` CLI'ı (0.148 ile denendi) ya da Google'ın Antigravity CLI'ı `agy` (1.2.9 ile denendi) |
-| **Sesli notlar** *(isteğe bağlı)* | Varsayılan WhisperKit modeli için yaklaşık 1,6 GB disk; yalnızca sen istediğinde indirilir (~632 MB'lık bir model de sunulur) |
+| **Sesli notlar** *(isteğe bağlı)* | Varsayılan WhisperKit modeli için yaklaşık 1,6 GB disk; yalnızca sen istediğinde indirilir (~632 MB'lık bir model de sunulur). Ayarlar → Ses'te indirme duraklatılıp sürdürülebilir, model yeniden silinebilir |
 | **Git** *(isteğe bağlı)* | Diff görünümü ve proje güvenlik ağları için (`/usr/bin/git`) |
 
 **Shotcue CLI'ları nasıl bulur:** her ajan için Ayarlar → Ajanlar → *Yol*'a bir yol yazdıysan onu; yoksa bilinen kurulum yerlerini (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; `codex` için ChatGPT.app içindeki kopyayı da) ve son olarak login shell'inde `which <cli>` (arka planda, 3 saniye sınırıyla). Her birinin bulunan sürümü Ayarlar'da görünür. Ajanı bulunamayan görevin gönderimi bir açıklamayla reddedilir.

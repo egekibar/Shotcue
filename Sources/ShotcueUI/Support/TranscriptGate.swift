@@ -103,6 +103,9 @@ struct TranscriptGate: Sendable {
         case .downloading(let progress):
             return "Transkripsiyon modeli indiriliyor (%\(Int((progress * 100).rounded()))). "
                 + "İndirme bitip sesli not yazıya dökülünce yeniden gönder."
+        case .paused:
+            return "Sesli not yazıya dökülmeden gönderilemez: transkripsiyon modelinin indirmesi duraklatıldı. "
+                + "Ayarlar > Ses'ten indirmeye devam et; not, model inince yazıya dökülür."
         case .failed:
             return "Transkripsiyon modeli yüklenemedi, sesli not yazıya dökülemiyor. "
                 + "Ayarlar > Ses'te hatayı görüp modeli yeniden indirebilirsin."

@@ -101,6 +101,15 @@ public final class FakeTranscriber: Transcriber, @unchecked Sendable {
     }
     public func modelState() async -> TranscriberModelState { state.current }
     public func downloadModel() async throws { state.set(.ready) }
+    public let deletions = Locked(0)
+    /// What `modelDiskUsage()` answers.
+    public let diskUsage = Locked<Int64?>(nil)
+    public func deleteModel() async throws {
+        deletions.withLock { $0 += 1 }
+        diskUsage.set(nil)
+        state.set(.notDownloaded)
+    }
+    public func modelDiskUsage() async -> Int64? { diskUsage.current }
     public func transcribe(fileURL: URL, language: String) async throws -> Transcript {
         calls.withLock { $0.append((fileURL, language)) }
         return try result.current.get()

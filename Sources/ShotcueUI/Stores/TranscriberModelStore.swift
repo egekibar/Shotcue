@@ -7,10 +7,16 @@ import ShotcueCore
 ///
 /// The model is downloaded only by `startDownload()`, which only an explicit click calls ("Model ilk kullanımda açık
 /// onayla indirilir"): nothing here — and nothing that reads `state` — ever starts a download on its own.
+/// A download can be paused (`pauseDownload()`) and resumed (`startDownload()` again, from the partial files), and
+/// the model or a partial download deleted (`deleteModel()`).
 @MainActor
 @Observable
 public final class TranscriberModelStore {
     public private(set) var state: TranscriberModelState = .notDownloaded
+    /// Bytes the model (or its partial download) takes on disk; nil when there is nothing.
+    public private(set) var diskUsage: Int64?
+    /// `deleteModel()` is running.
+    public private(set) var isDeleting = false
     /// The model the running transcriber was built with (a model change takes effect after a restart).
     public let modelName: String
 
@@ -43,20 +49,35 @@ public final class TranscriberModelStore {
         }
     }
 
-    /// Re-reads the transcriber's state. While a download runs, its own progress stays on screen.
-    public func refresh() async {
-        guard download == nil else { return }
-        let current = await transcriber.modelState()
-        guard download == nil else { return }
-        state = current
+    /// "Diskte 1,5 GB" in Settings; nil when nothing is on disk.
+    public var diskUsageText: String? {
+        diskUsage.map { Self.byteCountText($0) }
     }
 
-    /// "Modeli indir" (Settings, the quick panel, the inspector). A second click while downloading does nothing.
-    /// The progress is mirrored every `progressPollInterval`; once the model is in, the voice notes that waited for
-    /// it are transcribed.
+    nonisolated public static func byteCountText(_ bytes: Int64) -> String {
+        bytes.formatted(.byteCount(style: .file).locale(Locale(identifier: "tr_TR")))
+    }
+
+    /// Re-reads the transcriber's state. While a download runs, its own progress stays on screen.
+    public func refresh() async {
+        guard download == nil, !isDeleting else { return }
+        let current = await transcriber.modelState()
+        let usage = await transcriber.modelDiskUsage()
+        guard download == nil, !isDeleting else { return }
+        state = current
+        diskUsage = usage
+    }
+
+    /// "Modeli indir" / "Devam et" (Settings, the quick panel, the inspector). A second click while downloading
+    /// does nothing. A paused download resumes from its partial files. The progress is mirrored every
+    /// `progressPollInterval`; once the model is in, the voice notes that waited for it are transcribed.
     public func startDownload() {
-        guard download == nil else { return }
-        state = .downloading(progress: 0)
+        guard download == nil, !isDeleting else { return }
+        if case .paused(let progress?) = state {
+            state = .downloading(progress: progress)
+        } else {
+            state = .downloading(progress: 0)
+        }
         let transcriber = transcriber
         let queue = transcriptionQueue
         let interval = progressPollInterval
@@ -78,8 +99,13 @@ public final class TranscriberModelStore {
             progressPoll.cancel()
             await progressPoll.value
             let final = await transcriber.modelState()
+            let usage = await transcriber.modelDiskUsage()
             guard let self else { return }
-            if let failure {
+            diskUsage = usage
+            if failure is CancellationError {
+                // Paused: the transcriber says where it stopped.
+                state = final
+            } else if let failure {
                 state = .failed(failure.localizedDescription)
             } else {
                 state = final
@@ -87,6 +113,30 @@ public final class TranscriberModelStore {
             }
             download = nil
         }
+    }
+
+    /// "Duraklat": stops the download; its partial files stay on disk for `startDownload()` to resume from.
+    public func pauseDownload() {
+        download?.cancel()
+    }
+
+    /// "Modeli sil" / "İndirileni sil": stops a running download, then removes the model and any partial files.
+    /// Voice notes recorded afterwards wait for the model again.
+    public func deleteModel() async {
+        guard !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+        if let download {
+            download.cancel()
+            await download.value
+        }
+        do {
+            try await transcriber.deleteModel()
+            state = await transcriber.modelState()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+        diskUsage = await transcriber.modelDiskUsage()
     }
 }
 
@@ -98,6 +148,8 @@ nonisolated public enum VoiceNoteStatus: Hashable, Sendable {
     /// The model has not been downloaded; the note waits for it.
     case waitingForModel
     case modelDownloading(Double)
+    /// The model download was paused; the note waits until it is resumed.
+    case modelPaused
     /// The model could not be loaded; the note waits until it is downloaded again.
     case modelUnavailable
     /// The transcription failed and the user typed nothing for it.
@@ -116,6 +168,7 @@ nonisolated public enum VoiceNoteStatus: Hashable, Sendable {
             case .ready, nil: return .transcribing
             case .notDownloaded: return .waitingForModel
             case .downloading(let progress): return .modelDownloading(progress)
+            case .paused: return .modelPaused
             case .failed: return .modelUnavailable
             }
         }
@@ -126,6 +179,7 @@ nonisolated public enum VoiceNoteStatus: Hashable, Sendable {
         case .transcribing: "çevriliyor"
         case .waitingForModel: "model indirilmedi"
         case .modelDownloading(let progress): "model indiriliyor %\(Int((progress * 100).rounded()))"
+        case .modelPaused: "model indirme duraklatıldı"
         case .modelUnavailable: "model yüklenemedi"
         case .failed: "çevrilemedi"
         case .edited: "düzenlendi"
@@ -135,6 +189,6 @@ nonisolated public enum VoiceNoteStatus: Hashable, Sendable {
 
     /// The note waits for a model the user can download with one click.
     nonisolated public var offersModelDownload: Bool {
-        self == .waitingForModel || self == .modelUnavailable
+        self == .waitingForModel || self == .modelUnavailable || self == .modelPaused
     }
 }

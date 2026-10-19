@@ -15,6 +15,8 @@ public struct LibraryView: View {
     /// conditional compilation or popovers (research 01 §2). Flip only after manual verification on 27.
     public static let useNativeReorder = false
 
+    @UIState private var isSortMenuPresented = false
+
     public init(store: LibraryStore, thumbnails: ThumbnailCache? = nil) {
         self.store = store
         self.thumbnails = thumbnails
@@ -184,17 +186,29 @@ public struct LibraryView: View {
     }
 
     private var grid: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(store.sortedTasks) { task in
-                    gridCell(task)
+        GeometryReader { viewport in
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(store.sortedTasks) { task in
+                        gridCell(task)
+                    }
+                    .reorderableIfEnabled(Self.useNativeReorder && store.sortOrder == .manual)
                 }
-                .reorderableIfEnabled(Self.useNativeReorder && store.sortOrder == .manual)
+                .padding(14)
+                // At least as tall as the visible pane, so the tap below reaches the empty space under the last
+                // row too: the scroll view swallows clicks outside its content, so the tap must live inside it.
+                .frame(minHeight: viewport.size.height, alignment: .top)
+                .contentShape(.rect)
+                // A click on the empty space around and between the cards deselects; a card's own tap wins.
+                .onTapGesture { store.clearSelection() }
             }
-            .padding(14)
         }
+        // Focusable so ⌫ reaches `onDeleteCommand`, but without the focus ring: drawn around the whole grid in the
+        // accent color, it framed the pane on every click. The cards already show what is selected.
         .focusable()
+        .focusEffectDisabled()
         .onDeleteCommand { store.requestDelete(taskIDs: store.selectedTaskIDs) }
+        .onExitCommand { store.clearSelection() }
     }
 
     private func gridCell(_ task: ShotTask) -> some View {
@@ -329,19 +343,50 @@ public struct LibraryView: View {
 
     // MARK: - Toolbar and bottom bar
 
+    private var sortChoices: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(SortOrder.allCases, id: \.self) { order in
+                Button {
+                    store.sortOrder = order
+                    isSortMenuPresented = false
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.caption.weight(.semibold))
+                            .opacity(order == store.sortOrder ? 1 : 0)
+                        Text(order.label)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .frame(minWidth: 150)
+    }
+
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Picker(
-                "Sırala",
-                selection: Binding<SortOrder>(
-                    get: { store.sortOrder }, set: { store.sortOrder = $0 })
-            ) {
-                ForEach(SortOrder.allCases, id: \.self) { order in
-                    Text(order.label).tag(order)
+            // In the toolbar, menus and menu pickers drop their title and keep only the icon (measured on macOS 27),
+            // so the current order never showed. A plain button keeps its title; it opens the choices in a popover.
+            Button {
+                isSortMenuPresented.toggle()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.up.arrow.down")
+                    Text(store.sortOrder.label)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
+                .fixedSize()
             }
-            .pickerStyle(.menu)
+            .help("Sırala")
+            .popover(isPresented: $isSortMenuPresented, arrowEdge: .bottom) { sortChoices }
 
             Picker(
                 "Görünüm",
