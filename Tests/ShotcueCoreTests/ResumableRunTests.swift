@@ -3,7 +3,7 @@ import Testing
 
 @testable import ShotcueCore
 
-/// Final review M4: "Terminalde devam et" / "Desktop'ta aç" resume the newest run that actually started claude. A run
+/// Final review M4: "Terminalde devam et" / "Claude'da devam et" resume the newest run that actually started claude. A run
 /// refused or cancelled before launch has no session: `--resume` would answer "No conversation found".
 @Suite("Resumable run")
 struct ResumableRunTests {

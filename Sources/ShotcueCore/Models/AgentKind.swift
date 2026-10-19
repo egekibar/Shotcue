@@ -49,7 +49,7 @@ public enum AgentKind: String, Sendable, Codable, CaseIterable, Identifiable {
     /// Only Claude Code enforces Shotcue's turn and budget limits; the other CLIs have no such flags.
     public var supportsTurnAndBudgetLimits: Bool { self == .claude }
 
-    /// Only Claude Code has a desktop app that resumes a CLI session by id (`claude://code/resume`).
+    /// Only Claude Code has a desktop app that resumes a CLI session by id (`claude://resume`).
     public var supportsDesktopResume: Bool { self == .claude }
 
     /// The effective agent: the project's own choice, else the global default.
