@@ -261,6 +261,13 @@ public struct TaskInspectorView: View {
                 Button("Modeli indir (\(model.downloadSizeText))") { model.startDownload() }
                     .font(.caption2)
             }
+        case .modelPaused:
+            Label(status.label ?? "", systemImage: "pause.circle")
+                .font(.caption2).foregroundStyle(.orange)
+            if let model = store.modelStore {
+                Button("İndirmeye devam et") { model.startDownload() }
+                    .font(.caption2)
+            }
         case .failed:
             Label(status.label ?? "", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption2).foregroundStyle(.red)

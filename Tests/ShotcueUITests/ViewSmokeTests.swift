@@ -227,6 +227,8 @@ struct SettingsViewTests {
         let permissions = PermissionsStore(services: bundle.services)
         await permissions.refresh()
         let downloads = Locked(0)
+        let pauses = Locked(0)
+        let deletions = Locked(0)
 
         let view = SettingsView(
             settings: settings,
@@ -234,7 +236,10 @@ struct SettingsViewTests {
             projects: [Project(name: "acme-web", path: "/tmp/acme-web", createdAt: Date())],
             claudeVersion: "2.1.278 (Claude Code)",
             transcriberState: .notDownloaded,
-            onDownloadModel: { downloads.withLock { $0 += 1 } })
+            onDownloadModel: { downloads.withLock { $0 += 1 } },
+            onPauseDownload: { pauses.withLock { $0 += 1 } },
+            onDeleteModel: { deletions.withLock { $0 += 1 } },
+            modelDiskUsage: "1,5 GB")
 
         #expect(view.settings === settings)
         #expect(view.permissions === permissions)
@@ -242,6 +247,11 @@ struct SettingsViewTests {
         #expect(view.claudeVersion == "2.1.278 (Claude Code)")
         view.onDownloadModel()
         #expect(downloads.current == 1)
+        view.onPauseDownload()
+        #expect(pauses.current == 1)
+        view.onDeleteModel()
+        #expect(deletions.current == 1)
+        #expect(view.modelDiskUsage == "1,5 GB")
         bundle.cleanUp()
     }
 
@@ -249,7 +259,11 @@ struct SettingsViewTests {
     @Test func transcriberStateCopyCoversEveryCase() {
         #expect(SettingsView.modelStateLabel(.notDownloaded) == "İndirilmedi")
         #expect(SettingsView.modelStateLabel(.downloading(progress: 0.42)) == "İndiriliyor… %42")
+        #expect(SettingsView.modelStateLabel(.paused(progress: 0.42)) == "Duraklatıldı %42")
+        #expect(SettingsView.modelStateLabel(.paused(progress: nil)) == "Duraklatıldı")
         #expect(SettingsView.modelStateLabel(.ready) == "Hazır")
+        #expect(SettingsView.deleteModelTitle(.ready) == "Model silinsin mi?")
+        #expect(SettingsView.deleteModelTitle(.paused(progress: nil)) == "İndirilen kısım silinsin mi?")
         #expect(SettingsView.modelStateLabel(.failed("disk dolu")) == "Hata: disk dolu")
         #expect(SettingsView.permissionModeLabel(.bypassPermissions) == "bypassPermissions (sormaz, uygular)")
         #expect(SettingsView.permissionModeLabel(.acceptEdits) == "acceptEdits (düzenlemeleri kabul eder)")
