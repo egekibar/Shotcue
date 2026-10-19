@@ -34,57 +34,57 @@ public struct ProjectEditorView: View {
         let agent = draft.wrappedValue.effectiveAgent(default: store.defaultAgent)
         return VStack(alignment: .leading, spacing: 0) {
             Form {
-                Section("Proje") {
-                    TextField("Ad", text: draft.name)
-                    LabeledContent("Klasör") {
+                Section(L10n.t("Project")) {
+                    TextField(L10n.t("Name"), text: draft.name)
+                    LabeledContent(L10n.t("Folder")) {
                         HStack {
-                            TextField("/Users/…/proje", text: draft.path)
+                            TextField(L10n.t("/Users/…/project"), text: draft.path)
                                 .textFieldStyle(.roundedBorder)
-                            Button("Seç…") { store.isProjectFolderPickerPresented = true }
+                            Button(L10n.t("Choose…")) { store.isProjectFolderPickerPresented = true }
                         }
                     }
                 }
-                Section("Varsayılanlar") {
-                    Picker("Ajan", selection: agentBinding(draft)) {
-                        Text("Genel ayar (\(store.defaultAgent.displayName))").tag("")
+                Section(L10n.t("Defaults")) {
+                    Picker(L10n.t("Agent"), selection: agentBinding(draft)) {
+                        Text(L10n.t("Global setting (\(store.defaultAgent.displayName))")).tag("")
                         ForEach(AgentKind.allCases) { agent in
                             Text(agent.displayName).tag(agent.rawValue)
                         }
                     }
-                    Picker("Mod", selection: draft.defaultMode) {
-                        Text("Analiz").tag(TaskMode.analyze)
-                        Text("Uygula").tag(TaskMode.implement)
+                    Picker(L10n.t("Mode"), selection: draft.defaultMode) {
+                        Text(L10n.t("Analyze")).tag(TaskMode.analyze)
+                        Text(L10n.t("Implement")).tag(TaskMode.implement)
                     }
                     .pickerStyle(.segmented)
-                    Picker("Model", selection: draft.defaultModel) {
+                    Picker(L10n.t("Model"), selection: draft.defaultModel) {
                         ForEach(
                             AgentModelChoices.options(for: agent, including: draft.wrappedValue.defaultModel),
                             id: \.self
                         ) { model in
-                            Text(model.isEmpty ? "Genel ayar" : model).tag(model)
+                            Text(model.isEmpty ? L10n.t("Global setting") : model).tag(model)
                         }
                     }
-                    Picker("Effort", selection: draft.defaultEffort) {
+                    Picker(L10n.t("Effort"), selection: draft.defaultEffort) {
                         ForEach(effortOptions(draft.wrappedValue.defaultEffort, agent: agent), id: \.self) { effort in
-                            Text(effort.isEmpty ? "Genel ayar" : effort).tag(effort)
+                            Text(effort.isEmpty ? L10n.t("Global setting") : effort).tag(effort)
                         }
                     }
                 }
-                Section("Günlük kuyruk") {
-                    Toggle("Her gün kuyruğu çalıştır", isOn: draft.dailyEnabled)
-                    DatePicker("Saat", selection: timeBinding(draft), displayedComponents: .hourAndMinute)
+                Section(L10n.t("Daily Queue")) {
+                    Toggle(L10n.t("Run the queue every day"), isOn: draft.dailyEnabled)
+                    DatePicker(L10n.t("Time"), selection: timeBinding(draft), displayedComponents: .hourAndMinute)
                         .disabled(!draft.wrappedValue.dailyEnabled)
                     Text(
-                        "Saat bugün geçtiyse ilk çalışma yarın olur. Kuyruk, projedeki Hazır görevleri sırayla gönderir."
+                        L10n.t("If the time has passed today, the first run is tomorrow. The queue sends the project's Ready tasks in order.")
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
-                Section("Güvenlik ağı") {
-                    Toggle("Her çalıştırmayı yeni branch'te başlat", isOn: draft.runInBranch)
-                    Toggle("Çalıştırmadan önce değişiklikleri stash'le", isOn: draft.stashBeforeRun)
+                Section(L10n.t("Safety Nets")) {
+                    Toggle(L10n.t("Start every run on a new branch"), isOn: draft.runInBranch)
+                    Toggle(L10n.t("Stash changes before every run"), isOn: draft.stashBeforeRun)
                     Text(
-                        "Bunlardan biri açıkken bu projenin görevleri aynı anda değil, sırayla çalışır; kapalıyken eş zamanlı çalışabilir."
+                        L10n.t("With either one on, this project's tasks run one at a time; with both off they can run side by side.")
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -98,9 +98,9 @@ public struct ProjectEditorView: View {
                         .foregroundStyle(.orange)
                 }
                 Spacer()
-                Button("Vazgeç", role: .cancel) { store.cancelProjectEditor() }
+                Button(L10n.t("Cancel"), role: .cancel) { store.cancelProjectEditor() }
                     .keyboardShortcut(.cancelAction)
-                Button(draft.wrappedValue.isNew ? "Oluştur" : "Kaydet") {
+                Button(draft.wrappedValue.isNew ? L10n.t("Create") : L10n.t("Save")) {
                     Task { await store.saveProjectDraft() }
                 }
                 .keyboardShortcut(.defaultAction)

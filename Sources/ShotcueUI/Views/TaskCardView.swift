@@ -99,7 +99,7 @@ public struct TaskCardView: View {
                         .foregroundStyle(.secondary)
                 }
                 if task.mode == .analyze {
-                    Label("Analiz", systemImage: "magnifyingglass")
+                    Label(L10n.t("Analyze"), systemImage: "magnifyingglass")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

@@ -32,54 +32,54 @@ public struct UpdateView: View {
     @ViewBuilder private var content: some View {
         switch store.phase {
         case .idle, .checking:
-            Text("Güncellemeler denetleniyor…").font(.headline)
+            Text(L10n.t("Checking for updates…")).font(.headline)
             ProgressView().controlSize(.small)
-            buttons { Button("Kapat", action: dismiss).keyboardShortcut(.cancelAction) }
+            buttons { Button(L10n.t("Close"), action: dismiss).keyboardShortcut(.cancelAction) }
 
         case .upToDate:
-            Text("Shotcue güncel").font(.headline)
-            Text("Kullandığın sürüm (\(store.currentVersion.description)) en yeni sürüm.")
+            Text(L10n.t("Shotcue is up to date")).font(.headline)
+            Text(L10n.t("The version you use (\(store.currentVersion.description)) is the latest."))
                 .foregroundStyle(.secondary)
-            buttons { Button("Tamam", action: dismiss).keyboardShortcut(.defaultAction) }
+            buttons { Button(L10n.t("OK"), action: dismiss).keyboardShortcut(.defaultAction) }
 
         case .available(let release):
             header(release)
             notes(release)
             HStack {
-                Button("Bu sürümü atla") {
+                Button(L10n.t("Skip This Version")) {
                     store.skip()
                     close()
                 }
                 Spacer()
-                Button("Sonra", action: dismiss).keyboardShortcut(.cancelAction)
-                Button("Güncelle") { Task { await store.install() } }
+                Button(L10n.t("Later"), action: dismiss).keyboardShortcut(.cancelAction)
+                Button(L10n.t("Update")) { Task { await store.install() } }
                     .keyboardShortcut(.defaultAction)
             }
 
         case .downloading(let release, let progress):
             header(release)
             ProgressView(value: progress) {
-                Text("İndiriliyor…").font(.callout)
+                Text(L10n.t("Downloading…")).font(.callout)
             }
-            Text("İndirme bitince Shotcue kapanıp yeni sürümle yeniden açılacak.")
+            Text(L10n.t("When the download is done, Shotcue quits and reopens with the new version."))
                 .font(.callout).foregroundStyle(.secondary)
 
         case .installing(let release):
             header(release)
             ProgressView().controlSize(.small)
-            Text("Shotcue yeniden başlatılıyor…").font(.callout).foregroundStyle(.secondary)
+            Text(L10n.t("Shotcue is restarting…")).font(.callout).foregroundStyle(.secondary)
 
         case .failed(let release, let message):
-            Text(release == nil ? "Güncellemeler denetlenemedi" : "Güncelleme kurulamadı").font(.headline)
+            Text(release == nil ? L10n.t("Could not check for updates") : L10n.t("Could not install the update")).font(.headline)
             Text(message).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 if let release {
-                    Button("Sürüm sayfasını aç") { openURL(release.pageURL) }
+                    Button(L10n.t("Open the Release Page")) { openURL(release.pageURL) }
                 }
                 Spacer()
-                Button("Kapat", action: dismiss).keyboardShortcut(.cancelAction)
+                Button(L10n.t("Close"), action: dismiss).keyboardShortcut(.cancelAction)
                 if release != nil {
-                    Button("Yeniden dene") { Task { await store.install() } }
+                    Button(L10n.t("Try Again")) { Task { await store.install() } }
                         .keyboardShortcut(.defaultAction)
                 }
             }
@@ -88,8 +88,8 @@ public struct UpdateView: View {
 
     private func header(_ release: ReleaseInfo) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Shotcue \(release.version.description) hazır").font(.headline)
-            Text("Şu an \(store.currentVersion.description) sürümünü kullanıyorsun.")
+            Text(L10n.t("Shotcue \(release.version.description) is available")).font(.headline)
+            Text(L10n.t("You are using \(store.currentVersion.description)."))
                 .font(.callout).foregroundStyle(.secondary)
         }
     }

@@ -165,7 +165,7 @@ public final class QuickPanelStore {
         guard let task else { return }
         if microphoneState == .notDetermined { await requestMicrophone() }
         guard microphoneState != .denied else {
-            lastError = "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik'ten açabilirsin."
+            lastError = L10n.t("Microphone access was not given. Turn it on in System Settings > Privacy.")
             return
         }
         let noteID = UUID()
@@ -258,11 +258,11 @@ public final class QuickPanelStore {
         let now = services.clock.now
         do {
             guard var current = try await services.tasks.task(id: cached.id) else {
-                lastError = "Görev bulunamadı."
+                lastError = L10n.t("Task not found.")
                 return false
             }
             guard current.status.isEditable else {
-                lastError = "Çalışan bir görev düzenlenemez."
+                lastError = L10n.t("A running task cannot be edited.")
                 return false
             }
             current.noteText = noteText
@@ -311,7 +311,7 @@ public final class QuickPanelStore {
     /// with the panel still open.
     public func saveAndSend() async {
         guard selectedProjectID != nil else {
-            lastError = "Göndermek için bir proje seç."
+            lastError = L10n.t("Pick a project to send to.")
             return
         }
         guard await save(), let current = task else { return }
@@ -369,7 +369,7 @@ public final class QuickPanelStore {
     /// "Zamanla…" in the panel footer.
     public func saveAndSchedule(at date: Date) async {
         guard selectedProjectID != nil else {
-            lastError = "Zamanlamak için bir proje seç."
+            lastError = L10n.t("Pick a project to schedule for.")
             return
         }
         guard await save(), var current = task else { return }

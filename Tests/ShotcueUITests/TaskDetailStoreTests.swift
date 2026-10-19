@@ -234,7 +234,7 @@ struct TaskDetailStoreTests {
 
         await f.store.openInTerminal()
         #expect(f.bundle.handoff.actions.current.isEmpty)
-        #expect(f.store.lastError?.contains("proje klasöründen") == true)
+        #expect(f.store.lastError?.contains("project folder") == true)
         f.store.stop()
         f.bundle.cleanUp()
     }
@@ -280,7 +280,7 @@ struct TaskDetailStoreTests {
         await f.store.openInTerminal()
         await f.store.openInDesktop()
         #expect(f.bundle.handoff.actions.current.isEmpty)
-        #expect(f.store.lastError == "Devam ettirilecek bir oturum yok.")
+        #expect(f.store.lastError == "There is no session to continue.")
         f.store.stop()
         f.bundle.cleanUp()
     }

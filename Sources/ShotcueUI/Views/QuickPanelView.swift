@@ -55,9 +55,9 @@ public struct QuickPanelView: View {
     private var header: some View {
         HStack(spacing: 6) {
             Image(systemName: "camera.viewfinder").foregroundStyle(.tint)
-            Text("Yeni yakalama").font(.headline)
+            Text(L10n.t("New Capture")).font(.headline)
             Spacer(minLength: 8)
-            Text("⌘⏎ kaydet · ⌘⇧⏎ kaydet ve gönder · esc kapat")
+            Text(L10n.t("⌘⏎ save · ⌘⇧⏎ save and send · esc close"))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -90,16 +90,16 @@ public struct QuickPanelView: View {
     private var routing: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("PROJE")
+                Text(L10n.t("PROJECT"))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Picker(
-                    "Proje",
+                    L10n.t("Project"),
                     selection: Binding<UUID?>(
                         get: { store.selectedProjectID },
                         set: { store.selectedProjectID = $0 })
                 ) {
-                    Text("Seçilmedi (inbox)").tag(UUID?.none)
+                    Text(L10n.t("None (inbox)")).tag(UUID?.none)
                     ForEach(store.projects) { project in
                         projectLabel(project).tag(Optional(project.id))
                     }
@@ -115,17 +115,17 @@ public struct QuickPanelView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("MOD")
+                Text(L10n.t("MODE"))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Picker(
-                    "Mod",
+                    L10n.t("Mode"),
                     selection: Binding<TaskMode>(
                         get: { store.mode },
                         set: { store.mode = $0 })
                 ) {
-                    Text("Analiz").tag(TaskMode.analyze)
-                    Text("Uygula").tag(TaskMode.implement)
+                    Text(L10n.t("Analyze")).tag(TaskMode.analyze)
+                    Text(L10n.t("Implement")).tag(TaskMode.implement)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -174,7 +174,7 @@ public struct QuickPanelView: View {
                 .background(.background.secondary, in: .rect(cornerRadius: 8))
                 .focused($noteFocused)
             if store.noteText.isEmpty {
-                Text("Not yaz…")
+                Text(L10n.t("Write a note…"))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 11)
                     .padding(.vertical, 12)
@@ -191,7 +191,7 @@ public struct QuickPanelView: View {
                 Task { await store.toggleRecording() }
             } label: {
                 Label(
-                    store.isRecording ? "Durdur" : "Sesli not",
+                    store.isRecording ? L10n.t("Stop") : L10n.t("Voice Note"),
                     systemImage: store.isRecording ? "stop.circle.fill" : "mic.circle")
             }
             .buttonStyle(.glass)
@@ -207,7 +207,7 @@ public struct QuickPanelView: View {
                 .foregroundStyle(.secondary)
 
             if !store.voiceNotes.isEmpty {
-                Label("\(store.voiceNotes.count) kayıt", systemImage: "waveform")
+                Label(L10n.t("\(store.voiceNotes.count) recordings"), systemImage: "waveform")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -215,18 +215,18 @@ public struct QuickPanelView: View {
             Spacer(minLength: 6)
 
             if store.microphoneState == .denied {
-                Text("Mikrofon izni yok")
+                Text(L10n.t("No microphone access"))
                     .font(.caption)
                     .foregroundStyle(.orange)
             } else if store.microphoneState == .notDetermined {
-                Button("Mikrofon izni ver") {
+                Button(L10n.t("Allow Microphone")) {
                     Task { await store.requestMicrophone() }
                 }
                 .buttonStyle(.plain)
                 .font(.caption)
                 .foregroundStyle(.tint)
             } else {
-                Text("cihaz içi transkripsiyon")
+                Text(L10n.t("on-device transcription"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -241,37 +241,37 @@ public struct QuickPanelView: View {
             switch model.state {
             case .downloading(let progress):
                 ProgressView(value: progress) {
-                    Text("Transkripsiyon modeli indiriliyor… %\(Int((progress * 100).rounded()))")
+                    Text(L10n.t("Downloading the transcription model… \(Int((progress * 100).rounded()))%"))
                         .font(.caption)
                 }
                 .progressViewStyle(.linear)
             case .paused:
                 Label(
-                    "Model indirmesi duraklatıldı; kayıt saklandı, model inince yazıya dökülür.",
+                    L10n.t("The model download is paused; the recording is kept and transcribed once the model arrives."),
                     systemImage: "pause.circle"
                 )
                 .font(.caption)
                 .foregroundStyle(.orange)
                 Spacer(minLength: 6)
-                Button("İndirmeye devam et") { model.startDownload() }
+                Button(L10n.t("Resume Download")) { model.startDownload() }
                     .buttonStyle(.glass)
                     .font(.caption)
             case .failed:
-                Label("Model yüklenemedi; kayıt saklandı, yazıya dökülmeyi bekliyor.", systemImage: "arrow.down.circle")
+                Label(L10n.t("The model could not be loaded; the recording is kept and waits to be transcribed."), systemImage: "arrow.down.circle")
                     .font(.caption)
                     .foregroundStyle(.orange)
                 Spacer(minLength: 6)
-                Button("Modeli yeniden indir (\(model.downloadSizeText))") { model.startDownload() }
+                Button(L10n.t("Download the Model Again (\(model.downloadSizeText))")) { model.startDownload() }
                     .buttonStyle(.glass)
                     .font(.caption)
             default:
                 Label(
-                    "Model indirilmedi; kayıt saklandı, model inince yazıya dökülür.", systemImage: "arrow.down.circle"
+                    L10n.t("The model is not downloaded; the recording is kept and transcribed once the model arrives."), systemImage: "arrow.down.circle"
                 )
                 .font(.caption)
                 .foregroundStyle(.orange)
                 Spacer(minLength: 6)
-                Button("Modeli indir (\(model.downloadSizeText))") { model.startDownload() }
+                Button(L10n.t("Download Model (\(model.downloadSizeText))")) { model.startDownload() }
                     .buttonStyle(.glass)
                     .font(.caption)
             }
@@ -284,11 +284,11 @@ public struct QuickPanelView: View {
         HStack(spacing: 8) {
             // No `.keyboardShortcut(.cancelAction)`: Plan 06's key monitor owns Esc (like ⌘↩ / ⌘⇧↩), and
             // `.onExitCommand` above is its in-view fallback; `dismiss()` ignores a repeated Esc.
-            Button("Vazgeç") { store.dismiss() }
+            Button(L10n.t("Cancel")) { store.dismiss() }
 
             Spacer(minLength: 12)
 
-            Button("Zamanla…") { store.isSchedulePresented = true }
+            Button(L10n.t("Schedule…")) { store.isSchedulePresented = true }
                 .buttonStyle(.glass)
                 .popover(
                     isPresented: Binding(
@@ -306,7 +306,7 @@ public struct QuickPanelView: View {
             Button {
                 Task { await store.saveAndClose() }
             } label: {
-                Text("Kaydet  ⌘⏎")
+                Text(L10n.t("Save  ⌘⏎"))
             }
             .buttonStyle(.glass)
             .disabled(!store.canSave)
@@ -314,7 +314,7 @@ public struct QuickPanelView: View {
             Button {
                 Task { await store.saveAndSend() }
             } label: {
-                Text("Kaydet ve gönder  ⌘⇧⏎")
+                Text(L10n.t("Save and Send  ⌘⇧⏎"))
             }
             .buttonStyle(.glassProminent)
             .disabled(store.selectedProjectID == nil)

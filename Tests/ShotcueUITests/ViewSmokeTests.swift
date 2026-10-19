@@ -89,7 +89,7 @@ struct LibraryViewTests {
 
         let chip = StatusChip(status: .running)
         #expect(chip.status == .running)
-        #expect(StatusPresentation.label(for: chip.status) == "Çalışıyor")
+        #expect(StatusPresentation.label(for: chip.status) == "Running")
         bundle.cleanUp()
     }
 
@@ -294,13 +294,13 @@ struct OnboardingViewTests {
         #expect(permissions.allGranted == false)
         // Screen recording is the gate for finishing onboarding.
         #expect(view.canFinish == false)
-        #expect(view.notice?.hasPrefix("Ekran Kaydı izni olmadan yakalama çalışmaz.") == true)
+        #expect(view.notice?.hasPrefix("Capturing does not work without Screen Recording access.") == true)
 
         await permissions.request(.screenRecording)
         #expect(permissions.state(of: .screenRecording) == .granted)
         #expect(view.canFinish == true)
         #expect(view.notice == nil)
-        #expect(view.finishTitle == "Başla")
+        #expect(view.finishTitle == "Start")
 
         view.onDone()
         #expect(done.current == 1)
@@ -322,9 +322,9 @@ struct OnboardingViewTests {
         #expect(view.canFinish)
         #expect(
             view.notice
-                == "Ekran Kaydı izni, Shotcue yeniden başlayınca geçerli olur. Hazır olduğunda \"Yeniden başlat\"a bas."
+                == "Screen Recording access applies once Shotcue restarts. Press Restart when you are ready."
         )
-        #expect(view.finishTitle == "Yeniden başlat")
+        #expect(view.finishTitle == "Restart")
         view.onDone()
         #expect(done.current == 1)
         bundle.cleanUp()

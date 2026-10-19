@@ -15,10 +15,10 @@ public enum SortOrder: String, Hashable, Sendable, CaseIterable {
 
     nonisolated public var label: String {
         switch self {
-        case .newest: "En yeni"
-        case .oldest: "En eski"
-        case .manual: "Manuel"
-        case .status: "Duruma göre"
+        case .newest: L10n.t("Newest")
+        case .oldest: L10n.t("Oldest")
+        case .manual: L10n.t("Manual")
+        case .status: L10n.t("By Status")
         }
     }
 }
@@ -28,8 +28,8 @@ public enum ViewMode: String, Hashable, Sendable, CaseIterable {
 
     nonisolated public var label: String {
         switch self {
-        case .grid: "Izgara"
-        case .list: "Liste"
+        case .grid: L10n.t("Grid")
+        case .list: L10n.t("List")
         }
     }
 

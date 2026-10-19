@@ -27,7 +27,7 @@ public struct ScheduleDateForm: View {
         let calendar = Calendar.current
         let isPast = ScheduleSuggestions.isInPast(date, now: now)
         VStack(alignment: .leading, spacing: 12) {
-            Text("Ne zaman gönderilsin?")
+            Text(L10n.t("When should it be sent?"))
                 .font(.headline)
 
             HStack(spacing: 6) {
@@ -40,7 +40,7 @@ public struct ScheduleDateForm: View {
 
             // The calendar sets the day only; the time field below keeps the hour.
             DatePicker(
-                "Gün",
+                L10n.t("Day"),
                 selection: Binding(
                     get: { date },
                     set: { date = ScheduleSuggestions.combine(day: $0, time: date, calendar: calendar) }),
@@ -52,10 +52,10 @@ public struct ScheduleDateForm: View {
             .frame(maxWidth: .infinity)
 
             HStack {
-                Text("Saat")
+                Text(L10n.t("Time"))
                 Spacer()
                 DatePicker(
-                    "Saat",
+                    L10n.t("Time"),
                     selection: Binding(
                         get: { date },
                         set: { date = ScheduleSuggestions.combine(day: date, time: $0, calendar: calendar) }),
@@ -65,14 +65,14 @@ public struct ScheduleDateForm: View {
                 .labelsHidden()
             }
 
-            Text(isPast ? "Geçmiş bir zaman; ileri bir saat seç." : Formatting.scheduleSummary(date))
+            Text(isPast ? L10n.t("That time has passed; pick a later one.") : Formatting.scheduleSummary(date))
                 .font(.callout)
                 .foregroundStyle(isPast ? Color.red : Color.secondary)
 
             HStack {
                 Spacer()
-                Button("Vazgeç", action: onCancel)
-                Button("Zamanla") { onSchedule(date) }
+                Button(L10n.t("Cancel"), action: onCancel)
+                Button(L10n.t("Schedule")) { onSchedule(date) }
                     .buttonStyle(.glassProminent)
                     .disabled(isPast)
             }

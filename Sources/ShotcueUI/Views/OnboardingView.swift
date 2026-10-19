@@ -25,15 +25,15 @@ public struct OnboardingView: View {
     /// restart the user put off.
     public var notice: String? {
         if !canFinish {
-            return "Ekran Kaydı izni olmadan yakalama çalışmaz. İzni verdikten sonra Shotcue'yu yeniden başlat."
+            return L10n.t("Capturing does not work without Screen Recording access. Restart Shotcue after granting it.")
         }
         if restartPending {
-            return "Ekran Kaydı izni, Shotcue yeniden başlayınca geçerli olur. Hazır olduğunda \"Yeniden başlat\"a bas."
+            return L10n.t("Screen Recording access applies once Shotcue restarts. Press Restart when you are ready.")
         }
         return nil
     }
 
-    public var finishTitle: String { restartPending ? "Yeniden başlat" : "Başla" }
+    public var finishTitle: String { restartPending ? L10n.t("Restart") : L10n.t("Start") }
 
     public var body: some View {
         VStack(spacing: 18) {
@@ -41,9 +41,9 @@ public struct OnboardingView: View {
                 .font(.system(size: 46))
                 .foregroundStyle(.tint)
             VStack(spacing: 6) {
-                Text("Shotcue'ya hoş geldin")
+                Text(L10n.t("Welcome to Shotcue"))
                     .font(.title2.weight(.semibold))
-                Text("Ekrandan bir bölge yakala, üstüne yazılı ya da sesli not ekle, projeye gönder.")
+                Text(L10n.t("Capture a region of the screen, add a typed or spoken note, and send it to a project."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -70,7 +70,7 @@ public struct OnboardingView: View {
             }
 
             HStack(spacing: 10) {
-                Button("Durumları yenile") {
+                Button(L10n.t("Refresh")) {
                     Task { await permissions.refresh() }
                 }
                 Button(finishTitle) { onDone() }
@@ -99,12 +99,12 @@ public struct OnboardingView: View {
                 }
                 Spacer(minLength: 8)
                 if permissions.state(of: kind) == .notDetermined {
-                    Button("İzin ver") {
+                    Button(L10n.t("Allow")) {
                         Task { await permissions.request(kind) }
                     }
                     .buttonStyle(.glass)
                 } else if permissions.state(of: kind) == .denied {
-                    Button("Sistem Ayarları") {
+                    Button(L10n.t("System Settings")) {
                         permissions.openSettings(kind)
                     }
                     .buttonStyle(.glass)

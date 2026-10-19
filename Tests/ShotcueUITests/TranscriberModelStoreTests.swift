@@ -208,7 +208,7 @@ struct TranscriberModelStoreTests {
 
     @Test func downloadSizesAreShownForBothModels() {
         #expect(
-            TranscriberModelStore.downloadSizeText(forModel: "openai_whisper-large-v3-v20240930_turbo") == "≈1,6 GB")
+            TranscriberModelStore.downloadSizeText(forModel: "openai_whisper-large-v3-v20240930_turbo") == "≈1.6 GB")
         #expect(
             TranscriberModelStore.downloadSizeText(forModel: "openai_whisper-large-v3-v20240930_turbo_632MB")
                 == "≈632 MB")
@@ -221,10 +221,10 @@ struct TranscriberModelStoreTests {
         #expect(VoiceNoteStatus.of(pending, model: .downloading(progress: 0.5)) == .modelDownloading(0.5))
         #expect(VoiceNoteStatus.of(pending, model: .failed("x")) == .modelUnavailable)
         #expect(VoiceNoteStatus.of(pending, model: .paused(progress: 0.3)) == .modelPaused)
-        #expect(VoiceNoteStatus.modelPaused.label == "model indirme duraklatıldı")
+        #expect(VoiceNoteStatus.modelPaused.label == "model download paused")
         #expect(VoiceNoteStatus.modelPaused.offersModelDownload)
-        #expect(VoiceNoteStatus.waitingForModel.label == "model indirilmedi")
-        #expect(VoiceNoteStatus.transcribing.label == "çevriliyor")
+        #expect(VoiceNoteStatus.waitingForModel.label == "model not downloaded")
+        #expect(VoiceNoteStatus.transcribing.label == "transcribing")
         #expect(VoiceNoteStatus.waitingForModel.offersModelDownload)
         #expect(VoiceNoteStatus.modelUnavailable.offersModelDownload)
         #expect(!VoiceNoteStatus.transcribing.offersModelDownload)

@@ -85,7 +85,8 @@ public final class LibraryStore {
 
     /// The window subtitle: "12 öğe", or "3 / 12 öğe" while the status filter hides some.
     public var itemCountText: String {
-        isStatusFilterActive ? "\(tasks.count) / \(unfilteredTaskCount) öğe" : "\(tasks.count) öğe"
+        isStatusFilterActive
+            ? L10n.t("\(tasks.count) / \(unfilteredTaskCount) items") : L10n.t("\(tasks.count) items")
     }
 
     public func toggleStatusFilter(_ status: TaskStatus) {
@@ -560,8 +561,8 @@ public final class LibraryStore {
 
     public var deleteConfirmationTitle: String {
         pendingDeleteIDs.count == 1
-            ? "Görev kalıcı olarak silinsin mi?"
-            : "\(pendingDeleteIDs.count) görev kalıcı olarak silinsin mi?"
+            ? L10n.t("Delete the task permanently?")
+            : L10n.t("Delete \(pendingDeleteIDs.count) tasks permanently?")
     }
 
     /// "Sil" is available only for a non-empty set without a running task (a run can only be cancelled).
@@ -595,7 +596,7 @@ public final class LibraryStore {
         pendingDeleteIDs = []
     }
 
-    static let runningDeleteMessage = "Çalışan bir görev silinemez. Önce iptal et."
+    static var runningDeleteMessage: String { L10n.t("A running task cannot be deleted. Cancel it first.") }
 
     /// The absolute URL of `relPath` when deleting it is safe: non-empty, resolving strictly below one of
     /// the four data folders (captures/, thumbs/, audio/, runs/) of this store. Anything else (empty,
@@ -643,7 +644,7 @@ public final class LibraryStore {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, !trimmedPath.isEmpty else {
-            lastError = "Proje adı ve klasör yolu gerekli."
+            lastError = L10n.t("A project name and folder path are needed.")
             return
         }
         do {
@@ -666,7 +667,7 @@ public final class LibraryStore {
         do {
             let projectTasks = try await services.tasks.tasks(projectID: id)
             guard !projectTasks.contains(where: { $0.status == .running }) else {
-                lastError = "Bu projede çalışan bir görev var. Önce bitmesini bekle ya da iptal et."
+                lastError = L10n.t("A task of this project is running. Wait for it to finish or cancel it first.")
                 return
             }
             for task in projectTasks {
@@ -754,7 +755,7 @@ public final class LibraryStore {
                 selection = .project(draft.id)
             } else {
                 guard let base = try await services.projects.project(id: draft.id) else {
-                    lastError = "Proje bulunamadı."
+                    lastError = L10n.t("Project not found.")
                     return false
                 }
                 try await services.projects.save(draft.apply(to: base, now: now, calendar: calendar))
@@ -920,10 +921,10 @@ public final class LibraryStore {
 
     static func message(for error: TaskStateError) -> String {
         switch error {
-        case .missingProject: "Bu görev bir projeye atanmadan gönderilemez."
-        case .scheduledDateRequired: "Zamanlama için tarih ve saat gerekli."
+        case .missingProject: L10n.t("This task cannot be sent before it is assigned to a project.")
+        case .scheduledDateRequired: L10n.t("Scheduling needs a date and time.")
         case .invalidTransition(let from, let to):
-            "\(StatusPresentation.label(for: from)) → \(StatusPresentation.label(for: to)) geçişi geçersiz."
+            L10n.t("\(StatusPresentation.label(for: from)) → \(StatusPresentation.label(for: to)) is not a valid change.")
         }
     }
 }

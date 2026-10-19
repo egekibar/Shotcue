@@ -55,10 +55,10 @@ public nonisolated struct ProjectDraft: Identifiable, Hashable, Sendable {
 
     /// nil when the draft can be saved; otherwise a Turkish message for the editor and `lastError`.
     public func validationMessage(fileManager: FileManager = .default) -> String? {
-        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "Proje adı gerekli." }
+        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return L10n.t("A project name is needed.") }
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedPath.isEmpty { return "Proje klasörü gerekli." }
-        if !Self.folderExists(trimmedPath, fileManager: fileManager) { return "Klasör bulunamadı: \(trimmedPath)" }
+        if trimmedPath.isEmpty { return L10n.t("A project folder is needed.") }
+        if !Self.folderExists(trimmedPath, fileManager: fileManager) { return L10n.t("Folder not found: \(trimmedPath)") }
         return nil
     }
 

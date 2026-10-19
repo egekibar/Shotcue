@@ -43,9 +43,9 @@ public final class TranscriberModelStore {
     /// Sizes of the two models Ayarlar > Ses offers (research 03: 1.64 GB and 632 MB).
     nonisolated public static func downloadSizeText(forModel name: String) -> String {
         switch name {
-        case "openai_whisper-large-v3-v20240930_turbo_632MB": "≈632 MB"
-        case "openai_whisper-large-v3-v20240930_turbo": "≈1,6 GB"
-        default: "boyutu bilinmiyor"
+        case "openai_whisper-large-v3-v20240930_turbo_632MB": L10n.t("≈632 MB")
+        case "openai_whisper-large-v3-v20240930_turbo": L10n.t("≈1.6 GB")
+        default: L10n.t("size unknown")
         }
     }
 
@@ -176,13 +176,13 @@ nonisolated public enum VoiceNoteStatus: Hashable, Sendable {
 
     nonisolated public var label: String? {
         switch self {
-        case .transcribing: "çevriliyor"
-        case .waitingForModel: "model indirilmedi"
-        case .modelDownloading(let progress): "model indiriliyor %\(Int((progress * 100).rounded()))"
-        case .modelPaused: "model indirme duraklatıldı"
-        case .modelUnavailable: "model yüklenemedi"
-        case .failed: "çevrilemedi"
-        case .edited: "düzenlendi"
+        case .transcribing: L10n.t("transcribing")
+        case .waitingForModel: L10n.t("model not downloaded")
+        case .modelDownloading(let progress): L10n.t("model downloading \(Int((progress * 100).rounded()))%")
+        case .modelPaused: L10n.t("model download paused")
+        case .modelUnavailable: L10n.t("model could not be loaded")
+        case .failed: L10n.t("not transcribed")
+        case .edited: L10n.t("edited")
         case .done: nil
         }
     }

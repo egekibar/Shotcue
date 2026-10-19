@@ -66,7 +66,7 @@ struct FormattingTests {
     @Test func statusLabelsAndRanksCoverEveryCase() {
         #expect(
             TaskStatus.allCases.map(StatusPresentation.label(for:)) == [
-                "Gelen", "Hazır", "Kuyrukta", "Zamanlandı", "Çalışıyor", "Bitti", "Hata", "İptal",
+                "Inbox", "Ready", "Queued", "Scheduled", "Running", "Done", "Failed", "Cancelled",
             ])
         #expect(TaskStatus.allCases.allSatisfy { !StatusPresentation.symbol(for: $0).isEmpty })
         #expect(Set(TaskStatus.allCases.map(StatusPresentation.rank(for:))).count == TaskStatus.allCases.count)
@@ -75,17 +75,17 @@ struct FormattingTests {
         #expect(StatusPresentation.tint(for: TaskStatus.failed) == Color.red)
     }
 
-    @Test func runStateLabelsAreTurkish() {
+    @Test func runStateLabelsCoverEveryCase() {
         #expect(
             RunState.allCases.map(StatusPresentation.label(for:)) == [
-                "Başlıyor", "Çalışıyor", "Başarılı", "Hata", "İptal",
+                "Starting", "Running", "Succeeded", "Failed", "Cancelled",
             ])
         #expect(StatusPresentation.symbol(for: RunState.succeeded) == "checkmark.seal.fill")
     }
 
-    @Test func sortOrderAndViewModeHaveTurkishLabels() {
-        #expect(SortOrder.allCases.map(\.label) == ["En yeni", "En eski", "Manuel", "Duruma göre"])
-        #expect(ViewMode.allCases.map(\.label) == ["Izgara", "Liste"])
+    @Test func sortOrderAndViewModeHaveLabels() {
+        #expect(SortOrder.allCases.map(\.label) == ["Newest", "Oldest", "Manual", "By Status"])
+        #expect(ViewMode.allCases.map(\.label) == ["Grid", "List"])
         #expect(ViewMode.grid.symbol == "square.grid.2x2")
         #expect(ViewMode.list.symbol == "list.bullet")
     }

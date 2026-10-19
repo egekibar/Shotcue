@@ -81,16 +81,23 @@ struct TranscriptGate: Sendable {
         }
     }
 
-    // MARK: - Messages (user-visible, Turkish)
+    // MARK: - Messages (user-visible)
 
-    static let failedMessage =
-        "Sesli not yazıya dökülemedi, bu yüzden görev gönderilmedi. Inspector'da transkripti elle yaz ya da "
-        + "\"Yeniden çevir\"e bas, sonra yeniden gönder."
+    static var failedMessage: String {
+        L10n.t(
+            "The voice note could not be transcribed, so the task was not sent. Type the transcript in the inspector or press Transcribe Again, then send it again."
+        )
+    }
 
-    static let timeoutMessage =
-        "Sesli not 3 dakika içinde yazıya dökülemedi, bu yüzden görev gönderilmedi. Transkript bitince yeniden gönder."
+    static var timeoutMessage: String {
+        L10n.t(
+            "The voice note was not transcribed within 3 minutes, so the task was not sent. Send it again once the transcript is done."
+        )
+    }
 
-    static let unreadableMessage = "Sesli notlar okunamadı, bu yüzden görev gönderilmedi. Yeniden dene."
+    static var unreadableMessage: String {
+        L10n.t("The voice notes could not be read, so the task was not sent. Try again.")
+    }
 
     /// Why a pending transcript cannot be waited for; nil when the model is ready.
     static func modelRefusal(_ state: TranscriberModelState) -> String? {
@@ -98,17 +105,21 @@ struct TranscriptGate: Sendable {
         case .ready:
             return nil
         case .notDownloaded:
-            return "Sesli not yazıya dökülmeden gönderilemez: transkripsiyon modeli indirilmedi. "
-                + "Ayarlar > Ses'ten modeli indir; not, model inince yazıya dökülür."
+            return L10n.t(
+                "A voice note must be transcribed before sending, and the transcription model is not downloaded. Download it in Settings > Audio; the note is transcribed once it arrives."
+            )
         case .downloading(let progress):
-            return "Transkripsiyon modeli indiriliyor (%\(Int((progress * 100).rounded()))). "
-                + "İndirme bitip sesli not yazıya dökülünce yeniden gönder."
+            return L10n.t(
+                "The transcription model is downloading (\(Int((progress * 100).rounded()))%). Send again once it is done and the voice note is transcribed."
+            )
         case .paused:
-            return "Sesli not yazıya dökülmeden gönderilemez: transkripsiyon modelinin indirmesi duraklatıldı. "
-                + "Ayarlar > Ses'ten indirmeye devam et; not, model inince yazıya dökülür."
+            return L10n.t(
+                "A voice note must be transcribed before sending, and the transcription model's download is paused. Resume it in Settings > Audio; the note is transcribed once it arrives."
+            )
         case .failed:
-            return "Transkripsiyon modeli yüklenemedi, sesli not yazıya dökülemiyor. "
-                + "Ayarlar > Ses'te hatayı görüp modeli yeniden indirebilirsin."
+            return L10n.t(
+                "The transcription model could not be loaded, so the voice note cannot be transcribed. See the error in Settings > Audio and download the model again."
+            )
         }
     }
 }

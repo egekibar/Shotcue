@@ -77,15 +77,15 @@ struct TranscriptSendTests {
             Issue.record("a pending note without a model must be refused")
             return
         }
-        #expect(missing.contains("Ayarlar > Ses"))
-        #expect(missing.contains("indirilmedi"))
+        #expect(missing.contains("Settings > Audio"))
+        #expect(missing.contains("not downloaded"))
 
         f.bundle.transcriber.state.set(.downloading(progress: 0.4))
         guard case .refuse(let downloading) = await gate.decide(taskID: f.task.id) else {
             Issue.record("a pending note while the model downloads must be refused")
             return
         }
-        #expect(downloading.contains("%40"))
+        #expect(downloading.contains("40%"))
 
         failTranscript(f.bundle, noteID: pending.id)
         f.bundle.transcriber.state.set(.ready)
@@ -132,7 +132,7 @@ struct TranscriptSendTests {
             Issue.record("expected a refusal, got \(String(describing: outcome))")
             return
         }
-        #expect(message.contains("yüklenemedi"))
+        #expect(message.contains("could not be loaded"))
         f.bundle.cleanUp()
     }
 
@@ -163,7 +163,7 @@ struct TranscriptSendTests {
         await store.saveAndSend()
 
         #expect(f.bundle.dispatcher.enqueued.current.isEmpty)
-        #expect(store.lastError?.contains("Ayarlar > Ses") == true)
+        #expect(store.lastError?.contains("Settings > Audio") == true)
         #expect(closed.current == 0)
         f.bundle.cleanUp()
     }
@@ -287,7 +287,7 @@ struct TranscriptSendTests {
         let store = await inspector(f)
 
         await store.retry()
-        #expect(store.lastError?.contains("indirilmedi") == true)
+        #expect(store.lastError?.contains("not downloaded") == true)
         #expect(store.isWaitingForTranscript == false)
 
         store.lastError = nil

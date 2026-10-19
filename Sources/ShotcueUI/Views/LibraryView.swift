@@ -35,7 +35,7 @@ public struct LibraryView: View {
             content
                 .navigationTitle(navigationTitle)
                 .navigationSubtitle(store.itemCountText)
-                .searchable(text: $bindable.searchText, placement: .toolbar, prompt: "Başlık, not, transkript")
+                .searchable(text: $bindable.searchText, placement: .toolbar, prompt: L10n.t("Title, note, transcript"))
                 .toolbar { toolbarContent }
                 .safeAreaInset(edge: .bottom) {
                     VStack(spacing: 0) {
@@ -48,12 +48,12 @@ public struct LibraryView: View {
         .task { store.start() }
         .onDisappear { store.stop() }
         .alert(
-            "Bir şey ters gitti",
+            L10n.t("Something went wrong"),
             isPresented: Binding(
                 get: { store.lastError != nil },
                 set: { if !$0 { store.lastError = nil } })
         ) {
-            Button("Tamam") { store.lastError = nil }
+            Button(L10n.t("OK")) { store.lastError = nil }
         } message: {
             Text(store.lastError ?? "")
         }
@@ -66,12 +66,12 @@ public struct LibraryView: View {
             titleVisibility: .visible,
             presenting: store.pendingDeleteIDs.isEmpty ? nil : store.pendingDeleteIDs
         ) { ids in
-            Button("Sil", role: .destructive) {
+            Button(L10n.t("Delete"), role: .destructive) {
                 Task { await store.confirmDelete(taskIDs: ids) }
             }
-            Button("Vazgeç", role: .cancel) { store.cancelDelete() }
+            Button(L10n.t("Cancel"), role: .cancel) { store.cancelDelete() }
         } message: { _ in
-            Text("Görseller, ses kayıtları ve çalışma logları da silinir. Bu işlem geri alınamaz.")
+            Text(L10n.t("Images, recordings and run logs are deleted too. This cannot be undone."))
         }
     }
 
@@ -83,14 +83,14 @@ public struct LibraryView: View {
                 get: { store.selection },
                 set: { if let value = $0 { store.selection = value } })
         ) {
-            Section("Projeler") {
+            Section(L10n.t("Projects")) {
                 ForEach(store.projects) { project in
                     projectRow(project)
                 }
                 Button {
                     store.isProjectCreatorPresented = true
                 } label: {
-                    Label("Proje ekle…", systemImage: "plus.circle")
+                    Label(L10n.t("Add Project…"), systemImage: "plus.circle")
                         .font(.callout)
                 }
                 .buttonStyle(.plain)
@@ -98,7 +98,7 @@ public struct LibraryView: View {
             }
 
             Section("Inbox") {
-                Label("Gelen", systemImage: "tray")
+                Label(L10n.t("Inbox"), systemImage: "tray")
                     .badge(store.counts[.inbox] ?? 0)
                     .tag(SidebarSelection.inbox)
                     .dropDestination(for: TaskDragItem.self) { items, _ in
@@ -109,7 +109,7 @@ public struct LibraryView: View {
                     }
             }
 
-            Section("Durum") {
+            Section(L10n.t("Status")) {
                 ForEach(TaskStatus.allCases, id: \.self) { status in
                     Label(
                         StatusPresentation.label(for: status),
@@ -130,7 +130,7 @@ public struct LibraryView: View {
             .foregroundStyle(folderMissing ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
             .badge(store.counts[.project(project.id)] ?? 0)
             .tag(SidebarSelection.project(project.id))
-            .help(folderMissing ? "Klasör bulunamadı: \(project.path)" : project.path)
+            .help(folderMissing ? L10n.t("Folder not found: \(project.path)") : project.path)
             .dropDestination(for: TaskDragItem.self) { items, _ in
                 let ids = Set(items.flatMap(\.taskIDs))
                 guard !ids.isEmpty else { return false }
@@ -138,10 +138,10 @@ public struct LibraryView: View {
                 return true
             }
             .contextMenu {
-                Button("Proje ayarları…", systemImage: "gearshape") {
+                Button(L10n.t("Project Settings…"), systemImage: "gearshape") {
                     Task { await store.beginEditProject(id: project.id) }
                 }
-                Button("Projeyi sil", systemImage: "trash", role: .destructive) {
+                Button(L10n.t("Delete Project"), systemImage: "trash", role: .destructive) {
                     Task { await store.deleteProject(id: project.id) }
                 }
             }
@@ -149,8 +149,8 @@ public struct LibraryView: View {
 
     private var navigationTitle: String {
         switch store.selection {
-        case .inbox: "Gelen"
-        case .project(let id): store.project(id: id)?.name ?? "Proje"
+        case .inbox: L10n.t("Inbox")
+        case .project(let id): store.project(id: id)?.name ?? L10n.t("Project")
         case .status(let status): StatusPresentation.label(for: status)
         }
     }
@@ -173,12 +173,12 @@ public struct LibraryView: View {
             Image(systemName: "camera.viewfinder")
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
-            Text(store.searchText.isEmpty ? "Burada henüz bir şey yok" : "Eşleşme bulunamadı")
+            Text(store.searchText.isEmpty ? L10n.t("Nothing here yet") : L10n.t("No matches"))
                 .font(.title3.weight(.medium))
             Text(
                 store.searchText.isEmpty
-                    ? "Kısayolla ekrandan bir bölge seç; yakalama buraya düşer."
-                    : "Başka bir kelime dene."
+                    ? L10n.t("Use the shortcut to select a region of the screen; the capture lands here.")
+                    : L10n.t("Try another word.")
             )
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -249,23 +249,23 @@ public struct LibraryView: View {
                 get: { store.selectedTaskIDs },
                 set: { store.selectedTaskIDs = $0 })
         ) {
-            TableColumn("Başlık") { task in
+            TableColumn(L10n.t("Title")) { task in
                 HStack(spacing: 6) {
                     Image(systemName: store.voiceSeconds[task.id] != nil ? "mic.fill" : "text.alignleft")
                         .foregroundStyle(.secondary)
                     Text(task.title).lineLimit(1)
                 }
             }
-            TableColumn("Durum") { task in
+            TableColumn(L10n.t("Status")) { task in
                 StatusChip(status: task.status)
             }
             .width(110)
-            TableColumn("Proje") { task in
+            TableColumn(L10n.t("Project")) { task in
                 Text(store.project(id: task.projectID)?.name ?? "—")
                     .foregroundStyle(.secondary)
             }
             .width(140)
-            TableColumn("Güncellendi") { task in
+            TableColumn(L10n.t("Updated")) { task in
                 Text(Formatting.relativeDate(task.updatedAt, now: Date()))
                     .foregroundStyle(.secondary)
             }
@@ -295,26 +295,26 @@ public struct LibraryView: View {
 
     @ViewBuilder
     private func taskMenu(for task: ShotTask) -> some View {
-        Button("Şimdi gönder", systemImage: "paperplane.fill") {
+        Button(L10n.t("Send Now"), systemImage: "paperplane.fill") {
             Task { await store.send(taskIDs: [task.id]) }
         }
         .disabled(task.projectID == nil || task.status == .running)
-        Menu("Projeye taşı") {
+        Menu(L10n.t("Move to Project")) {
             ForEach(store.projects) { project in
                 Button(project.name) {
                     Task { await store.move(taskIDs: [task.id], toProject: project.id) }
                 }
             }
             Divider()
-            Button("Inbox'a al") {
+            Button(L10n.t("Move to Inbox")) {
                 Task { await store.move(taskIDs: [task.id], toProject: nil) }
             }
         }
-        Button("Günlük kuyruğa al", systemImage: "calendar.badge.clock") {
+        Button(L10n.t("Add to Daily Queue"), systemImage: "calendar.badge.clock") {
             Task { await store.addToDailyQueue(taskIDs: [task.id]) }
         }
         Divider()
-        Button("Sil", systemImage: "trash", role: .destructive) {
+        Button(L10n.t("Delete"), systemImage: "trash", role: .destructive) {
             store.requestDelete(taskIDs: [task.id])
         }
         .disabled(task.status == .running)
@@ -322,13 +322,13 @@ public struct LibraryView: View {
 
     @ViewBuilder
     private func selectionMenu(_ ids: Set<UUID>) -> some View {
-        Button("Tek görev olarak gönder", systemImage: "square.stack.3d.down.forward") {
+        Button(L10n.t("Send as One Task"), systemImage: "square.stack.3d.down.forward") {
             Task { await store.sendAsOne(taskIDs: ids) }
         }
-        Button("Ayrı ayrı gönder", systemImage: "paperplane") {
+        Button(L10n.t("Send Separately"), systemImage: "paperplane") {
             Task { await store.send(taskIDs: ids) }
         }
-        Menu("Projeye taşı") {
+        Menu(L10n.t("Move to Project")) {
             ForEach(store.projects) { project in
                 Button(project.name) {
                     Task { await store.move(taskIDs: ids, toProject: project.id) }
@@ -336,7 +336,7 @@ public struct LibraryView: View {
             }
         }
         Divider()
-        Button("Sil", systemImage: "trash", role: .destructive) {
+        Button(L10n.t("Delete"), systemImage: "trash", role: .destructive) {
             store.requestDelete(taskIDs: ids)
         }
         .disabled(!store.canDelete(taskIDs: ids))
@@ -348,7 +348,7 @@ public struct LibraryView: View {
     private var filterChoices: some View {
         VStack(alignment: .leading, spacing: 0) {
             choiceRow(isOn: store.statusFilter.isEmpty) {
-                Text("Tümü")
+                Text(L10n.t("All"))
             } action: {
                 store.clearStatusFilter()
             }
@@ -421,7 +421,7 @@ public struct LibraryView: View {
                 }
                 .fixedSize()
             }
-            .help("Sırala")
+            .help(L10n.t("Sort"))
             .popover(isPresented: $isSortMenuPresented, arrowEdge: .bottom) { sortChoices }
 
             // A plain button for the same reason as the sort one; filled while a filter hides tasks.
@@ -433,17 +433,17 @@ public struct LibraryView: View {
                         systemName: store.isStatusFilterActive
                             ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     if store.isStatusFilterActive {
-                        Text("\(store.statusFilter.count) durum")
+                        Text(L10n.t("\(store.statusFilter.count) statuses"))
                     }
                 }
                 .fixedSize()
             }
             .disabled(!store.isStatusFilterAvailable)
-            .help(store.isStatusFilterAvailable ? "Duruma göre filtrele" : "Kenar çubuğunda bir durum seçili")
+            .help(store.isStatusFilterAvailable ? L10n.t("Filter by status") : L10n.t("A status is selected in the sidebar"))
             .popover(isPresented: $isFilterMenuPresented, arrowEdge: .bottom) { filterChoices }
 
             Picker(
-                "Görünüm",
+                L10n.t("View"),
                 selection: Binding<ViewMode>(
                     get: { store.viewMode }, set: { store.viewMode = $0 })
             ) {
@@ -452,12 +452,12 @@ public struct LibraryView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .help("Izgara / Liste")
+            .help(L10n.t("Grid / List"))
 
             Button {
                 Task { await store.runQueueNow() }
             } label: {
-                Label("Kuyruğu çalıştır", systemImage: "play.fill")
+                Label(L10n.t("Run Queue"), systemImage: "play.fill")
             }
             .disabled(store.isPaused)
 
@@ -465,14 +465,14 @@ public struct LibraryView: View {
                 Task { await store.setPaused(!store.isPaused) }
             } label: {
                 Label(
-                    store.isPaused ? "Sürdür" : "Duraklat",
+                    store.isPaused ? L10n.t("Resume Queue") : L10n.t("Pause Queue"),
                     systemImage: store.isPaused ? "play.circle" : "pause.circle")
             }
 
             Button {
                 store.isInspectorPresented.toggle()
             } label: {
-                Label("Detay", systemImage: "sidebar.trailing")
+                Label(L10n.t("Details"), systemImage: "sidebar.trailing")
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
         }
@@ -486,8 +486,8 @@ public struct LibraryView: View {
                 ProgressView().controlSize(.small)
                 Text(
                     store.waitingForTranscriptIDs.count == 1
-                        ? "Sesli not yazıya dökülüyor… Bitince görev gönderilecek."
-                        : "Sesli notlar yazıya dökülüyor… Bitince \(store.waitingForTranscriptIDs.count) görev gönderilecek."
+                        ? L10n.t("The voice note is being transcribed… The task will be sent when it is done.")
+                        : L10n.t("Voice notes are being transcribed… \(store.waitingForTranscriptIDs.count) tasks will be sent when they are done.")
                 )
                 .font(.callout)
             }
@@ -502,16 +502,16 @@ public struct LibraryView: View {
     private var selectionBar: some View {
         if store.selectedTaskIDs.count > 1 {
             HStack(spacing: 8) {
-                Text("\(store.selectedTaskIDs.count) seçili")
+                Text(L10n.t("\(store.selectedTaskIDs.count) selected"))
                     .font(.callout.weight(.medium))
                 Spacer(minLength: 12)
-                Button("Ayrı ayrı gönder") {
+                Button(L10n.t("Send Separately")) {
                     Task { await store.send(taskIDs: store.selectedTaskIDs) }
                 }
                 .buttonStyle(.glass)
                 .disabled(!store.canSendSelection)
 
-                Menu("Projeye taşı") {
+                Menu(L10n.t("Move to Project")) {
                     ForEach(store.projects) { project in
                         Button(project.name) {
                             Task { await store.move(taskIDs: store.selectedTaskIDs, toProject: project.id) }
@@ -521,7 +521,7 @@ public struct LibraryView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
 
-                Button("Zamanla…") {
+                Button(L10n.t("Schedule…")) {
                     store.isSchedulePresented = true
                 }
                 .buttonStyle(.glass)
@@ -533,13 +533,13 @@ public struct LibraryView: View {
                     schedulePopover
                 }
 
-                Button("Sil", systemImage: "trash") {
+                Button(L10n.t("Delete"), systemImage: "trash") {
                     store.requestDelete(taskIDs: store.selectedTaskIDs)
                 }
                 .buttonStyle(.glass)
                 .disabled(!store.canDeleteSelection)
 
-                Button("Tek görev olarak gönder") {
+                Button(L10n.t("Send as One Task")) {
                     Task { await store.sendAsOne(taskIDs: store.selectedTaskIDs) }
                 }
                 .buttonStyle(.glassProminent)
@@ -574,7 +574,7 @@ public struct LibraryView: View {
                 Image(systemName: "sidebar.trailing")
                     .font(.system(size: 28))
                     .foregroundStyle(.tertiary)
-                Text(store.selectedTaskIDs.isEmpty ? "Bir görev seç" : "Tek görev seç")
+                Text(store.selectedTaskIDs.isEmpty ? L10n.t("Select a task") : L10n.t("Select a single task"))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
