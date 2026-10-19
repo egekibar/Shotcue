@@ -22,8 +22,17 @@ public protocol WhisperEngine: Sendable {
     func transcribe(url: URL, language: String) async throws -> [WhisperSegment]
 }
 
+/// Seam between `WhisperKitTranscriber`'s download/pause/delete logic and the network: tests inject a fake.
+public protocol WhisperModelSource: Sendable {
+    /// Downloads the model, resuming from the partial files a cancelled download left behind.
+    func download(onProgress: @escaping @Sendable (Double) -> Void) async throws
+    func load() async throws
+    /// Releases the loaded CoreML models (before the files are deleted).
+    func unload() async
+}
+
 /// Real adapter over WhisperKit 1.1 (`argmax-oss-swift`). Exercised manually in Task 1, never in `swift test`.
-public actor WhisperKitEngine: WhisperEngine {
+public actor WhisperKitEngine: WhisperEngine, WhisperModelSource {
     public static let repo = "argmaxinc/whisperkit-coreml"
 
     /// The compiled CoreML bundles `WhisperKit.loadModels()` requires in the model folder (WhisperKit 1.1
@@ -50,6 +59,41 @@ public actor WhisperKitEngine: WhisperEngine {
             .appendingPathComponent("models", isDirectory: true)
             .appendingPathComponent(repo, isDirectory: true)
             .appendingPathComponent(modelName, isDirectory: true)
+    }
+
+    /// HubApi keeps each file's `.metadata` and, while it downloads, `<file>.<etag>.incomplete` at
+    /// `downloadBase/models/<repo>/.cache/huggingface/download/<variant>/`; a new download resumes from the
+    /// `.incomplete` files with an HTTP Range request (WhisperKit 1.1 `HubApi.swift`, `Downloader.swift`).
+    public static func partialDownloadFolderURL(modelsDirectory: URL, modelName: String) -> URL {
+        modelsDirectory
+            .appendingPathComponent("models", isDirectory: true)
+            .appendingPathComponent(repo, isDirectory: true)
+            .appendingPathComponent(".cache/huggingface/download", isDirectory: true)
+            .appendingPathComponent(modelName, isDirectory: true)
+    }
+
+    /// A download was stopped part way: some `.incomplete` file is left in `folder`.
+    public static func hasIncompleteFiles(in folder: URL, fileManager: FileManager = .default) -> Bool {
+        guard let files = fileManager.enumerator(at: folder, includingPropertiesForKeys: nil) else { return false }
+        return files.contains { ($0 as? URL)?.pathExtension == "incomplete" }
+    }
+
+    /// Total size of the regular files under `folders`; folders that do not exist count as zero.
+    public static func diskUsage(of folders: [URL], fileManager: FileManager = .default) -> Int64 {
+        var total: Int64 = 0
+        for folder in folders {
+            let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey]
+            guard let files = fileManager.enumerator(at: folder, includingPropertiesForKeys: Array(keys)) else {
+                continue
+            }
+            for case let file as URL in files {
+                guard let values = try? file.resourceValues(forKeys: keys), values.isRegularFile == true else {
+                    continue
+                }
+                total += Int64(values.fileSize ?? 0)
+            }
+        }
+        return total
     }
 
     public func isDownloaded(fileManager: FileManager = .default) -> Bool {

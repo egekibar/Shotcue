@@ -233,6 +233,12 @@ public final class LibraryStore {
         }
     }
 
+    /// A click on the grid's empty space, or Esc in the grid.
+    public func clearSelection() {
+        guard !storedSelectedIDs.isEmpty else { return }
+        selectedTaskIDs = []
+    }
+
     // MARK: - Search
 
     public func runSearch() async {

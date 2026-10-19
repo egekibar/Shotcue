@@ -9,8 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- A run's log in the inspector closes again: a click on the open run hides it, and a chevron on each run shows
-  whether its log is open.
+### Fixed
+
+- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
+  deletes the selected tasks.
+- A click on the library grid's empty space, or Esc, clears the selection.
+- A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
+  sits just outside it.
+- The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
 
 ## [1.2.2] — 2026-10-06
 
