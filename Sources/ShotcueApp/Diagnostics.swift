@@ -147,6 +147,8 @@ struct Diagnostics {
         switch state {
         case .notDownloaded: return "indirilmedi"
         case .downloading(let progress): return "indiriliyor (%\(Int(progress * 100)))"
+        case .paused(let progress?): return "duraklatıldı (%\(Int(progress * 100)))"
+        case .paused(nil): return "duraklatıldı"
         case .ready: return "hazır"
         case .failed(let message): return "hata: \(message)"
         }

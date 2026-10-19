@@ -118,7 +118,7 @@ flowchart TB
 | **macOS** | 26 (Tahoe) or later |
 | **Mac** | Apple Silicon |
 | **Coding agent** | At least one of: the `claude` CLI logged in with your Claude subscription (tested with 2.1.278), OpenAI's `codex` CLI logged in with ChatGPT (tested with 0.148), or Google's Antigravity CLI `agy` (tested with 1.2.9) |
-| **Voice notes** *(optional)* | About 1.6 GB of disk for the default WhisperKit model, downloaded only when you ask (a ~632 MB model is also offered) |
+| **Voice notes** *(optional)* | About 1.6 GB of disk for the default WhisperKit model, downloaded only when you ask (a ~632 MB model is also offered). Ayarlar → Ses can pause and resume the download and delete the model again |
 | **Git** *(optional)* | For the diff view and the per-project safety nets (`/usr/bin/git`) |
 
 **How Shotcue finds the CLIs:** for each agent, the path in Ayarlar → Ajanlar → *Yol* if you set one; otherwise the usual install locations (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; for `codex` also the copy inside ChatGPT.app), and finally `which <cli>` in your login shell (given 3 seconds, in the background). Settings shows the version it found for each. A task whose agent is missing is refused with an explanation.
