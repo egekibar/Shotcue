@@ -200,12 +200,18 @@ public final class TaskDetailStore {
     public private(set) var resumableRun: Run?
 
     /// The session id to resume: for Claude Code `run.id` doubles as `--session-id` (spec §6.3), Codex and Antigravity
-    /// report their own. nil disables the "Terminalde devam et" / "Desktop'ta aç" buttons.
+    /// report their own. nil disables the "Terminalde devam et" / "Claude'da devam et" buttons.
     public var sessionID: String? { resumableRun.flatMap { services.fileStore.resumeSessionID(for: $0) } }
 
-    /// "Desktop'ta aç" resumes Claude Code sessions only (Claude Desktop).
+    /// "Claude'da devam et" resumes Claude Code sessions only (the Claude desktop app).
     public var canOpenInDesktop: Bool {
         sessionID != nil && resumableRun?.agent.supportsDesktopResume == true
+    }
+
+    /// The button is hidden when the session to resume is Codex's or Antigravity's; before any run it shows,
+    /// disabled, like "Terminalde devam et".
+    public var showsClaudeResume: Bool {
+        resumableRun?.agent.supportsDesktopResume ?? true
     }
 
     private func refreshResumableRun() {

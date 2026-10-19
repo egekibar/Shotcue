@@ -57,7 +57,7 @@ public struct ShellGitInspector: GitInspector {
 
 extension ShellGitInspector: DiffProvider {
     /// `git diff <since|HEAD>` of the working tree plus every untracked file diffed against /dev/null
-    /// (spec §6.4 "Diff'i göster"). Nothing is staged: `--no-index` leaves the index alone.
+    /// (spec §6.4 "Değişiklikleri göster"). Nothing is staged: `--no-index` leaves the index alone.
     /// `core.quotePath=false` shows non-ASCII names (`özet.md`) as they are instead of octal escapes; explicit
     /// prefixes override a user's `diff.noprefix`/`diff.mnemonicPrefix`, which the parser would not recognise;
     /// `--` keeps a file named like the revision from making it ambiguous.

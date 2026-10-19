@@ -123,7 +123,7 @@ flowchart TB
 
 **Shotcue CLI'ları nasıl bulur:** her ajan için Ayarlar → Ajanlar → *Yol*'a bir yol yazdıysan onu; yoksa bilinen kurulum yerlerini (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; `codex` için ChatGPT.app içindeki kopyayı da) ve son olarak login shell'inde `which <cli>` (arka planda, 3 saniye sınırıyla). Her birinin bulunan sürümü Ayarlar'da görünür. Ajanı bulunamayan görevin gönderimi bir açıklamayla reddedilir.
 
-**Codex ve Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* tüm projelerin ajanını seçer; her proje *Proje ayarları*'ndan kendi ajanını seçebilir. Codex görevi `codex exec --json` olarak çalışır (ekran görüntüleri `--image` ile eklenir; *Analiz* salt okunur sandbox'ta, `acceptEdits`/`dontAsk` proje klasörüyle sınırlı sandbox'ta, `bypassPermissions` sandbox'sız). Antigravity görevi `agy -p … --output-format stream-json` olarak çalışır (*Analiz* plan modunda; `bypassPermissions` dışındaki modlarda terminal sandbox'ı açık). İkisinde tur ve bütçe limiti yoktur; zaman aşımı ve eş zamanlılık sınırı geçerlidir. *Terminalde devam et* `codex resume <id>` ya da `agy --conversation <id>` ile devam eder; *Desktop'ta aç* yalnızca Claude Code oturumları içindir.
+**Codex ve Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* tüm projelerin ajanını seçer; her proje *Proje ayarları*'ndan kendi ajanını seçebilir. Codex görevi `codex exec --json` olarak çalışır (ekran görüntüleri `--image` ile eklenir; *Analiz* salt okunur sandbox'ta, `acceptEdits`/`dontAsk` proje klasörüyle sınırlı sandbox'ta, `bypassPermissions` sandbox'sız). Antigravity görevi `agy -p … --output-format stream-json` olarak çalışır (*Analiz* plan modunda; `bypassPermissions` dışındaki modlarda terminal sandbox'ı açık). İkisinde tur ve bütçe limiti yoktur; zaman aşımı ve eş zamanlılık sınırı geçerlidir. *Terminalde devam et* `codex resume <id>` ya da `agy --conversation <id>` ile devam eder; *Claude'da devam et* yalnızca Claude Code oturumları içindir; diğerlerinde gizlenir.
 
 ## Kurulum
 
@@ -239,9 +239,9 @@ Detay panelinin aktarım (*Aktarım*) düğmeleri:
 | Düğme | Ne yapar |
 |---|---|
 | **Terminalde devam et** | Terminal'i proje klasöründe açar ve `claude --resume <oturum>` çalıştırır |
-| **Desktop'ta aç** | Oturumu Claude Desktop'ta açar (`claude://code/resume?session=…`) |
-| **Diff'i göster** | Kod karşılaştırma ekranını açar: solda durum rozetleri ve +/− sayılarıyla değişen dosyalar, sağda seçili dosyanın eski ve yeni satır numaralı diff'i. Çalışmanın başladığı commit'le karşılaştırır; izlenmeyen dosyalar eklenmiş olarak görünür. *Dosyayı kopyala* ve *Tümünü kopyala* bir dosyanın ya da tüm yamanın metnini kopyalar |
-| **Desktop composer'da aç** | Claude Desktop'ın yazma alanını Shotcue'nun göndereceği prompt'la açar; göndermeye sen basarsın |
+| **Claude'da devam et** | Oturumu konuşma geçmişiyle birlikte Claude masaüstü uygulamasının Code sekmesine aktarır (`claude://resume?session=…`); çalışmanın kaldığı yerden devam edersin |
+| **Değişiklikleri göster** | Kod karşılaştırma ekranını açar: solda durum rozetleri ve +/− sayılarıyla değişen dosyalar, sağda seçili dosyanın eski ve yeni satır numaralı diff'i. Çalışmanın başladığı commit'le karşılaştırır; izlenmeyen dosyalar eklenmiş olarak görünür. *Dosyayı kopyala* ve *Tümünü kopyala* bir dosyanın ya da tüm yamanın metnini kopyalar |
+| **Claude'da baştan başlat** | Claude masaüstü uygulamasında, Shotcue'nun göndereceği prompt hazır, yeni bir Code oturumu açar; göndermeye sen basarsın. Çalışmanın geçmişi gelmez ve projenin ajanı ne olursa olsun Claude Code ile başlar |
 
 ## Ayarlar
 
@@ -333,7 +333,7 @@ Tasarım spec'i (`docs/superpowers/specs/`), uygulama planları (`docs/superpowe
 - Transkripsiyon tek dille çalışır (Türkçe ya da İngilizce); model ilk seferde büyük bir indirmedir.
 - Yeni transkripsiyon modeli, mikrofon, depolama klasörü ya da `claude` yolu Shotcue yeniden başlatılınca geçerli olur; depolama klasörünü değiştirmek mevcut verileri taşımaz.
 - Shotcue'nun kullandığı Claude Code CLI bayrakları sürümler arasında değişebilir; Claude Code 2.1.278 ile denendi.
-- *Desktop composer'da aç* ekran görüntülerini dosya bağlantısı olarak iletir; Claude Desktop'ın onları ekleyip eklemediği Claude Desktop'a bağlıdır.
+- *Claude'da baştan başlat* ekran görüntülerini dosya bağlantısı olarak iletir; Claude Desktop'ın onları ekleyip eklemediği Claude Desktop'a bağlıdır.
 
 ## Katkı
 

@@ -127,13 +127,14 @@ public struct DesktopHandoffService: HandoffService {
         "The full task description did not fit here. Read it first with the Read tool: \(path)"
     }
 
+    /// `claude://resume?session=<id>` imports a CLI session into Claude Desktop's Code tab. Desktop 2.42304 moved it
+    /// from `claude://code/resume`, which it now logs as an "unrecognized code path" and ignores.
     public static func resumeURL(sessionID: String) -> URL {
         var components = URLComponents()
         components.scheme = "claude"
-        components.host = "code"
-        components.path = "/resume"
+        components.host = "resume"
         components.queryItems = [URLQueryItem(name: "session", value: sessionID)]
-        return components.url ?? URL(string: "claude://code/resume")!
+        return components.url ?? URL(string: "claude://resume")!
     }
 
     public static func composerURL(route: String, prompt: String, projectPath: String, files: [String]) -> URL {
