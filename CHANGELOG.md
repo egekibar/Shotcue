@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- *Desktop'ta aç* opens the run's session in Claude Desktop again. Desktop 2.42304 moved the import link to
+  `claude://resume?session=…` and ignored the old `claude://code/resume`, so the button did nothing.
+
 ## [1.2.2] — 2026-10-06
 
 ### Fixed

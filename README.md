@@ -239,7 +239,7 @@ The inspector's hand-off buttons (*Aktarım*):
 | Button | What it does |
 |---|---|
 | **Terminalde devam et** | Opens Terminal in the project folder and runs `claude --resume <session>` |
-| **Desktop'ta aç** | Opens the session in Claude Desktop (`claude://code/resume?session=…`) |
+| **Desktop'ta aç** | Opens the session in Claude Desktop (`claude://resume?session=…`) |
 | **Diff'i göster** | Opens a code comparison: the changed files with status badges and +/− counts on the left, the selected file's diff with old and new line numbers on the right. It compares against the commit the run started from; untracked files show as added. *Dosyayı kopyala* and *Tümünü kopyala* copy one file's patch or all of it |
 | **Desktop composer'da aç** | Opens Claude Desktop's composer with the same prompt Shotcue would send; you press send |
 

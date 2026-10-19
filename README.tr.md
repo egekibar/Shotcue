@@ -239,7 +239,7 @@ Detay panelinin aktarım (*Aktarım*) düğmeleri:
 | Düğme | Ne yapar |
 |---|---|
 | **Terminalde devam et** | Terminal'i proje klasöründe açar ve `claude --resume <oturum>` çalıştırır |
-| **Desktop'ta aç** | Oturumu Claude Desktop'ta açar (`claude://code/resume?session=…`) |
+| **Desktop'ta aç** | Oturumu Claude Desktop'ta açar (`claude://resume?session=…`) |
 | **Diff'i göster** | Kod karşılaştırma ekranını açar: solda durum rozetleri ve +/− sayılarıyla değişen dosyalar, sağda seçili dosyanın eski ve yeni satır numaralı diff'i. Çalışmanın başladığı commit'le karşılaştırır; izlenmeyen dosyalar eklenmiş olarak görünür. *Dosyayı kopyala* ve *Tümünü kopyala* bir dosyanın ya da tüm yamanın metnini kopyalar |
 | **Desktop composer'da aç** | Claude Desktop'ın yazma alanını Shotcue'nun göndereceği prompt'la açar; göndermeye sen basarsın |
 
