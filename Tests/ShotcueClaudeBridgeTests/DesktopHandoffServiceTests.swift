@@ -18,10 +18,12 @@ struct DesktopHandoffServiceTests {
         return FileStore(rootURL: root)
     }
 
+    /// Claude Desktop 2.42304 handles the import as its own `resume` host; it logs `claude://code/resume` as an
+    /// "unrecognized code path" and does nothing.
     @Test func resumeURLMatchesTheDesktopRoute() {
         #expect(
             DesktopHandoffService.resumeURL(sessionID: "3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73")
-                .absoluteString == "claude://code/resume?session=3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73")
+                .absoluteString == "claude://resume?session=3f2a9c40-7b18-4c6d-9e51-8a2b1d4f0c73")
     }
 
     @Test func composerURLEncodesEveryParameter() throws {

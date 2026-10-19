@@ -14,18 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   restarted. The model, or a partial download, can be deleted from there (*Modeli sil*, *İndirileni sil*, after a
   confirmation), and Settings shows how much disk it takes.
 
-### Fixed
+### Changed
 
-- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
-  deletes the selected tasks.
-- A click on the library grid's empty space, or Esc, clears the selection.
-- A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
-  sits just outside it.
-- The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
-- *Zamanla…* no longer shows a label broken into one letter per line and an analog clock. The picker (inspector,
-  selection bar and quick panel) now has quick picks (*1 saat sonra*, *Bu akşam 18:00*, *Yarın 09:00*), a calendar
-  for the day, a typed time and a summary line such as "30 Ekim Perşembe, 14:30"; a time in the past cannot be
-  scheduled.
+- The inspector's hand-off buttons say what they do: *Claude'da devam et* (was *Desktop'ta aç*) carries on the
+  run's session, *Claude'da baştan başlat* (was *Desktop composer'da aç*) starts it over without its history, and
+  *Değişiklikleri göster* (was *Diff'i göster*). Each has a tooltip, *Claude'da devam et* is hidden for Codex and
+  Antigravity sessions, and the buttons line up in one or two columns as the inspector is resized.
 
 ### Fixed
 
@@ -35,10 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
   sits just outside it.
 - The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
-- *Zamanla…* no longer shows a label broken into one letter per line and an analog clock. The picker (inspector,
-  selection bar and quick panel) now has quick picks (*1 saat sonra*, *Bu akşam 18:00*, *Yarın 09:00*), a calendar
-  for the day, a typed time and a summary line such as "30 Ekim Perşembe, 14:30"; a time in the past cannot be
-  scheduled.
+- *Desktop'ta aç* opens the run's session in Claude Desktop again. Desktop 2.42304 moved the import link to
+  `claude://resume?session=…` and ignored the old `claude://code/resume`, so the button did nothing.
 
 ## [1.2.2] — 2026-10-06
 
