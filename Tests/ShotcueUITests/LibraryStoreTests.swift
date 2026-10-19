@@ -447,4 +447,84 @@ struct LibraryStoreTests {
         f.store.stop()
         f.bundle.cleanUp()
     }
+
+    // MARK: - Status filter
+
+    /// A project (or the inbox) narrowed to some statuses; both the grid and the list read `sortedTasks`.
+    @MainActor
+    @Test func theStatusFilterNarrowsTheSidebarSelection() async {
+        let f = fixture()
+        f.store.start()
+        _ = await waitUntil("loaded") { f.store.projects.count == 2 }
+        f.store.selection = .project(f.projectA.id)
+        #expect(f.store.sortedTasks.count == 2)
+        #expect(f.store.itemCountText == "2 öğe")
+        #expect(f.store.isStatusFilterActive == false)
+
+        f.store.toggleStatusFilter(.done)
+        #expect(f.store.statusFilter == [.done])
+        #expect(f.store.sortedTasks.map(\.title) == ["Login akışı"])
+        #expect(f.store.isStatusFilterActive)
+        #expect(f.store.itemCountText == "1 / 2 öğe")
+
+        // Several statuses at once.
+        f.store.toggleStatusFilter(.ready)
+        #expect(Set(f.store.sortedTasks.map(\.title)) == ["Login akışı", "Buton rengi"])
+        #expect(f.store.itemCountText == "2 / 2 öğe")
+
+        // Toggling one off, then "Tümü".
+        f.store.toggleStatusFilter(.done)
+        #expect(f.store.sortedTasks.map(\.title) == ["Buton rengi"])
+        f.store.clearStatusFilter()
+        #expect(f.store.statusFilter.isEmpty)
+        #expect(f.store.sortedTasks.count == 2)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func aFilterThatHidesTheSelectionDropsIt() async {
+        let f = fixture()
+        f.store.start()
+        _ = await waitUntil("loaded") { f.store.projects.count == 2 }
+        f.store.selection = .project(f.projectA.id)
+        let done = f.store.sortedTasks.first { $0.status == .done }!.id
+        f.store.toggleSelection(taskID: done, extend: false, range: false)
+
+        f.store.toggleStatusFilter(.ready)
+        #expect(f.store.selectedTaskIDs.isEmpty)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    @MainActor
+    @Test func changingTheSidebarSelectionResetsTheFilter() async {
+        let f = fixture()
+        f.store.start()
+        _ = await waitUntil("loaded") { f.store.projects.count == 2 }
+        f.store.selection = .project(f.projectA.id)
+        f.store.toggleStatusFilter(.done)
+
+        f.store.selection = .project(f.projectB.id)
+        #expect(f.store.statusFilter.isEmpty)
+        #expect(f.store.sortedTasks.map(\.title) == ["Cache"])
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
+    /// A sidebar status already filters by status: the toolbar filter is off there.
+    @MainActor
+    @Test func theFilterIsUnavailableOnASidebarStatus() async {
+        let f = fixture()
+        f.store.start()
+        _ = await waitUntil("loaded") { f.store.projects.count == 2 }
+        #expect(f.store.isStatusFilterAvailable)
+        f.store.selection = .status(.ready)
+        #expect(f.store.isStatusFilterAvailable == false)
+        f.store.toggleStatusFilter(.done)
+        #expect(f.store.statusFilter.isEmpty)
+        #expect(f.store.sortedTasks.map(\.title) == ["Buton rengi"])
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
 }
