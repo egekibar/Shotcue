@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The transcription model download can be paused and resumed (Ayarlar → Ses → Transkripsiyon: *Duraklat*,
+  *Devam et*). A resumed download picks up from the partial files instead of starting over, also after Shotcue was
+  restarted. The model, or a partial download, can be deleted from there (*Modeli sil*, *İndirileni sil*, after a
+  confirmation), and Settings shows how much disk it takes.
+
+### Changed
+
+- The inspector's hand-off buttons say what they do: *Claude'da devam et* (was *Desktop'ta aç*) carries on the
+  run's session, *Claude'da baştan başlat* (was *Desktop composer'da aç*) starts it over without its history, and
+  *Değişiklikleri göster* (was *Diff'i göster*). Each has a tooltip, *Claude'da devam et* is hidden for Codex and
+  Antigravity sessions, and the buttons line up in one or two columns as the inspector is resized.
+
+### Fixed
+
+- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
+  deletes the selected tasks.
+- A click on the library grid's empty space, or Esc, clears the selection.
+- A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
+  sits just outside it.
+- The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
+- *Desktop'ta aç* opens the run's session in Claude Desktop again. Desktop 2.42304 moved the import link to
+  `claude://resume?session=…` and ignored the old `claude://code/resume`, so the button did nothing.
+
+### Changed
+
+- The inspector's hand-off buttons say what they do: *Claude'da devam et* (was *Desktop'ta aç*) carries on the
+  run's session, *Claude'da baştan başlat* (was *Desktop composer'da aç*) starts it over without its history, and
+  *Değişiklikleri göster* (was *Diff'i göster*). Each has a tooltip, *Claude'da devam et* is hidden for Codex and
+  Antigravity sessions, and the buttons line up in one or two columns as the inspector is resized.
+
+### Fixed
+
+- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
+  deletes the selected tasks.
+- A click on the library grid's empty space, or Esc, clears the selection.
+- A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
+  sits just outside it.
+- The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
+- *Desktop'ta aç* opens the run's session in Claude Desktop again. Desktop 2.42304 moved the import link to
+  `claude://resume?session=…` and ignored the old `claude://code/resume`, so the button did nothing.
+
 ## [1.2.2] — 2026-10-06
 
 ### Fixed

@@ -24,7 +24,7 @@ public struct AppServices: Sendable {
     public let handoff: any HandoffService
     public let fileStore: FileStore
     public let clock: any Clock
-    /// Backs "Diff'i göster" (Plan 07); nil disables the button.
+    /// Backs "Değişiklikleri göster" (Plan 07); nil disables the button.
     public let diff: (any DiffProvider)?
     /// Settings' default agent (for projects that did not pick one), read when a picker needs the effective agent.
     public let defaultAgent: @Sendable () -> AgentKind

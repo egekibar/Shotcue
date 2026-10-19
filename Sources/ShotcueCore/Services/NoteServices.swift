@@ -19,6 +19,9 @@ public protocol AudioRecorder: Sendable {
 public enum TranscriberModelState: Hashable, Sendable {
     case notDownloaded
     case downloading(progress: Double)
+    /// A download stopped part way; its partial files stay on disk and `downloadModel()` picks up from them.
+    /// `progress` is nil when it is not known (the app was restarted since).
+    case paused(progress: Double?)
     case ready
     case failed(String)
 }
@@ -27,7 +30,13 @@ public enum TranscriberModelState: Hashable, Sendable {
 public protocol Transcriber: Sendable {
     var engineName: String { get }
     func modelState() async -> TranscriberModelState
+    /// Downloads (or resumes) the model. Cancelling the calling task pauses it: the state becomes `.paused` and a
+    /// `CancellationError` is thrown.
     func downloadModel() async throws
+    /// Removes the model and any partial download from disk; the state becomes `.notDownloaded`.
+    func deleteModel() async throws
+    /// Bytes the model (or its partial download) takes on disk; nil when there is nothing.
+    func modelDiskUsage() async -> Int64?
     func transcribe(fileURL: URL, language: String) async throws -> Transcript
 }
 
