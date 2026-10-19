@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
   deletes the selected tasks.
+- A click on the library grid's empty space, or Esc, clears the selection.
 
 ## [1.2.2] — 2026-10-06
 

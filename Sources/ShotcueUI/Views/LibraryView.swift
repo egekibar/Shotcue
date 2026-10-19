@@ -184,20 +184,29 @@ public struct LibraryView: View {
     }
 
     private var grid: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(store.sortedTasks) { task in
-                    gridCell(task)
+        GeometryReader { viewport in
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(store.sortedTasks) { task in
+                        gridCell(task)
+                    }
+                    .reorderableIfEnabled(Self.useNativeReorder && store.sortOrder == .manual)
                 }
-                .reorderableIfEnabled(Self.useNativeReorder && store.sortOrder == .manual)
+                .padding(14)
+                // At least as tall as the visible pane, so the tap below reaches the empty space under the last
+                // row too: the scroll view swallows clicks outside its content, so the tap must live inside it.
+                .frame(minHeight: viewport.size.height, alignment: .top)
+                .contentShape(.rect)
+                // A click on the empty space around and between the cards deselects; a card's own tap wins.
+                .onTapGesture { store.clearSelection() }
             }
-            .padding(14)
         }
         // Focusable so ⌫ reaches `onDeleteCommand`, but without the focus ring: drawn around the whole grid in the
         // accent color, it framed the pane on every click. The cards already show what is selected.
         .focusable()
         .focusEffectDisabled()
         .onDeleteCommand { store.requestDelete(taskIDs: store.selectedTaskIDs) }
+        .onExitCommand { store.clearSelection() }
     }
 
     private func gridCell(_ task: ShotTask) -> some View {
