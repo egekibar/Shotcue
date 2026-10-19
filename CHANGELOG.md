@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
+  deletes the selected tasks.
+
 ## [1.2.2] — 2026-10-06
 
 ### Fixed

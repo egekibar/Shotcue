@@ -193,7 +193,10 @@ public struct LibraryView: View {
             }
             .padding(14)
         }
+        // Focusable so ⌫ reaches `onDeleteCommand`, but without the focus ring: drawn around the whole grid in the
+        // accent color, it framed the pane on every click. The cards already show what is selected.
         .focusable()
+        .focusEffectDisabled()
         .onDeleteCommand { store.requestDelete(taskIDs: store.selectedTaskIDs) }
     }
 
