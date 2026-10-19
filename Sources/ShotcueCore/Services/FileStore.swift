@@ -63,7 +63,7 @@ public struct FileStore: Sendable {
         return ((attributes?[.size] as? NSNumber)?.intValue ?? 0) > 0
     }
 
-    /// The run "Terminalde devam et" / "Desktop'ta aç" resume: the newest one that actually started claude — still
+    /// The run "Terminalde devam et" / "Claude'da devam et" resume: the newest one that actually started claude — still
     /// running, or finished with events in its log. Runs refused or cancelled before launch, claude not found, and
     /// launch-recovery rows have no session (`--resume` would say "No conversation found") and are skipped.
     public func latestLaunchedRun(in runs: [Run], fileManager: FileManager = .default) -> Run? {

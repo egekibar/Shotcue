@@ -167,7 +167,7 @@ nonisolated final class AgentRouterRunner: ClaudeRunner {
 ///
 /// - Session ids: Claude Code runs start with `--session-id <uuid lowercased>` (`ClaudeArguments`), while callers
 ///   may form ids with `UUID.uuidString` (uppercase). Every resume path — the notification's and the
-///   Inspector's "Terminalde devam et", the Inspector's "Desktop'ta aç" — goes through here and gets the
+///   Inspector's "Terminalde devam et", the Inspector's "Claude'da devam et" — goes through here and gets the
 ///   lowercase spelling (Codex and Antigravity ids are lowercase UUIDs already). The composer takes no session id
 ///   and is passed through untouched.
 /// - The CLI paths: `DesktopHandoffService` bakes the agent's path into the `.command` file it writes, but it may only
