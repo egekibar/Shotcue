@@ -322,28 +322,13 @@ public struct QuickPanelView: View {
     }
 
     private var schedulePopover: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Ne zaman gönderilsin?").font(.headline)
-            DatePicker(
-                "Tarih ve saat",
-                selection: Binding(
-                    get: { store.scheduleDate },
-                    set: { store.scheduleDate = $0 })
-            )
-            .datePickerStyle(.graphical)
-            HStack {
-                Spacer()
-                Button("Vazgeç") { store.isSchedulePresented = false }
-                Button("Zamanla") {
-                    let when = store.scheduleDate
-                    store.isSchedulePresented = false
-                    Task { await store.saveAndSchedule(at: when) }
-                }
-                .buttonStyle(.glassProminent)
-            }
-        }
-        .padding(16)
-        .frame(width: 320)
+        ScheduleDateForm(
+            date: Binding(get: { store.scheduleDate }, set: { store.scheduleDate = $0 }),
+            onCancel: { store.isSchedulePresented = false },
+            onSchedule: { when in
+                store.isSchedulePresented = false
+                Task { await store.saveAndSchedule(at: when) }
+            })
     }
 }
 
