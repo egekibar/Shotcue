@@ -50,20 +50,20 @@ public final class PermissionsStore {
 
     public func label(for kind: PermissionKind) -> String {
         switch kind {
-        case .screenRecording: "Ekran Kaydı"
-        case .microphone: "Mikrofon"
-        case .notifications: "Bildirimler"
+        case .screenRecording: L10n.t("Screen Recording")
+        case .microphone: L10n.t("Microphone")
+        case .notifications: L10n.t("Notifications")
         }
     }
 
     public func explanation(for kind: PermissionKind) -> String {
         switch kind {
         case .screenRecording:
-            "Ekranın bir bölgesini yakalamak için gerekir. macOS bu izni ayda bir yeniden onaylatabilir."
+            L10n.t("Needed to capture a region of the screen. macOS may ask to confirm it again about once a month.")
         case .microphone:
-            "Sesli not almak için gerekir. İzin yoksa metin notu yine çalışır."
+            L10n.t("Needed for voice notes. Typed notes work without it.")
         case .notifications:
-            "Bir çalışma bittiğinde sonucu bildirmek için kullanılır."
+            L10n.t("Used to report a run's result when it ends.")
         }
     }
 
@@ -85,9 +85,9 @@ public final class PermissionsStore {
 
     public func stateLabel(for kind: PermissionKind) -> String {
         switch state(of: kind) {
-        case .granted: "Verildi"
-        case .denied: "Reddedildi"
-        case .notDetermined: "Sorulmadı"
+        case .granted: L10n.t("Granted")
+        case .denied: L10n.t("Denied")
+        case .notDetermined: L10n.t("Not asked")
         }
     }
 }

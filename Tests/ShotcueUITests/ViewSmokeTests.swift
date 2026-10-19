@@ -166,19 +166,19 @@ struct TaskInspectorViewTests {
         #expect(replay.isLive == false)
 
         // The row text each event maps to is a pure function, so it is asserted directly.
-        #expect(RunLogView.line(for: events[0]) == "başladı · claude-sonnet-5")
+        #expect(RunLogView.line(for: events[0]) == "started · claude-sonnet-5")
         #expect(RunLogView.line(for: events[1]) == "Reading the screenshot first.")
         #expect(RunLogView.line(for: events[2]) == "Read /tmp/a.png")
-        #expect(RunLogView.line(for: events[3]) == "API yeniden deneme (1)")
+        #expect(RunLogView.line(for: events[3]) == "API retry (1)")
         #expect(RunLogView.line(for: events[4]) == "user")
-        #expect(RunLogView.line(for: events[5]) == "bitti · 11 tur · 1 dk 24 sn")
+        #expect(RunLogView.line(for: events[5]) == "finished · 11 turns · 1 min 24 s")
         #expect(RunLogView.symbol(for: events[2]) == "wrench.and.screwdriver")
         #expect(RunLogView.symbol(for: events[5]) == "checkmark.seal.fill")
 
         let failure = ClaudeRunResult(
             subtype: "error_max_turns", isError: true, numTurns: 30,
             permissionDenials: ["Bash"])
-        #expect(RunLogView.line(for: .result(failure)) == "limit aşıldı (error_max_turns) · 30 tur")
+        #expect(RunLogView.line(for: .result(failure)) == "limit reached (error_max_turns) · 30 turns")
         #expect(RunLogView.symbol(for: .result(failure)) == "exclamationmark.triangle.fill")
     }
 }
@@ -260,17 +260,17 @@ struct SettingsViewTests {
 
     @MainActor
     @Test func transcriberStateCopyCoversEveryCase() {
-        #expect(SettingsView.modelStateLabel(.notDownloaded) == "İndirilmedi")
-        #expect(SettingsView.modelStateLabel(.downloading(progress: 0.42)) == "İndiriliyor… %42")
-        #expect(SettingsView.modelStateLabel(.paused(progress: 0.42)) == "Duraklatıldı %42")
-        #expect(SettingsView.modelStateLabel(.paused(progress: nil)) == "Duraklatıldı")
-        #expect(SettingsView.modelStateLabel(.ready) == "Hazır")
-        #expect(SettingsView.deleteModelTitle(.ready) == "Model silinsin mi?")
-        #expect(SettingsView.deleteModelTitle(.paused(progress: nil)) == "İndirilen kısım silinsin mi?")
-        #expect(SettingsView.modelStateLabel(.failed("disk dolu")) == "Hata: disk dolu")
-        #expect(SettingsView.permissionModeLabel(.bypassPermissions) == "bypassPermissions (sormaz, uygular)")
-        #expect(SettingsView.permissionModeLabel(.acceptEdits) == "acceptEdits (düzenlemeleri kabul eder)")
-        #expect(SettingsView.permissionModeLabel(.dontAsk) == "dontAsk (yalnızca okuma)")
+        #expect(SettingsView.modelStateLabel(.notDownloaded) == "Not downloaded")
+        #expect(SettingsView.modelStateLabel(.downloading(progress: 0.42)) == "Downloading… 42%")
+        #expect(SettingsView.modelStateLabel(.paused(progress: 0.42)) == "Paused 42%")
+        #expect(SettingsView.modelStateLabel(.paused(progress: nil)) == "Paused")
+        #expect(SettingsView.modelStateLabel(.ready) == "Ready")
+        #expect(SettingsView.deleteModelTitle(.ready) == "Delete the model?")
+        #expect(SettingsView.deleteModelTitle(.paused(progress: nil)) == "Delete the partial download?")
+        #expect(SettingsView.modelStateLabel(.failed("disk full")) == "Error: disk full")
+        #expect(SettingsView.permissionModeLabel(.bypassPermissions) == "bypassPermissions (applies without asking)")
+        #expect(SettingsView.permissionModeLabel(.acceptEdits) == "acceptEdits (accepts edits)")
+        #expect(SettingsView.permissionModeLabel(.dontAsk) == "dontAsk (read-only)")
     }
 }
 

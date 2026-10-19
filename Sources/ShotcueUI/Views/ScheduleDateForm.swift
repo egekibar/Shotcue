@@ -79,7 +79,5 @@ public struct ScheduleDateForm: View {
         }
         .padding(16)
         .frame(width: 320)
-        // Month and weekday names in Turkish, like the rest of the UI, whatever the system language.
-        .environment(\.locale, Locale(identifier: "tr_TR"))
     }
 }

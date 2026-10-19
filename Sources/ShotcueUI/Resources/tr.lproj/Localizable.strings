@@ -5,3 +5,139 @@
 "System language" = "Sistem dili";
 "Restart Shotcue to switch the language." = "Dili değiştirmek için Shotcue'yu yeniden başlat.";
 "Restart now" = "Şimdi yeniden başlat";
+
+/* Settings tabs */
+"General" = "Genel";
+"Agents" = "Ajanlar";
+"Audio" = "Ses";
+"Permissions" = "İzinler";
+
+/* Settings > General */
+"Capture" = "Yakalama";
+"Also copy captures to the clipboard" = "Yakalamayı panoya da kopyala";
+"System" = "Sistem";
+"Open at login" = "Oturum açılışında başlat";
+"Keep the Mac awake while a task runs" = "Görev çalışırken Mac'i uyanık tut";
+"Storage" = "Depolama";
+"Location" = "Konum";
+"Choose Folder…" = "Klasör seç…";
+"Use Default" = "Varsayılana dön";
+"Moving is manual: copy the existing files to the new folder, then restart the app." = "Taşıma elle yapılır: mevcut dosyaları yeni klasöre kopyalayıp uygulamayı yeniden başlat.";
+"Default Project" = "Varsayılan proje";
+"Selected in the quick panel" = "Hızlı panelde seçili";
+"Last used" = "Son kullanılan";
+"Updates" = "Güncellemeler";
+"Check for updates automatically" = "Güncellemeleri otomatik denetle";
+"Version" = "Sürüm";
+"Last check" = "Son denetim";
+"Never" = "Henüz yok";
+"Check Now" = "Şimdi denetle";
+
+/* Settings > General > Shortcut */
+"Shortcut" = "Kısayol";
+"Press a combination…" = "Kombinasyona basın…";
+"Record" = "Kaydet";
+"Default" = "Varsayılan";
+"A combination with ⌘, ⌃ or ⌥, or an F key on its own. Esc cancels." = "⌘, ⌃ veya ⌥ içeren bir kombinasyon ya da tek başına bir F tuşu. İptal için esc.";
+"This combination cannot be used: press it with ⌘, ⌃ or ⌥." = "Bu kombinasyon kullanılamaz: ⌘, ⌃ veya ⌥ ile birlikte basın.";
+
+/* Settings > Agents */
+"Default Agent" = "Varsayılan ajan";
+"Agent" = "Ajan";
+"Tasks run with their project's agent; projects that pick none use this one (Project Settings)." = "Görevler projenin ajanıyla çalışır; ajan seçmemiş projeler bunu kullanır (Proje ayarları).";
+"Limits" = "Limitler";
+"Max turns: %lld" = "Maksimum tur: %lld";
+"Budget (USD)" = "Bütçe (USD)";
+"Timeout: %lld min" = "Zaman aşımı: %lld dk";
+"Concurrent runs: %lld" = "Eş zamanlı çalışma: %lld";
+"Only Claude Code enforces the turn and budget limits; the timeout and concurrency apply to every agent." = "Tur ve bütçe limitlerini yalnızca Claude Code uygular; zaman aşımı ve eş zamanlılık her ajan için geçerli.";
+"Permission Mode" = "Yetki modu";
+"Mode" = "Mod";
+"In Codex, bypassPermissions means full access without a sandbox and the other modes a sandbox limited to the project folder; in Antigravity, every mode but bypassPermissions turns on the terminal sandbox." = "Codex'te bypassPermissions sandbox'sız tam erişim, diğerleri proje klasörüyle sınırlı sandbox demek; Antigravity'de bypassPermissions dışındaki modlar terminal sandbox'ını açar.";
+"In Implement mode the agent changes files without asking. This is a deliberate choice; lower it to acceptEdits to stay on the safe side." = "Uygula modunda ajan dosya değişikliklerini sormadan yapar. Bu bilinçli bir tercih; güvenli tarafta kalmak için acceptEdits'e düşürebilirsin.";
+"Extra System Prompt" = "Ek sistem talimatı";
+"Appended after Shotcue's own instructions." = "Sabit Shotcue talimatından sonra eklenir.";
+"not found" = "bulunamadı";
+"Path" = "Yol";
+"find automatically" = "otomatik bul";
+"Model" = "Model";
+"CLI default" = "CLI varsayılanı";
+"Effort" = "Effort";
+"not set" = "belirtilmedi";
+"When empty, %@ and the login shell are tried in that order." = "Boş bırakılırsa sırayla %@ ve login shell denenir.";
+"bypassPermissions (applies without asking)" = "bypassPermissions (sormaz, uygular)";
+"acceptEdits (accepts edits)" = "acceptEdits (düzenlemeleri kabul eder)";
+"dontAsk (read-only)" = "dontAsk (yalnızca okuma)";
+
+/* Settings > Audio */
+"Transcription" = "Transkripsiyon";
+"Turkish" = "Türkçe";
+"English" = "İngilizce";
+"Status" = "Durum";
+"On disk" = "Diskte";
+"Voice notes can be recorded before the model is ready; they wait and are transcribed once it arrives." = "Model hazır olmadan da sesli not alınabilir; transkripsiyon bekler ve model gelince kuyruk işlenir.";
+"Delete" = "Sil";
+"Cancel" = "Vazgeç";
+"Voice notes are not transcribed until the model is downloaded again." = "Sesli notlar, model yeniden indirilene kadar yazıya dökülmez.";
+"Input Device" = "Giriş cihazı";
+"Device UID" = "Cihaz UID";
+"system default" = "sistem varsayılanı";
+"Device" = "Cihaz";
+"System default" = "Sistem varsayılanı";
+"When empty, the system's default microphone is used." = "Boş bırakılırsa sistemin varsayılan mikrofonu kullanılır.";
+"Experimental" = "Deneysel";
+"Title suggestions with Foundation Models (v1.1)" = "Foundation Models ile başlık önerisi (v1.1)";
+"Off in v1: the FoundationModels macros do not build with the Command Line Tools (spec §6.2). Apple Intelligence's state shows in the diagnostics bar." = "Command Line Tools'ta FoundationModels makroları derlenmediği için bu özellik v1'de kapalı (spec §6.2). Apple Intelligence durumu Tanılama şeridinde görünür.";
+"Downloading the model" = "Model indiriliyor";
+"Pause" = "Duraklat";
+"Resume" = "Devam et";
+"Delete Download" = "İndirileni sil";
+"Delete Model" = "Modeli sil";
+"Try Again" = "Tekrar dene";
+"Download Model (%@)" = "Modeli indir (%@)";
+"Download Model" = "Modeli indir";
+"Delete the model?" = "Model silinsin mi?";
+"Delete the partial download?" = "İndirilen kısım silinsin mi?";
+"Not downloaded" = "İndirilmedi";
+"Downloading… %lld%%" = "İndiriliyor… %%%lld";
+"Paused %lld%%" = "Duraklatıldı %%%lld";
+"Paused" = "Duraklatıldı";
+"Ready" = "Hazır";
+"Error: %@" = "Hata: %@";
+
+/* Settings > Permissions */
+"Screen Recording" = "Ekran Kaydı";
+"Microphone" = "Mikrofon";
+"Notifications" = "Bildirimler";
+"Needed to capture a region of the screen. macOS may ask to confirm it again about once a month." = "Ekranın bir bölgesini yakalamak için gerekir. macOS bu izni ayda bir yeniden onaylatabilir.";
+"Needed for voice notes. Typed notes work without it." = "Sesli not almak için gerekir. İzin yoksa metin notu yine çalışır.";
+"Used to report a run's result when it ends." = "Bir çalışma bittiğinde sonucu bildirmek için kullanılır.";
+"Granted" = "Verildi";
+"Denied" = "Reddedildi";
+"Not asked" = "Sorulmadı";
+"Allow" = "İzin ver";
+"System Settings" = "Sistem Ayarları";
+"Refresh" = "Durumları yenile";
+"macOS may ask to confirm Screen Recording again about once a month; that is expected. Restart Shotcue after granting a permission." = "macOS, Ekran Kaydı iznini ayda bir yeniden onaylatabilir; bu beklenen davranıştır. İzin verildikten sonra Shotcue'yu yeniden başlat.";
+
+/* Durations and dates */
+"%lld s" = "%lld sn";
+"%lld min %lld s" = "%lld dk %lld sn";
+"just now" = "az önce";
+"%lld min ago" = "%lld dk önce";
+"%lld h ago" = "%lld sa önce";
+"yesterday" = "dün";
+"1 turn" = "1 tur";
+"%lld turns" = "%lld tur";
+
+/* Run log */
+"streaming…" = "akıyor…";
+"Connecting…" = "Bağlanıyor…";
+"This run has no log." = "Bu çalışmanın logu yok.";
+"started · %@" = "başladı · %@";
+"unknown model" = "model bilinmiyor";
+"API retry (%lld)" = "API yeniden deneme (%lld)";
+"API retry" = "API yeniden deneme";
+"finished" = "bitti";
+"limit reached (%@) · %@" = "limit aşıldı (%@) · %@";
+"error (%@)" = "hata (%@)";

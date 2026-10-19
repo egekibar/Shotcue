@@ -17,7 +17,7 @@ import ShotcueUI
 final class TerminationController {
     enum Trigger { case user, signal }
     /// Why a quit relaunches: the confirmation for runs in flight says so.
-    enum RelaunchReason { case permissionGrant, update }
+    enum RelaunchReason { case permissionGrant, update, languageChange }
 
     /// How long the runs get to stop: the runner escalates SIGINT to SIGKILL after 10 s.
     static let settleTimeout: Duration = .seconds(12)
@@ -219,7 +219,13 @@ final class TerminationController {
         alert.alertStyle = .warning
         let resumeHint =
             "Yarıda kalan görevi sonra yeniden çalıştırabilir ya da Terminalde devam ettirebilirsin."
-        if relaunchRequested, relaunchReason == .update {
+        if relaunchRequested, relaunchReason == .languageChange {
+            alert.messageText = L10n.t("Shotcue will restart to switch the language.")
+            alert.informativeText = L10n.t(
+                "\(count) running tasks will be stopped. \(resumeHint) If you cancel, the language changes the next time Shotcue starts."
+            )
+            alert.addButton(withTitle: L10n.t("Stop and Restart"))
+        } else if relaunchRequested, relaunchReason == .update {
             alert.messageText = "Güncellemeyi kurmak için Shotcue yeniden başlatılacak."
             alert.informativeText =
                 "Çalışan \(count) görev durdurulacak. \(resumeHint) Vazgeçersen güncelleme şimdilik kurulmaz."

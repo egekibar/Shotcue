@@ -21,7 +21,7 @@ public struct RunLogView: View {
                 Divider()
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("akıyor…").font(.caption).foregroundStyle(.secondary)
+                    Text(L10n.t("streaming…")).font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
@@ -35,7 +35,7 @@ public struct RunLogView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 3) {
                     if events.isEmpty {
-                        Text(isLive ? "Bağlanıyor…" : "Bu çalışmanın logu yok.")
+                        Text(isLive ? L10n.t("Connecting…") : L10n.t("This run has no log."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -69,30 +69,30 @@ public struct RunLogView: View {
         }
     }
 
-    /// Turkish one-liner for an event. Pure and tested.
+    /// One line for an event, in the app's language. Pure and tested.
     nonisolated public static func line(for event: RunEvent) -> String {
         switch event {
         case .initialized(_, let model):
-            return "başladı · \(model ?? "model bilinmiyor")"
+            return L10n.t("started · \(model ?? L10n.t("unknown model"))")
         case .assistantText(let text):
             return text
         case .toolUse(_, let summary):
             return summary
         case .apiRetry(let attempt):
-            return attempt.map { "API yeniden deneme (\($0))" } ?? "API yeniden deneme"
+            return attempt.map { L10n.t("API retry (\($0))") } ?? L10n.t("API retry")
         case .other(let type):
             return type
         case .result(let result):
             if result.isSuccess {
-                var parts = ["bitti"]
+                var parts = [L10n.t("finished")]
                 parts.append(Formatting.turns(result.numTurns))
                 parts.append(Formatting.duration(result.durationMs.map { Double($0) / 1000 }))
                 return parts.joined(separator: " · ")
             }
             if result.hitLimit {
-                return "limit aşıldı (\(result.subtype)) · \(Formatting.turns(result.numTurns))"
+                return L10n.t("limit reached (\(result.subtype)) · \(Formatting.turns(result.numTurns))")
             }
-            return "hata (\(result.subtype))"
+            return L10n.t("error (\(result.subtype))")
         }
     }
 

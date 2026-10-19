@@ -55,7 +55,7 @@ public final class TranscriberModelStore {
     }
 
     nonisolated public static func byteCountText(_ bytes: Int64) -> String {
-        bytes.formatted(.byteCount(style: .file).locale(Locale(identifier: "tr_TR")))
+        bytes.formatted(.byteCount(style: .file))
     }
 
     /// Re-reads the transcriber's state. While a download runs, its own progress stays on screen.

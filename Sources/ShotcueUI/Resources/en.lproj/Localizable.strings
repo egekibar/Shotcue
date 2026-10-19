@@ -5,3 +5,139 @@
 "System language" = "System language";
 "Restart Shotcue to switch the language." = "Restart Shotcue to switch the language.";
 "Restart now" = "Restart now";
+
+/* Settings tabs */
+"General" = "General";
+"Agents" = "Agents";
+"Audio" = "Audio";
+"Permissions" = "Permissions";
+
+/* Settings > General */
+"Capture" = "Capture";
+"Also copy captures to the clipboard" = "Also copy captures to the clipboard";
+"System" = "System";
+"Open at login" = "Open at login";
+"Keep the Mac awake while a task runs" = "Keep the Mac awake while a task runs";
+"Storage" = "Storage";
+"Location" = "Location";
+"Choose Folder…" = "Choose Folder…";
+"Use Default" = "Use Default";
+"Moving is manual: copy the existing files to the new folder, then restart the app." = "Moving is manual: copy the existing files to the new folder, then restart the app.";
+"Default Project" = "Default Project";
+"Selected in the quick panel" = "Selected in the quick panel";
+"Last used" = "Last used";
+"Updates" = "Updates";
+"Check for updates automatically" = "Check for updates automatically";
+"Version" = "Version";
+"Last check" = "Last check";
+"Never" = "Never";
+"Check Now" = "Check Now";
+
+/* Settings > General > Shortcut */
+"Shortcut" = "Shortcut";
+"Press a combination…" = "Press a combination…";
+"Record" = "Record";
+"Default" = "Default";
+"A combination with ⌘, ⌃ or ⌥, or an F key on its own. Esc cancels." = "A combination with ⌘, ⌃ or ⌥, or an F key on its own. Esc cancels.";
+"This combination cannot be used: press it with ⌘, ⌃ or ⌥." = "This combination cannot be used: press it with ⌘, ⌃ or ⌥.";
+
+/* Settings > Agents */
+"Default Agent" = "Default Agent";
+"Agent" = "Agent";
+"Tasks run with their project's agent; projects that pick none use this one (Project Settings)." = "Tasks run with their project's agent; projects that pick none use this one (Project Settings).";
+"Limits" = "Limits";
+"Max turns: %lld" = "Max turns: %lld";
+"Budget (USD)" = "Budget (USD)";
+"Timeout: %lld min" = "Timeout: %lld min";
+"Concurrent runs: %lld" = "Concurrent runs: %lld";
+"Only Claude Code enforces the turn and budget limits; the timeout and concurrency apply to every agent." = "Only Claude Code enforces the turn and budget limits; the timeout and concurrency apply to every agent.";
+"Permission Mode" = "Permission Mode";
+"Mode" = "Mode";
+"In Codex, bypassPermissions means full access without a sandbox and the other modes a sandbox limited to the project folder; in Antigravity, every mode but bypassPermissions turns on the terminal sandbox." = "In Codex, bypassPermissions means full access without a sandbox and the other modes a sandbox limited to the project folder; in Antigravity, every mode but bypassPermissions turns on the terminal sandbox.";
+"In Implement mode the agent changes files without asking. This is a deliberate choice; lower it to acceptEdits to stay on the safe side." = "In Implement mode the agent changes files without asking. This is a deliberate choice; lower it to acceptEdits to stay on the safe side.";
+"Extra System Prompt" = "Extra System Prompt";
+"Appended after Shotcue's own instructions." = "Appended after Shotcue's own instructions.";
+"not found" = "not found";
+"Path" = "Path";
+"find automatically" = "find automatically";
+"Model" = "Model";
+"CLI default" = "CLI default";
+"Effort" = "Effort";
+"not set" = "not set";
+"When empty, %@ and the login shell are tried in that order." = "When empty, %@ and the login shell are tried in that order.";
+"bypassPermissions (applies without asking)" = "bypassPermissions (applies without asking)";
+"acceptEdits (accepts edits)" = "acceptEdits (accepts edits)";
+"dontAsk (read-only)" = "dontAsk (read-only)";
+
+/* Settings > Audio */
+"Transcription" = "Transcription";
+"Turkish" = "Turkish";
+"English" = "English";
+"Status" = "Status";
+"On disk" = "On disk";
+"Voice notes can be recorded before the model is ready; they wait and are transcribed once it arrives." = "Voice notes can be recorded before the model is ready; they wait and are transcribed once it arrives.";
+"Delete" = "Delete";
+"Cancel" = "Cancel";
+"Voice notes are not transcribed until the model is downloaded again." = "Voice notes are not transcribed until the model is downloaded again.";
+"Input Device" = "Input Device";
+"Device UID" = "Device UID";
+"system default" = "system default";
+"Device" = "Device";
+"System default" = "System default";
+"When empty, the system's default microphone is used." = "When empty, the system's default microphone is used.";
+"Experimental" = "Experimental";
+"Title suggestions with Foundation Models (v1.1)" = "Title suggestions with Foundation Models (v1.1)";
+"Off in v1: the FoundationModels macros do not build with the Command Line Tools (spec §6.2). Apple Intelligence's state shows in the diagnostics bar." = "Off in v1: the FoundationModels macros do not build with the Command Line Tools (spec §6.2). Apple Intelligence's state shows in the diagnostics bar.";
+"Downloading the model" = "Downloading the model";
+"Pause" = "Pause";
+"Resume" = "Resume";
+"Delete Download" = "Delete Download";
+"Delete Model" = "Delete Model";
+"Try Again" = "Try Again";
+"Download Model (%@)" = "Download Model (%@)";
+"Download Model" = "Download Model";
+"Delete the model?" = "Delete the model?";
+"Delete the partial download?" = "Delete the partial download?";
+"Not downloaded" = "Not downloaded";
+"Downloading… %lld%%" = "Downloading… %lld%%";
+"Paused %lld%%" = "Paused %lld%%";
+"Paused" = "Paused";
+"Ready" = "Ready";
+"Error: %@" = "Error: %@";
+
+/* Settings > Permissions */
+"Screen Recording" = "Screen Recording";
+"Microphone" = "Microphone";
+"Notifications" = "Notifications";
+"Needed to capture a region of the screen. macOS may ask to confirm it again about once a month." = "Needed to capture a region of the screen. macOS may ask to confirm it again about once a month.";
+"Needed for voice notes. Typed notes work without it." = "Needed for voice notes. Typed notes work without it.";
+"Used to report a run's result when it ends." = "Used to report a run's result when it ends.";
+"Granted" = "Granted";
+"Denied" = "Denied";
+"Not asked" = "Not asked";
+"Allow" = "Allow";
+"System Settings" = "System Settings";
+"Refresh" = "Refresh";
+"macOS may ask to confirm Screen Recording again about once a month; that is expected. Restart Shotcue after granting a permission." = "macOS may ask to confirm Screen Recording again about once a month; that is expected. Restart Shotcue after granting a permission.";
+
+/* Durations and dates */
+"%lld s" = "%lld s";
+"%lld min %lld s" = "%lld min %lld s";
+"just now" = "just now";
+"%lld min ago" = "%lld min ago";
+"%lld h ago" = "%lld h ago";
+"yesterday" = "yesterday";
+"1 turn" = "1 turn";
+"%lld turns" = "%lld turns";
+
+/* Run log */
+"streaming…" = "streaming…";
+"Connecting…" = "Connecting…";
+"This run has no log." = "This run has no log.";
+"started · %@" = "started · %@";
+"unknown model" = "unknown model";
+"API retry (%lld)" = "API retry (%lld)";
+"API retry" = "API retry";
+"finished" = "finished";
+"limit reached (%@) · %@" = "limit reached (%@) · %@";
+"error (%@)" = "error (%@)";

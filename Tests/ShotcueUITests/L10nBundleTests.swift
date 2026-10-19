@@ -20,4 +20,12 @@ struct L10nBundleTests {
         #expect(try value("Language", in: "en") == "Language")
         #expect(try value("Language", in: "tr") == "Dil")
     }
+
+    /// Turkish puts the percent sign first ("%42"); the escaped `%%` in the table must survive formatting.
+    @Test func turkishPercentagesFormatWithTheSignFirst() throws {
+        let path = try #require(
+            L10n.bundle.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: "tr"))
+        let format = try #require(NSDictionary(contentsOfFile: path)?["Downloading… %lld%%"] as? String)
+        #expect(String(format: format, 42 as Int64) == "İndiriliyor… %42")
+    }
 }

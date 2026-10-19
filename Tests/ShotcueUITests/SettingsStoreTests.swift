@@ -214,4 +214,33 @@ struct SettingsStoreTests {
         #expect(notifies({ _ = store.claudePath }, after: { store.claudePath = "/tmp/claude" }))
         #expect(notifies({ _ = store.timeout }, after: { store.timeoutMinutes = 45 }))
     }
+
+    /// Plan 08: the language goes into the app's own `AppleLanguages` (what macOS reads at launch), "System" removes
+    /// it, and the store remembers that the running app still shows the previous language.
+    @MainActor
+    @Test func theLanguageWritesTheAppleLanguagesOverride() {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shotcue-settings-\(UUID().uuidString)").path
+        let defaults = UserDefaults(suiteName: path)!
+        let store = SettingsStore(defaults: defaults)
+        func override() -> [String]? { defaults.persistentDomain(forName: path)?["AppleLanguages"] as? [String] }
+
+        #expect(store.appLanguage == .system)
+        #expect(store.isRestartNeededForLanguage == false)
+        #expect(override() == nil)
+
+        store.appLanguage = .turkish
+        #expect(store.appLanguage == .turkish)
+        #expect(override() == ["tr"])
+        #expect(store.isRestartNeededForLanguage)
+
+        store.appLanguage = .system
+        #expect(override() == nil)
+        #expect(SettingsStore(defaults: defaults).appLanguage == .system)
+
+        // Picking the same language again is not a change.
+        let fresh = SettingsStore(defaults: defaults)
+        fresh.appLanguage = .system
+        #expect(fresh.isRestartNeededForLanguage == false)
+    }
 }

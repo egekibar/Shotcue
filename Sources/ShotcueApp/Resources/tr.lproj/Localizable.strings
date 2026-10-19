@@ -1,1 +1,6 @@
 /* ShotcueApp strings (tr). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Restart for a language change */
+"Shotcue will restart to switch the language." = "Dili değiştirmek için Shotcue yeniden başlatılacak.";
+"%lld running tasks will be stopped. %@ If you cancel, the language changes the next time Shotcue starts." = "Çalışan %lld görev durdurulacak. %@ Vazgeçersen dil, Shotcue bir sonraki açılışında değişir.";
+"Stop and Restart" = "Durdur ve yeniden başlat";

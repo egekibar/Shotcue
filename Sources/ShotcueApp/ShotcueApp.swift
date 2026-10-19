@@ -97,7 +97,9 @@ struct SettingsSceneRoot: View {
                 modelDiskUsage: environment.transcriberModel.diskUsageText,
                 inputDevices: status.inputDevices,
                 appVersion: environment.updates.appVersionText,
-                onCheckForUpdates: { environment.updates.checkNow() })
+                onCheckForUpdates: { environment.updates.checkNow() },
+                // The language is read at launch (Plan 08); the quit asks first if tasks are running.
+                onRestart: { environment.termination.quit(relaunching: true, reason: .languageChange) })
             Divider()
             DiagnosticsBar(
                 status: status,
