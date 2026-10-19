@@ -739,6 +739,11 @@ public final class TaskDetailStore {
 
     /// Shows a run's log: the live events for the live run, otherwise the parsed `runs/<id>.jsonl`.
     /// A replay that finishes after the selection moved on is discarded.
+    /// A click on a run row: opens its log, or closes it when it is the one already open.
+    public func toggleRun(_ runID: UUID) async {
+        await selectRun(selectedRunID == runID ? nil : runID)
+    }
+
     public func selectRun(_ runID: UUID?) async {
         selectionToken += 1
         let token = selectionToken

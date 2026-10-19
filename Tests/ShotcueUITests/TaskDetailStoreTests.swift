@@ -348,6 +348,37 @@ struct TaskDetailStoreTests {
         f.bundle.cleanUp()
     }
 
+    /// A click on the open run closes its log; a click on another run opens that one instead.
+    @MainActor
+    @Test func clickingTheOpenRunAgainClosesItsLog() async throws {
+        let f = try await fixture(status: .done)
+        let first = Run(taskID: f.task.id, state: .succeeded, startedAt: t0, logRelPath: "runs/first.jsonl")
+        let second = Run(
+            taskID: f.task.id, state: .succeeded, startedAt: t0.addingTimeInterval(60), logRelPath: "runs/second.jsonl")
+        func line(_ text: String) -> String {
+            #"{"type":"assistant","message":{"content":[{"type":"text","text":""# + text + #""}]}}"#
+        }
+        try f.bundle.writeFile(first.logRelPath, contents: line("bir"))
+        try f.bundle.writeFile(second.logRelPath, contents: line("iki"))
+        try await f.bundle.services.runs.save(first)
+        try await f.bundle.services.runs.save(second)
+        _ = await waitUntil("runs") { f.store.runs.count == 2 }
+
+        await f.store.toggleRun(first.id)
+        #expect(f.store.selectedRunID == first.id)
+        #expect(f.store.displayedEvents == [.assistantText("bir")])
+
+        await f.store.toggleRun(second.id)
+        #expect(f.store.selectedRunID == second.id)
+        #expect(f.store.displayedEvents == [.assistantText("iki")])
+
+        await f.store.toggleRun(second.id)
+        #expect(f.store.selectedRunID == nil)
+        #expect(f.store.displayedEvents.isEmpty)
+        f.store.stop()
+        f.bundle.cleanUp()
+    }
+
     @MainActor
     @Test func retranscribeResetsTheNoteAndEnqueuesIt() async throws {
         let f = try await fixture()
