@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A status filter in the library toolbar narrows a project or the inbox to one or more statuses, in the grid and
+  the list. The window subtitle then reads "3 / 12 öğe"; *Tümü* clears it, and it resets when another project is
+  picked. It is off while a status is picked in the sidebar.
+
 ### Fixed
 
 - Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
