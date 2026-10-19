@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The transcription model download can be paused and resumed (Ayarlar → Ses → Transkripsiyon: *Duraklat*,
+  *Devam et*). A resumed download picks up from the partial files instead of starting over, also after Shotcue was
+  restarted. The model, or a partial download, can be deleted from there (*Modeli sil*, *İndirileni sil*, after a
+  confirmation), and Settings shows how much disk it takes.
+
 ### Fixed
 
 - Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
