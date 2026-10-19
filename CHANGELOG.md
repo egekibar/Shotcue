@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- *Zamanla…* no longer shows a label broken into one letter per line and an analog clock. The picker (inspector,
+  selection bar and quick panel) now has quick picks (*1 saat sonra*, *Bu akşam 18:00*, *Yarın 09:00*), a calendar
+  for the day, a typed time and a summary line such as "30 Ekim Perşembe, 14:30"; a time in the past cannot be
+  scheduled.
+
 ## [1.2.2] — 2026-10-06
 
 ### Fixed

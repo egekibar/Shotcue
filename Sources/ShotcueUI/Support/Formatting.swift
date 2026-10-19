@@ -42,6 +42,11 @@ public enum Formatting {
         formatted(date, pattern: "dd.MM HH:mm", calendar: calendar)
     }
 
+    /// "22 Eylül Salı, 12:00" — the schedule form's summary line.
+    nonisolated public static func scheduleSummary(_ date: Date, calendar: Calendar = .current) -> String {
+        formatted(date, pattern: "d MMMM EEEE, HH:mm", calendar: calendar)
+    }
+
     /// "11 tur" / "—".
     nonisolated public static func turns(_ count: Int?) -> String {
         guard let count else { return placeholder }

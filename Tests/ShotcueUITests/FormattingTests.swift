@@ -16,6 +16,12 @@ struct FormattingTests {
         return c
     }
 
+    /// The schedule form's summary line under the calendar.
+    @Test func scheduleSummaryNamesTheDayInTurkish() {
+        // 2026-09-22 is a Tuesday.
+        #expect(Formatting.scheduleSummary(now, calendar: utc) == "22 Eylül Salı, 12:00")
+    }
+
     @Test func durationSplitsMinutesAndSeconds() {
         #expect(Formatting.duration(84.213) == "1 dk 24 sn")
         #expect(Formatting.duration(59.4) == "59 sn")

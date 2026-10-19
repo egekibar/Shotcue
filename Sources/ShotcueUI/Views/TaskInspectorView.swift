@@ -363,27 +363,13 @@ public struct TaskInspectorView: View {
                                 get: { store.isSchedulePresented },
                                 set: { store.isSchedulePresented = $0 })
                         ) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                DatePicker(
-                                    "Tarih ve saat",
-                                    selection: Binding(
-                                        get: { store.scheduleDate },
-                                        set: { store.scheduleDate = $0 })
-                                )
-                                .datePickerStyle(.graphical)
-                                HStack {
-                                    Spacer()
-                                    Button("Vazgeç") { store.isSchedulePresented = false }
-                                    Button("Zamanla") {
-                                        let when = store.scheduleDate
-                                        store.isSchedulePresented = false
-                                        Task { await store.schedule(at: when) }
-                                    }
-                                    .buttonStyle(.glassProminent)
-                                }
-                            }
-                            .padding(16)
-                            .frame(width: 320)
+                            ScheduleDateForm(
+                                date: Binding(get: { store.scheduleDate }, set: { store.scheduleDate = $0 }),
+                                onCancel: { store.isSchedulePresented = false },
+                                onSchedule: { when in
+                                    store.isSchedulePresented = false
+                                    Task { await store.schedule(at: when) }
+                                })
                         }
                         Button("Günlük kuyruğa al", systemImage: "calendar.badge.clock") {
                             Task { await store.addToDailyQueue() }
