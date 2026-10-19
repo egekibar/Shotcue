@@ -15,6 +15,14 @@ public struct TaskCardView: View {
     public let cache: ThumbnailCache?
     public let voiceSeconds: Double?
 
+    static let cornerRadius: CGFloat = 10
+    /// Space between the card and its selection ring.
+    static let selectionGap: CGFloat = 3
+    static let selectionLineWidth: CGFloat = 2
+    /// How far the ring reaches outside the card; it must stay under half the grid spacing (12) so two selected
+    /// neighbours' rings do not touch.
+    static var selectionInset: CGFloat { selectionGap + selectionLineWidth }
+
     public init(
         task: ShotTask, thumbnailURL: URL?, isSelected: Bool,
         cache: ThumbnailCache? = nil, voiceSeconds: Double? = nil
@@ -31,14 +39,23 @@ public struct TaskCardView: View {
             preview
             details
         }
-        .background(.background.secondary, in: .rect(cornerRadius: 10))
+        .background(.background.secondary)
+        // The whole card, thumbnail included: unclipped, the thumbnail's square corners stuck out of the rounded card.
+        .clipShape(.rect(cornerRadius: Self.cornerRadius))
         .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(
-                    isSelected ? Color.accentColor : Color.black.opacity(0.08),
-                    lineWidth: isSelected ? 2 : 1)
+            RoundedRectangle(cornerRadius: Self.cornerRadius)
+                .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
         }
-        .contentShape(.rect(cornerRadius: 10))
+        // The selection ring sits outside the card with a small gap, so it never covers the thumbnail.
+        .overlay {
+            if isSelected {
+                // Concentric with the card: the ring's inner edge is `selectionGap` away, at radius + gap.
+                RoundedRectangle(cornerRadius: Self.cornerRadius + Self.selectionInset)
+                    .strokeBorder(Color.accentColor, lineWidth: Self.selectionLineWidth)
+                    .padding(-Self.selectionInset)
+            }
+        }
+        .contentShape(.rect(cornerRadius: Self.cornerRadius))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(task.title), \(StatusPresentation.label(for: task.status))")
     }

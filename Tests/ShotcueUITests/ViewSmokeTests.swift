@@ -83,6 +83,9 @@ struct LibraryViewTests {
         #expect(card.task.id == task.id)
         #expect(card.isSelected)
         #expect(card.voiceSeconds == 4.2)
+        // The selection ring sits outside the card; two selected neighbours (12 pt apart) must not touch.
+        #expect(TaskCardView.selectionInset == 5)
+        #expect(TaskCardView.selectionInset * 2 < 12)
 
         let chip = StatusChip(status: .running)
         #expect(chip.status == .running)
