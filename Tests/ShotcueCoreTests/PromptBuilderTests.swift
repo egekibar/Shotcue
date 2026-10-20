@@ -52,4 +52,12 @@ struct PromptBuilderTests {
         #expect(PromptBuilder.systemPromptAppend.contains("ANALYZE ONLY"))
         #expect(PromptBuilder.systemPromptAppend.contains("transcription errors"))
     }
+
+    /// Claude answers in the interface's language, after the fixed instructions.
+    @Test func theSystemPromptNamesTheInterfaceLanguage() {
+        let turkish = PromptBuilder.systemPrompt(interfaceLanguage: "tr")
+        #expect(turkish.hasPrefix(PromptBuilder.systemPromptAppend))
+        #expect(turkish.hasSuffix("Write the summary and everything else you tell the user in Turkish."))
+        #expect(PromptBuilder.systemPrompt(interfaceLanguage: nil).hasSuffix("tell the user in English."))
+    }
 }

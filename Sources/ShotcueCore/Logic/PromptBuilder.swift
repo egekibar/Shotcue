@@ -95,4 +95,15 @@ public enum PromptBuilder {
         Always finish with: (1) a 3-line summary, (2) the list of files you changed, (3) what you could NOT do and why. \
         If the task type is ANALYZE ONLY, do not modify any file.
         """
+
+    /// `systemPromptAppend` plus the language Claude answers in: the interface's, so the summary Shotcue shows reads in
+    /// the language of the rest of the app. The user's own extra instructions come after it and can override it.
+    public static func systemPrompt(interfaceLanguage: String?) -> String {
+        let code = interfaceLanguage ?? "en"
+        let name = Locale(identifier: "en").localizedString(forLanguageCode: code) ?? "English"
+        return systemPromptAppend + "\nWrite the summary and everything else you tell the user in \(name)."
+    }
+
+    /// The language Shotcue's interface runs in ("en", "tr").
+    public static var interfaceLanguage: String? { L10n.bundle.preferredLocalizations.first }
 }

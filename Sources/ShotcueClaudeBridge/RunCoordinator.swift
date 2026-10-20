@@ -481,7 +481,8 @@ public actor RunCoordinator: TaskDispatcher {
             permissionMode: task.mode == .analyze ? .dontAsk : settings.permissionMode,
             addDirs: [fileStore.rootURL.appendingPathComponent(FileStore.capturesDir, isDirectory: true).path],
             images: screenshots.map(\.absolutePath),
-            systemPromptAppend: PromptBuilder.systemPromptAppend + (extra.isEmpty ? "" : "\n\n" + extra))
+            systemPromptAppend: PromptBuilder.systemPrompt(interfaceLanguage: PromptBuilder.interfaceLanguage)
+                + (extra.isEmpty ? "" : "\n\n" + extra))
     }
 
     /// Every status change goes through `ShotTask.transition` (Plan 00 Task 2) — direct assignment is
