@@ -38,22 +38,24 @@ biçimleri dile ve bölgeye uysun. Sesli not dili listesi genişlesin; Claude'un
   döner; testleri sabit metin yerine anahtarın bulunduğunu ve Türkçe tablodaki karşılığını doğrular.
 - Yeni bir metin eklenirken iki tabloya da yazılır; `make test` eksikte kırılır.
 
-## PR'lar (açık #1–#6 merge edildikten sonra, güncel `main`'den)
+## Durum (2026-10-20): tamamlandı, tek PR (#7)
 
-1. **feat/l10n-foundation** (bu altyapı) + Ayarlar → Genel → **Dil**: *Sistem dili* / *Türkçe* / *English*.
-   Seçim uygulamanın `AppleLanguages` varsayılanına yazılır (Sistem Ayarları'ndaki uygulama başına dil ile aynı yer;
-   *Sistem dili* bu anahtarı siler), "Şimdi yeniden başlat" düğmesi `TerminationController` üzerinden yeniden açar.
-   `Formatting` sabit `tr_TR` yerine `Locale.autoupdatingCurrent` kullanır; testler sabit `Locale` geçirir.
-   Ayarlar ekranının metinleri taşınır.
-2. **feat/l10n-ui**: kütüphane, inspector, hızlı panel, menü çubuğu, diff, güncelleme penceresi.
-3. **feat/l10n-core-app**: `RunErrorText`, durum/çalışma adları, bildirimler, kurulum penceresi, tanılama şeridi;
-   `Info.plist` → `CFBundleDevelopmentRegion = en`, `CFBundleLocalizations = [en, tr]`; README (EN/TR) ve CLAUDE.md
-   kural güncellemesi; README görsellerinin yeniden üretimi.
+Ayarlar'daki dil seçicisi ancak `Info.plist` dilleri bildirince çalışıyor, `Info.plist` de ancak bütün metinler
+taşınınca değişebiliyor (yoksa sistem menüleri arayüzün geri kalanından önce dil değiştiriyor). Bu yüzden üç PR yerine
+hepsi #7'de, adım adım commit'lerle:
 
-Ayrıca (2 veya 3 içinde):
-- **Sesli not dili:** `SettingsStore.sttLanguageChoices` (`tr`, `en`) → WhisperKit'in desteklediği diller, adları
-  `Locale.localizedString(forLanguageCode:)` ile; en üstte *Otomatik algıla* (`detectLanguage: true`).
-- **Claude'un özet dili:** `PromptBuilder` sistem talimatına "Write the summary in <arayüz dili>." eklenir.
+1. Altyapı: tablolar, `L10n`, eşleşme ve kapsam testleri.
+2. Dil ayarı (`AppLanguage`, `SettingsStore.appLanguage`, "Şimdi yeniden başlat" → `TerminationController`
+   `.languageChange`), yerel ayara uyan `Formatting`, Ayarlar ekranı ve çalışma logu.
+3. `ShotcueUI`'nin geri kalanı.
+4. Core (`RunErrorText`, güncelleme hataları, hızlı zamanlama seçimleri), ClaudeBridge, Notes, Updater.
+5. App katmanı; tanılama raporu sabit İngilizce.
+6. Sesli not: Whisper'ın bütün dilleri ve otomatik algılama; varsayılan arayüz dili.
+7. Ajanlar özeti arayüz dilinde yazar (`PromptBuilder.systemPrompt(interfaceLanguage:)`).
+8. `Info.plist`: `CFBundleDevelopmentRegion = en`, `CFBundleLocalizations = [en, tr]`.
+
+Kalan (1.3.0 release'i ile): İngilizce README'deki Türkçe etiketlerin İngilizceye çevrilmesi ve README görsellerinin
+iki dilde yeniden üretilmesi.
 
 ## Doğrulama
 

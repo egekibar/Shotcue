@@ -24,7 +24,7 @@
   <a href="https://github.com/egekibar/Shotcue/releases/latest"><img src="docs/assets/download.svg" width="320" alt="Download Shotcue for macOS"></a>
 </p>
 
-<p align="center"><sub>Native menu-bar app · no API key: runs on your Claude subscription · <b>the interface is in Turkish</b></sub></p>
+<p align="center"><sub>Native menu-bar app · no API key: runs on your Claude subscription · <b>English and Turkish</b></sub></p>
 
 <p align="center">
   <picture>
@@ -34,7 +34,7 @@
 </p>
 
 > [!NOTE]
-> **Shotcue's interface is in Turkish**, and voice notes are transcribed in Turkish by default (English can be chosen in Settings). This README quotes the app's Turkish labels as they appear, with the meaning next to them where it helps.
+> **Shotcue speaks English and Turkish.** It follows your system language (English for any other language); Settings → General → Language picks one, and so does macOS's per-app language setting. Voice notes are transcribed in the interface's language by default, or in any language Whisper knows, or detected automatically. Agents write their summary in the interface's language. This README still quotes the app's Turkish labels, with the meaning next to them; they move to the English labels with the next README screenshots.
 
 ## What it is
 
@@ -325,12 +325,12 @@ The design spec (`docs/superpowers/specs/`), the implementation plans (`docs/sup
 
 ## Known limitations
 
-- The interface is Turkish only.
+- The interface is in English and Turkish only.
 - Apple Silicon and macOS 26 or later only.
 - Not notarized and ad-hoc signed: expect the Gatekeeper prompt on first launch and the permission prompts after each update. *Oturum açılışında başlat* (launch at login) may report itself unavailable for such builds; the strip at the bottom of Settings shows its state, and then you can add Shotcue by hand under System Settings → General → Login Items.
 - Region capture only (macOS's `screencapture`): no window picking, annotation or redaction. One capture per panel; merge tasks to send several images together.
 - Schedules and the daily queue run only while Shotcue is running and the Mac is awake.
-- Transcription uses one language at a time (Turkish or English); the model is a large download the first time.
+- Transcription uses one language at a time (or detects it per recording); the model is a large download the first time.
 - A new transcription model, microphone, storage folder or `claude` path takes effect after restarting Shotcue, and moving the storage folder does not move the existing data.
 - Shotcue passes Claude Code CLI flags that can change between versions; it was tested with Claude Code 2.1.278.
 - *Claude'da baştan başlat* passes the screenshots as file links; whether Claude Desktop attaches them depends on Claude Desktop.
