@@ -86,7 +86,8 @@ public final class LibraryStore {
     /// The window subtitle: "12 öğe", or "3 / 12 öğe" while the status filter hides some.
     public var itemCountText: String {
         isStatusFilterActive
-            ? L10n.t("\(tasks.count) / \(unfilteredTaskCount) items") : L10n.t("\(tasks.count) items")
+            ? L10n.t("\(tasks.count) / \(unfilteredTaskCount) items")
+            : tasks.count == 1 ? L10n.t("1 item") : L10n.t("\(tasks.count) items")
     }
 
     public func toggleStatusFilter(_ status: TaskStatus) {

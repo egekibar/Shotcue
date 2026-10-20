@@ -433,7 +433,7 @@ public struct LibraryView: View {
                         systemName: store.isStatusFilterActive
                             ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     if store.isStatusFilterActive {
-                        Text(L10n.t("\(store.statusFilter.count) statuses"))
+                        Text(store.statusFilter.count == 1 ? L10n.t("1 status") : L10n.t("\(store.statusFilter.count) statuses"))
                     }
                 }
                 .fixedSize()

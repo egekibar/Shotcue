@@ -226,7 +226,6 @@
 "Settings…" = "Settings…";
 "Check for Updates…" = "Check for Updates…";
 "Quit" = "Quit";
-"%lld files · +%lld −%lld" = "%lld files · +%lld −%lld";
 "No changes" = "No changes";
 "The working tree shows no difference since this run." = "The working tree shows no difference since this run.";
 "Select a file" = "Select a file";
@@ -372,3 +371,10 @@
 "Shows this run's code changes, file by file." = "Shows this run's code changes, file by file.";
 "Opens a new session in the Claude desktop app with the prompt filled in; you press send. The earlier run's history does not come along." = "Opens a new session in the Claude desktop app with the prompt filled in; you press send. The earlier run's history does not come along.";
 "The task starts with Claude Code even though the project uses %@." = "The task starts with Claude Code even though the project uses %@.";
+
+/* Singular forms (English) */
+"1 file" = "1 file";
+"%lld files" = "%lld files";
+"1 status" = "1 status";
+"1 recording" = "1 recording";
+"1 item" = "1 item";

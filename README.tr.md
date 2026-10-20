@@ -28,8 +28,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
-    <img src="docs/assets/hero-light.svg" width="100%" alt="⌃⇧2 ile bir web sayfasının bir bölgesi seçiliyor; Shotcue hızlı paneli yakalamayı, yazılı notu ve sesli notu gösteriyor; ardından Claude Code görevi proje klasöründe çalıştırıp sonucu bildiriyor.">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.tr.svg">
+    <img src="docs/assets/hero-light.tr.svg" width="100%" alt="⌃⇧2 ile bir web sayfasının bir bölgesi seçiliyor; Shotcue hızlı paneli yakalamayı, yazılı notu ve sesli notu gösteriyor; ardından Claude Code görevi proje klasöründe çalıştırıp sonucu bildiriyor.">
   </picture>
 </p>
 
@@ -42,8 +42,8 @@ Shotcue, "şurası bozuk, düzelt" demeyi [Claude Code](https://github.com/anthr
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/library-dark.png">
-    <img src="docs/assets/library-light.png" width="100%" alt="Shotcue kütüphane penceresi: kenar çubuğunda projeler ve durum filtreleri, durum etiketli görev kartlarından oluşan ızgara ve seçili görevin ekran görüntüsünü, notunu ve sesli not transkriptini gösteren detay paneli.">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/library-dark.tr.png">
+    <img src="docs/assets/library-light.tr.png" width="100%" alt="Shotcue kütüphane penceresi: kenar çubuğunda projeler ve durum filtreleri, durum etiketli görev kartlarından oluşan ızgara ve seçili görevin ekran görüntüsünü, notunu ve sesli not transkriptini gösteren detay paneli.">
   </picture>
 </p>
 
@@ -176,15 +176,15 @@ Herhangi bir yerde **⌃⇧2**'ye bas ve bir bölge seç (Esc iptal eder). Hızl
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/quick-panel-dark.png">
-    <img src="docs/assets/quick-panel-light.png" width="640" alt="Shotcue hızlı paneli: yakalanan bölge, klasörüyle birlikte pati-web seçili proje seçici, Analiz/Uygula mod anahtarı, yazılmış bir not, 0:18'lik kayıtlı bir sesli not ve Vazgeç, Zamanla…, Kaydet ve Kaydet ve gönder düğmeleri.">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/quick-panel-dark.tr.png">
+    <img src="docs/assets/quick-panel-light.tr.png" width="640" alt="Shotcue hızlı paneli: yakalanan bölge, klasörüyle birlikte pati-web seçili proje seçici, Analiz/Uygula mod anahtarı, yazılmış bir not, 0:18'lik kayıtlı bir sesli not ve Vazgeç, Zamanla…, Kaydet ve Kaydet ve gönder düğmeleri.">
   </picture>
 </p>
 
 - **Not**: neyin yanlış olduğunu yaz ya da kaydetmek için **Sesli not**'a (⌘⇧V) tıkla; kayıt, panel kapansa bile arka planda Mac'inde yazıya dökülür.
 - **Proje**: son kullandığın proje seçili gelir; ⌘1 … ⌘9 ilk dokuz projeden birini seçer. Projesiz yakalama gelen kutusunda (*Gelen*) bekler.
 - **Mod**: *Uygula* (Claude dosyaları düzenleyebilir) ya da *Analiz* (yalnızca okuma). Projenin varsayılanıyla başlar.
-- **Kaydet ⌘↩** kaydeder · **Kaydet ve gönder ⌘⇧↩** kaydeder ve çalışmayı kuyruğa alır · **Zamanla…** zamanlar · **Esc** paneli kapatır ve yakalamayı gelen kutusunda bırakır (sürmekte olan kayıt yine de saklanır).
+- **Kaydet ⌘↩** kaydeder · **Kaydet ve gönder ⌘⇧↩** kaydeder ve çalışmayı kuyruğa alır · **Zamanla…** zamanlar (*1 saat sonra*, *Yarın 9:00* gibi hızlı seçimler ya da tarih ve saat) · **Esc** paneli kapatır ve yakalamayı gelen kutusunda bırakır (sürmekte olan kayıt yine de saklanır).
 
 Görevin başlığı notun (yoksa transkriptin) ilk cümlesidir; detay panelinde düzenlersen senin başlığın sabitlenir. Ayarlar → Genel'den her yakalamanın panoya da kopyalanmasını açabilirsin.
 
@@ -194,11 +194,11 @@ Görevin başlığı notun (yoksa transkriptin) ilk cümlesidir; detay panelinde
 
 **Kütüphane**'yi menü çubuğundan aç. Kenar çubuğu projelerini görev sayılarıyla, gelen kutusunu (*Gelen*) ve her durum için bir filtreyi (*Durum*) listeler.
 
-- Izgara ile liste arasında geçiş yap; *En yeni*, *En eski*, *Manuel* ya da *Duruma göre* sırala. Arama başlıklara, notlara ve transkriptlere bakar; büyük/küçük harf ve Türkçe karakter farkını gözetmez.
+- Izgara ile liste arasında geçiş yap; *En yeni*, *En eski*, *Manuel* ya da *Duruma göre* sırala. Yanındaki filtre düğmesi bir projeyi ya da gelen kutusunu bir veya birden fazla duruma daraltır (başlıkta "3 / 12 öğe" yazar). Arama başlıklara, notlara ve transkriptlere bakar; büyük/küçük harf ve Türkçe karakter farkını gözetmez.
 - Kartları taşımak için kenar çubuğundaki bir projeye sürükle; manuel sıralamada yeniden sıralamak için sürükle.
-- ⌘-tık ya da ⇧-tık birden çok görev seçer. Alttaki çubuk o zaman **Ayrı ayrı gönder** (her biri ayrı çalışma), **Tek görev olarak gönder** (tek görevde ve tek çalışmada birleştir), **Projeye taşı**, **Zamanla…** ve **Sil** sunar.
+- ⌘-tık ya da ⇧-tık birden çok görev seçer; boş bir yere tıklamak ya da Esc seçimi kaldırır. Alttaki çubuk **Ayrı ayrı gönder** (her biri ayrı çalışma), **Tek görev olarak gönder** (tek görevde ve tek çalışmada birleştir), **Projeye taşı**, **Zamanla…** ve **Sil** sunar.
 - **Proje ekle…** bir proje oluşturur: ad, klasör, varsayılan mod, model ve effort, günlük kuyruk ve güvenlik ağları. **Proje ayarları…** için projeye sağ tıkla.
-- Detay paneli (⌥⌘I) seçili görevi gösterir: görseller (birini seçip ⌘C ile kopyala), başlık, not, düzenlenebilir transkriptler (*Aç* kaydı çalar, *Yeniden çevir* yeniden yazıya döker), proje, mod, model seçimi, zamanlama, loglarıyla birlikte çalışma geçmişi ve aktarım düğmeleri.
+- Detay paneli (⌥⌘I) seçili görevi gösterir: görseller (birini seçip ⌘C ile kopyala), başlık, not, düzenlenebilir transkriptler (*Aç* kaydı çalar, *Yeniden çevir* yeniden yazıya döker), proje, mod, model seçimi, zamanlama, çalışma geçmişi (bir çalışmaya tıklayınca logu açılır, tekrar tıklayınca kapanır) ve aktarım düğmeleri.
 
 ### Klavye kısayolları
 
@@ -227,8 +227,8 @@ Zamanlamalar 30 saniyede bir ve Mac uykudan uyandığında kontrol edilir; uykud
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/inspector-dark.png">
-    <img src="docs/assets/inspector-light.png" width="400" alt="Detay panelinin alt yarısı: proje, mod ve model seçici, zamanlama düğmeleri, maliyeti, tur sayısı, süresi ve özetiyle başarılı bir çalışma, yeniden oynatılan çalışma logu ve Terminalde devam et, Desktop'ta aç, Diff'i göster ve Desktop composer'da aç düğmeleri.">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/inspector-dark.tr.png">
+    <img src="docs/assets/inspector-light.tr.png" width="400" alt="Detay panelinin alt yarısı: proje, mod ve model seçici, zamanlama düğmeleri, tur sayısı, süresi ve özetiyle başarılı bir çalışma, yeniden oynatılan çalışma logu ve Terminalde devam et, Claude'da devam et, Claude'da baştan başlat ve Değişiklikleri göster düğmeleri.">
   </picture>
 </p>
 
@@ -258,7 +258,7 @@ Ajanlar sekmesinde (Ayarlar → Ajanlar) varsayılan ajan, her CLI'ın yolu, var
 | *Effort* | CLI'ın varsayılanı | ajan başına; proje başına da ayarlanır |
 | *Ek sistem talimatı* | boş | Shotcue'nun kendi talimatından sonra eklenir |
 
-*Analiz* görevleri her zaman `dontAsk` ve salt okunur bir araç listesiyle (Read, Glob, Grep, WebFetch, WebSearch ve `git log/diff/status/show`) çalışır. Görevin model seçimi projenin modelinden, projenin modeli de varsayılandan önce gelir. Diğer sekmelerde kısayol kaydedici, panoya kopyalama, oturum açılışında başlatma, *Görev çalışırken Mac'i uyanık tut* (varsayılan açık), depolama klasörü, transkripsiyon dili ve modeli, mikrofon ve izinler bulunur.
+*Analiz* görevleri her zaman `dontAsk` ve salt okunur bir araç listesiyle (Read, Glob, Grep, WebFetch, WebSearch ve `git log/diff/status/show`) çalışır. Görevin model seçimi projenin modelinden, projenin modeli de varsayılandan önce gelir. Diğer sekmelerde arayüz **Dil**i (*Sistem dili*, *English* ya da *Türkçe*; *Şimdi yeniden başlat* ile geçerli olur, macOS'un uygulama başına dil ayarı da aynı işi görür), kısayol kaydedici, panoya kopyalama, oturum açılışında başlatma, *Görev çalışırken Mac'i uyanık tut* (varsayılan açık), depolama klasörü, transkripsiyon dili (Whisper'ın bildiği her dil ya da *Otomatik algıla*) ve modeli, mikrofon ve izinler bulunur.
 
 ## Güvenlik
 
@@ -294,7 +294,7 @@ make cert    # bir kez: kendinden imzalı "Shotcue Dev" kod imzalama kimliği
 
 - `make bundle` ve `make run`, anahtar zincirinde **Shotcue Dev** kimliği varsa onunla imzalar (`make cert`, ardından Anahtar Zinciri Erişimi'nde kod imzalama için *Her Zaman Güven*); böylece macOS'un izinleri yeniden derlemeler arasında koruması beklenir. Kimlik yoksa ad-hoc imzaya düşer. `make run`, çalışan Shotcue'yu değiştirmeden önce kapatır.
 - `make format` ve `make lint`, swift-format'ı `xcrun` üzerinden çalıştırır; `make reset-tcc` Shotcue'nun Ekran Kaydı ve Mikrofon izinlerini sıfırlar; `make shot` çalışan uygulamanın pencerelerinin ekran görüntüsünü alır (terminalinin Ekran Kaydı izni olmalı).
-- README ekran görüntüleri, gerçek SwiftUI görünümlerinden kurgusal örnek verilerle ekran dışında çizilir: `SHOTCUE_README_SHOTS=docs/assets make test FILTER='ReadmeScreenshot'`.
+- README ekran görüntüleri, gerçek SwiftUI görünümlerinden kurgusal örnek verilerle, İngilizce ve Türkçe (`.tr.png`) olarak ekran dışında çizilir: `SHOTCUE_README_SHOTS=docs/assets make test FILTER='ReadmeScreenshot'`.
 - Bağımlılıklar (SwiftPM): [GRDB.swift](https://github.com/groue/GRDB.swift) 7.11 ve [argmax-oss-swift](https://github.com/argmaxinc/argmax-oss-swift) (WhisperKit) 1.1.
 
 ## Mimari

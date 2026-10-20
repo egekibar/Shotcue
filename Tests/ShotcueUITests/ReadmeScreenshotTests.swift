@@ -19,8 +19,9 @@ import UniformTypeIdentifiers
 ///
 ///     SHOTCUE_README_SHOTS=/tmp/shotcue-readme make test FILTER='ReadmeScreenshot'
 ///
-/// Writes `library-{light,dark}.png`, `inspector-{light,dark}.png` and `quick-panel-{light,dark}.png`, each framed
-/// as a window with rounded corners and a soft shadow on a transparent background.
+/// Writes `library-{light,dark}.png`, `inspector-{light,dark}.png` and `quick-panel-{light,dark}.png` in English and
+/// the same with `.tr.png` in Turkish (interface and sample data), each framed as a window with rounded corners and a
+/// soft shadow on a transparent background.
 @Suite(
     .serialized,
     .enabled(
@@ -28,31 +29,51 @@ import UniformTypeIdentifiers
         "Set SHOTCUE_README_SHOTS=<output dir> to render the README screenshots."))
 struct ReadmeScreenshotTests {
     @Test func libraryWindow() async throws {
-        let studio = try await ReadmeStudio.make()
-        defer { studio.cleanUp() }
-        for appearance in ReadmeStudio.Look.allCases {
-            try await studio.shootLibrary(appearance)
+        defer { LocalizationOverride.language = nil }
+        for language in readmeLanguages {
+            LocalizationOverride.language = language
+            let studio = try await ReadmeStudio.make()
+            defer { studio.cleanUp() }
+            for appearance in ReadmeStudio.Look.allCases {
+                try await studio.shootLibrary(appearance)
+            }
         }
     }
 
     @Test func taskInspector() async throws {
-        let studio = try await ReadmeStudio.make()
-        defer { studio.cleanUp() }
-        for appearance in ReadmeStudio.Look.allCases {
-            try await studio.shootInspector(appearance)
+        defer { LocalizationOverride.language = nil }
+        for language in readmeLanguages {
+            LocalizationOverride.language = language
+            let studio = try await ReadmeStudio.make()
+            defer { studio.cleanUp() }
+            for appearance in ReadmeStudio.Look.allCases {
+                try await studio.shootInspector(appearance)
+            }
         }
     }
 
     @Test func quickPanel() async throws {
-        let studio = try await ReadmeStudio.make()
-        defer { studio.cleanUp() }
-        for appearance in ReadmeStudio.Look.allCases {
-            try await studio.shootQuickPanel(appearance)
+        defer { LocalizationOverride.language = nil }
+        for language in readmeLanguages {
+            LocalizationOverride.language = language
+            let studio = try await ReadmeStudio.make()
+            defer { studio.cleanUp() }
+            for appearance in ReadmeStudio.Look.allCases {
+                try await studio.shootQuickPanel(appearance)
+            }
         }
     }
 }
 
 // MARK: - Studio: sample data, hosting, capture
+
+/// The sample data's text in the language being rendered (`LocalizationOverride.language`).
+private func tx(_ turkish: String, _ english: String) -> String {
+    LocalizationOverride.language == "tr" ? turkish : english
+}
+
+/// The README languages: English pictures for README.md, Turkish ones (`.tr.png`) for README.tr.md.
+private let readmeLanguages = ["en", "tr"]
 
 /// The shots' process reports itself active: it is never activated (it must not take focus from the user), and
 /// AppKit draws the windows of an inactive app grey. Only takes effect when it is the first `NSApplication` made.
@@ -172,33 +193,33 @@ final class ReadmeStudio {
 
         // pati-web: the project the library shows.
         let login = ShotTask(
-            projectID: pati.id, title: "Giriş butonu mobilde kartın dışına taşıyor",
-            noteText: "Giriş butonu mobilde kartın dışına taşıyor. Genişlik %100 olsun, iç boşluk korunsun.",
+            projectID: pati.id, title: tx("Giriş butonu mobilde kartın dışına taşıyor", "Sign-in button overflows the card on mobile"),
+            noteText: tx("Giriş butonu mobilde kartın dışına taşıyor. Genişlik %100 olsun, iç boşluk korunsun.", "Sign-in button overflows the card on mobile. Make it full width and keep the padding."),
             status: .done, mode: .implement, sortIndex: 1024,
             createdAt: now - 2 * hour - 4 * minute, updatedAt: now - 97 * minute)
         loginTaskID = login.id
         try await add(
             login, mock: .login, voice: 18.4,
             transcript:
-                "Mobilde giriş butonu kartın sağından taşıyor, yatayda kaydırma çıkıyor. Butonu kartın içine al, masaüstündeki görünüm bozulmasın."
+                tx("Mobilde giriş butonu kartın sağından taşıyor, yatayda kaydırma çıkıyor. Butonu kartın içine al, masaüstündeki görünüm bozulmasın.", "On mobile the sign-in button sticks out on the right of the card and the page scrolls sideways. Keep the button inside the card without breaking the desktop layout.")
         )
 
         try await add(
             ShotTask(
-                projectID: pati.id, title: "Sahiplenme formunda telefon alanı doğrulanmıyor",
-                noteText: "Sahiplenme formunda telefon alanı doğrulanmıyor. Harf kabul ediyor, 10 hane kontrolü yok.",
+                projectID: pati.id, title: tx("Sahiplenme formunda telefon alanı doğrulanmıyor", "Adoption form does not validate the phone field"),
+                noteText: tx("Sahiplenme formunda telefon alanı doğrulanmıyor. Harf kabul ediyor, 10 hane kontrolü yok.", "Adoption form does not validate the phone field. It takes letters and does not check for 10 digits."),
                 status: .running, sortIndex: 2048, createdAt: now - 26 * minute, updatedAt: now - 3 * minute),
             mock: .phone)
         try await add(
             ShotTask(
-                projectID: pati.id, title: "Kart gölgeleri karanlık modda kayboluyor",
-                noteText: "Kart gölgeleri karanlık modda kayboluyor. Kenarlık ya da yükselti ekle.",
+                projectID: pati.id, title: tx("Kart gölgeleri karanlık modda kayboluyor", "Card shadows disappear in dark mode"),
+                noteText: tx("Kart gölgeleri karanlık modda kayboluyor. Kenarlık ya da yükselti ekle.", "Card shadows disappear in dark mode. Add a border or elevation."),
                 status: .queued, sortIndex: 3072, createdAt: now - 3 * hour - 12 * minute,
                 updatedAt: now - 3 * hour - 10 * minute),
-            mock: .darkCards, voice: 9.2, transcript: "Karanlık modda kartlar arka plana karışıyor.")
+            mock: .darkCards, voice: 9.2, transcript: tx("Karanlık modda kartlar arka plana karışıyor.", "In dark mode the cards melt into the background."))
         var gallery = ShotTask(
-            projectID: pati.id, title: "Galeri sayfası neden yavaş açılıyor?",
-            noteText: "Galeri sayfası neden yavaş açılıyor? Görseller tek tek geliyor.",
+            projectID: pati.id, title: tx("Galeri sayfası neden yavaş açılıyor?", "Why does the gallery page load slowly?"),
+            noteText: tx("Galeri sayfası neden yavaş açılıyor? Görseller tek tek geliyor.", "Why does the gallery page load slowly? The pictures arrive one by one."),
             status: .ready, mode: .analyze, sortIndex: 4096, createdAt: now - 1 * day - 2 * hour,
             updatedAt: now - 1 * day - hour)
         gallery.scheduledAt = Calendar.current.date(bySettingHour: 23, minute: 30, second: 0, of: now)
@@ -206,47 +227,47 @@ final class ReadmeStudio {
         try await add(gallery, mock: .gallery)
         try await add(
             ShotTask(
-                projectID: pati.id, title: "Arama sonuç vermeyince boş durum göster",
-                noteText: "Arama sonuç vermeyince boş durum göster; öneri olarak popüler aramaları listele.",
+                projectID: pati.id, title: tx("Arama sonuç vermeyince boş durum göster", "Show an empty state when search finds nothing"),
+                noteText: tx("Arama sonuç vermeyince boş durum göster; öneri olarak popüler aramaları listele.", "Show an empty state when search finds nothing; suggest popular searches."),
                 status: .ready, sortIndex: 5120, createdAt: now - 1 * day - 5 * hour,
                 updatedAt: now - 1 * day - 5 * hour),
             mock: .search)
         try await add(
             ShotTask(
-                projectID: pati.id, title: "Footer'daki sosyal medya ikonları hizasız",
-                noteText: "Footer'daki sosyal medya ikonları hizasız.",
+                projectID: pati.id, title: tx("Footer'daki sosyal medya ikonları hizasız", "Footer social icons are misaligned"),
+                noteText: tx("Footer'daki sosyal medya ikonları hizasız.", "Footer social icons are misaligned."),
                 status: .ready, sortIndex: 6144, createdAt: now - 2 * day - 3 * hour,
                 updatedAt: now - 2 * day - 3 * hour),
-            mock: .footer, voice: 6.8, transcript: "İkonlar aynı çizgide değil.")
+            mock: .footer, voice: 6.8, transcript: tx("İkonlar aynı çizgide değil.", "The icons are not on one line."))
         try await add(
             ShotTask(
-                projectID: pati.id, title: "Bağış formu eksi tutarı kabul ediyor",
-                noteText: "Bağış formu eksi tutarı kabul ediyor. En az 10 ₺ olsun.",
+                projectID: pati.id, title: tx("Bağış formu eksi tutarı kabul ediyor", "Donation form accepts a negative amount"),
+                noteText: tx("Bağış formu eksi tutarı kabul ediyor. En az 10 ₺ olsun.", "Donation form accepts a negative amount. The minimum should be $10."),
                 status: .failed, sortIndex: 7168, createdAt: now - 2 * day - 6 * hour,
                 updatedAt: now - 2 * day - 5 * hour),
             mock: .donation)
         try await add(
             ShotTask(
-                projectID: pati.id, title: "Harita pinleri mobilde tıklanmıyor",
-                noteText: "Harita pinleri mobilde tıklanmıyor. Dokunma alanını büyüt.",
+                projectID: pati.id, title: tx("Harita pinleri mobilde tıklanmıyor", "Map pins cannot be tapped on mobile"),
+                noteText: tx("Harita pinleri mobilde tıklanmıyor. Dokunma alanını büyüt.", "Map pins cannot be tapped on mobile. Make the hit area bigger."),
                 status: .done, sortIndex: 8192, createdAt: now - 3 * day - 2 * hour,
                 updatedAt: now - 3 * day - hour),
-            mock: .map, voice: 12.1, transcript: "Mobilde pinlere dokununca hiçbir şey olmuyor.")
+            mock: .map, voice: 12.1, transcript: tx("Mobilde pinlere dokununca hiçbir şey olmuyor.", "Tapping a pin on mobile does nothing."))
         try await add(
             ShotTask(
-                projectID: pati.id, title: "Profil fotoğrafı yüklenince bulanık görünüyor",
-                noteText: "Profil fotoğrafı yüklenince bulanık görünüyor.",
+                projectID: pati.id, title: tx("Profil fotoğrafı yüklenince bulanık görünüyor", "Profile photo looks blurry after upload"),
+                noteText: tx("Profil fotoğrafı yüklenince bulanık görünüyor.", "Profile photo looks blurry after upload."),
                 status: .ready, mode: .analyze, sortIndex: 9216, createdAt: now - 4 * day,
                 updatedAt: now - 4 * day),
             mock: .avatar)
 
         // The rest only feed the sidebar counts.
         for (index, item) in [
-            (kasa.id, "Sepet toplamı kuruşları yanlış yuvarlıyor", TaskStatus.done),
-            (kasa.id, "Fişte Türkçe karakterler bozuk basılıyor", .failed),
-            (kasa.id, "İndirim kodu alanı mobilde klavyenin altında kalıyor", .ready),
-            (rota.id, "Harita etiketleri üst üste biniyor", .ready),
-            (rota.id, "Sürücü listesinde sayfalama sıfırlanıyor", .ready),
+            (kasa.id, tx("Sepet toplamı kuruşları yanlış yuvarlıyor", "Cart total rounds the cents wrong"), TaskStatus.done),
+            (kasa.id, tx("Fişte Türkçe karakterler bozuk basılıyor", "Receipt prints accented letters garbled"), .failed),
+            (kasa.id, tx("İndirim kodu alanı mobilde klavyenin altında kalıyor", "Discount code field hides behind the keyboard on mobile"), .ready),
+            (rota.id, tx("Harita etiketleri üst üste biniyor", "Map labels overlap"), .ready),
+            (rota.id, tx("Sürücü listesinde sayfalama sıfırlanıyor", "Driver list resets its paging"), .ready),
         ].enumerated() {
             try await tasks.save(
                 ShotTask(
@@ -256,7 +277,7 @@ final class ReadmeStudio {
         }
         try await tasks.save(
             ShotTask(
-                title: "Onboarding metninde yazım hatası", noteText: "Onboarding metninde yazım hatası.",
+                title: tx("Onboarding metninde yazım hatası", "Typo in the onboarding text"), noteText: tx("Onboarding metninde yazım hatası.", "Typo in the onboarding text."),
                 sortIndex: 1024, createdAt: now - 5 * hour, updatedAt: now - 5 * hour))
         try await tasks.save(
             ShotTask(
@@ -269,11 +290,17 @@ final class ReadmeStudio {
         let run = Run(
             id: runID, taskID: login.id, state: .succeeded, startedAt: started, finishedAt: started + 84,
             numTurns: 11, costUSD: 0.4137,
-            resultText: """
+            resultText: tx(
+                """
                 Giriş butonu artık kartın içinde; genişlik %100, iç boşluk korunuyor.
                 Değişen dosyalar: src/components/LoginForm.tsx, LoginForm.test.tsx
                 Yapılamayan: yok.
                 """,
+                """
+                The sign-in button now fits the card: full width, padding kept.
+                Changed files: src/components/LoginForm.tsx, LoginForm.test.tsx
+                Not done: nothing.
+                """),
             subtype: "success", exitCode: 0, logRelPath: services.fileStore.runLogRelPath(id: runID),
             gitHeadBefore: "4f1c9a2e7b3d5c8f0a6e1d2b9c7f4a3e5d8b1c0f", gitDirtyBefore: false,
             gitHeadAfter: "4f1c9a2e7b3d5c8f0a6e1d2b9c7f4a3e5d8b1c0f", gitBranch: "main")
@@ -326,7 +353,7 @@ final class ReadmeStudio {
     static func runLog(sessionID: String) -> String {
         let lines: [[String: Any]] = [
             ["type": "system", "subtype": "init", "session_id": sessionID, "model": "claude-sonnet-4-5"],
-            assistant(text: "Önce ekran görüntüsünü okuyorum."),
+            assistant(text: tx("Önce ekran görüntüsünü okuyorum.", "Reading the screenshot first.")),
             tool("Read", ["file_path": "~/Library/Application Support/Shotcue/captures/2026/09/c41f2a7e.png"]),
             toolResult(),
             tool("Grep", ["pattern": "LoginForm"]),
@@ -337,11 +364,11 @@ final class ReadmeStudio {
             toolResult(),
             tool("Bash", ["command": "npm test -- LoginForm"]),
             toolResult(),
-            assistant(text: "Buton artık kartın içinde kalıyor; mobil ve masaüstü için test ekledim."),
+            assistant(text: tx("Buton artık kartın içinde kalıyor; mobil ve masaüstü için test ekledim.", "The button now stays inside the card; I added tests for mobile and desktop.")),
             [
                 "type": "result", "subtype": "success", "is_error": false, "duration_ms": 84_213, "num_turns": 11,
                 "total_cost_usd": 0.4137, "session_id": sessionID,
-                "result": "Giriş butonu artık kartın içinde; genişlik %100, iç boşluk korunuyor.",
+                "result": tx("Giriş butonu artık kartın içinde; genişlik %100, iç boşluk korunuyor.", "The sign-in button now fits the card: full width, padding kept."),
                 "permission_denials": [Any](),
             ],
         ]
@@ -385,7 +412,8 @@ final class ReadmeStudio {
         await detail.selectRun(loginRunID)
         try await waitFor("thumbnails") { store.thumbRelPaths.count >= 9 && !detail.selectedRunEvents.isEmpty }
 
-        let host = NSHostingView(rootView: LibraryView(store: store, thumbnails: cache))
+        let host = NSHostingView(
+            rootView: LibraryView(store: store, thumbnails: cache).environment(\.locale, LocalizationOverride.locale))
         // Title, toolbar and search field go to the window, as in the app's `Window` scene.
         host.sceneBridgingOptions = .all
         let image = try await capture(
@@ -403,7 +431,8 @@ final class ReadmeStudio {
         await store.selectRun(loginRunID)
         try await waitFor("run log") { !store.selectedRunEvents.isEmpty && store.sessionID != nil }
 
-        let host = NSHostingView(rootView: TaskInspectorView(store: store, thumbnails: cache))
+        let host = NSHostingView(
+            rootView: TaskInspectorView(store: store, thumbnails: cache).environment(\.locale, LocalizationOverride.locale))
         // The lower part: the run, its replayed log and the hand-off buttons (the library shot shows the top).
         let image = try await capture(
             host, size: NSSize(width: 400, height: 748), look: look, titled: false, backdrop: .window
@@ -429,10 +458,11 @@ final class ReadmeStudio {
         // Right after a recording: the note is kept, the timer shows its length.
         await store.toggleRecording()
         await store.toggleRecording()
-        store.noteText = "Giriş butonu mobilde kartın dışına taşıyor. Genişlik %100 olsun, iç boşluk korunsun."
+        store.noteText = tx("Giriş butonu mobilde kartın dışına taşıyor. Genişlik %100 olsun, iç boşluk korunsun.", "Sign-in button overflows the card on mobile. Make it full width and keep the padding.")
         try await waitFor("panel") { store.voiceNotes.count == 1 && store.thumbnailURL != nil }
 
-        let host = NSHostingView(rootView: QuickPanelView(store: store, thumbnails: cache))
+        let host = NSHostingView(
+            rootView: QuickPanelView(store: store, thumbnails: cache).environment(\.locale, LocalizationOverride.locale))
         host.sizingOptions = [.intrinsicContentSize]
         host.layoutSubtreeIfNeeded()
         let fitting = host.fittingSize
@@ -443,8 +473,10 @@ final class ReadmeStudio {
         try Self.write(Self.framed(image, look: look, cornerRadius: 22), to: file("quick-panel", look), type: .png)
     }
 
+    /// `library-dark.png` in English, `library-dark.tr.png` in Turkish.
     private func file(_ name: String, _ look: Look) -> URL {
-        output.appendingPathComponent("\(name)-\(look.rawValue).png")
+        let suffix = LocalizationOverride.language == "tr" ? ".tr" : ""
+        return output.appendingPathComponent("\(name)-\(look.rawValue)\(suffix).png")
     }
 
     /// The shared image cache with every thumbnail already decoded, so the first frame has its pictures.
@@ -822,18 +854,18 @@ private struct LoginMock: View {
         ZStack {
             Color(hex: 0xF6F7FB)
             VStack(alignment: .leading, spacing: 11) {
-                Text("Giriş yap").font(.system(size: 21, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
+                Text(tx("Giriş yap", "Sign in")).font(.system(size: 21, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
                 Bar(width: 150)
-                FieldMock(label: "E-posta", value: "ada@ornek.com", valueColor: Color(hex: 0xA2A7B7))
-                FieldMock(label: "Şifre", value: "••••••••")
-                Text("Giriş yap")
+                FieldMock(label: tx("E-posta", "Email"), value: tx("ada@ornek.com", "ada@example.com"), valueColor: Color(hex: 0xA2A7B7))
+                FieldMock(label: tx("Şifre", "Password"), value: "••••••••")
+                Text(tx("Giriş yap", "Sign in"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 290, height: 40)
                     .background(Color(hex: 0xFF8A4C), in: .rect(cornerRadius: 10))
                     .frame(width: 236, alignment: .leading)
                     .padding(.top, 4)
-                Text("Şifremi unuttum").font(.system(size: 11.5)).foregroundStyle(Color(hex: 0xE0703A))
+                Text(tx("Şifremi unuttum", "Forgot password")).font(.system(size: 11.5)).foregroundStyle(Color(hex: 0xE0703A))
                     .frame(width: 236)
             }
             .padding(22)
@@ -855,7 +887,7 @@ private struct PhoneMock: View {
                 Divider()
                 HStack(alignment: .top, spacing: 26) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Sahiplenme\nbaşvurusu").font(.system(size: 19, weight: .bold))
+                        Text(tx("Sahiplenme\nbaşvurusu", "Adoption\napplication")).font(.system(size: 19, weight: .bold))
                             .foregroundStyle(Color(hex: 0x1B1E2B))
                         Bar(width: 120)
                         Bar(width: 90)
@@ -868,13 +900,13 @@ private struct PhoneMock: View {
                         .padding(.top, 8)
                     }
                     VStack(alignment: .leading, spacing: 10) {
-                        FieldMock(label: "Ad soyad", value: "Ada Yıldız", valueColor: Color(hex: 0x1B1E2B))
+                        FieldMock(label: tx("Ad soyad", "Full name"), value: tx("Ada Yıldız", "Ada Wilson"), valueColor: Color(hex: 0x1B1E2B))
                         FieldMock(
-                            label: "Telefon", value: "05xx abc 12", valueColor: Color(hex: 0x1B1E2B),
+                            label: tx("Telefon", "Phone"), value: tx("05xx abc 12", "555 abc 12"), valueColor: Color(hex: 0x1B1E2B),
                             trailing: AnyView(
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(hex: 0x34C759))))
-                        FieldMock(label: "Şehir", value: "İzmir", valueColor: Color(hex: 0x1B1E2B))
-                        Text("Başvuruyu gönder")
+                        FieldMock(label: tx("Şehir", "City"), value: tx("İzmir", "Austin"), valueColor: Color(hex: 0x1B1E2B))
+                        Text(tx("Başvuruyu gönder", "Send application"))
                             .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                             .frame(maxWidth: .infinity).frame(height: 36)
                             .background(Color(hex: 0x7B61FF), in: .rect(cornerRadius: 9))
@@ -902,7 +934,7 @@ private struct DarkCardsMock: View {
             Color(hex: 0x0F1115)
             VStack(alignment: .leading, spacing: 14) {
                 SiteHeader(dark: true)
-                Text("Yuva bekleyenler").font(.system(size: 18, weight: .bold)).foregroundStyle(.white.opacity(0.85))
+                Text(tx("Yuva bekleyenler", "Waiting for a home")).font(.system(size: 18, weight: .bold)).foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 22)
                 HStack(spacing: 14) {
                     ForEach(Self.pets, id: \.name) { pet in
@@ -915,7 +947,7 @@ private struct DarkCardsMock: View {
                             .frame(height: 104)
                             Text(pet.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(
                                 .white.opacity(0.8))
-                            Text("2 yaş · İzmir").font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+                            Text(tx("2 yaş · İzmir", "2 yrs · Austin")).font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
                         }
                         .padding(10)
                         .background(Color(hex: 0x14171C), in: .rect(cornerRadius: 14))
@@ -950,7 +982,7 @@ private struct GalleryMock: View {
             Color.white
             VStack(alignment: .leading, spacing: 12) {
                 SiteHeader()
-                Text("Galeri").font(.system(size: 18, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
+                Text(tx("Galeri", "Gallery")).font(.system(size: 18, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
                     .padding(.horizontal, 22)
                 VStack(spacing: 12) {
                     ForEach(0..<2, id: \.self) { row in
@@ -976,7 +1008,7 @@ private struct SearchMock: View {
                 SiteHeader()
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundStyle(Color(hex: 0x8A90A3))
-                    Text("papağan").font(.system(size: 14)).foregroundStyle(Color(hex: 0x1B1E2B))
+                    Text(tx("papağan", "parrot")).font(.system(size: 14)).foregroundStyle(Color(hex: 0x1B1E2B))
                     Spacer()
                     Image(systemName: "xmark.circle.fill").foregroundStyle(Color(hex: 0xC4C8D2))
                 }
@@ -984,7 +1016,7 @@ private struct SearchMock: View {
                 .frame(height: 40)
                 .background(Color(hex: 0xF3F4F8), in: .rect(cornerRadius: 12))
                 .padding(.horizontal, 22)
-                Text("0 sonuç").font(.system(size: 12)).foregroundStyle(Color(hex: 0x8A90A3)).padding(.horizontal, 24)
+                Text(tx("0 sonuç", "0 results")).font(.system(size: 12)).foregroundStyle(Color(hex: 0x8A90A3)).padding(.horizontal, 24)
                 Spacer()
             }
         }
@@ -1010,7 +1042,7 @@ private struct FooterMock: View {
                 Spacer()
                 VStack(alignment: .leading, spacing: 18) {
                     HStack(alignment: .top, spacing: 40) {
-                        ForEach(["Hakkımızda", "Destek", "Gönüllü ol"], id: \.self) { title in
+                        ForEach([tx("Hakkımızda", "About us"), tx("Destek", "Support"), tx("Gönüllü ol", "Volunteer")], id: \.self) { title in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(
                                     .white.opacity(0.9))
@@ -1048,9 +1080,9 @@ private struct DonationMock: View {
             VStack(alignment: .leading, spacing: 12) {
                 SiteHeader()
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Bağış yap").font(.system(size: 20, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
+                    Text(tx("Bağış yap", "Donate")).font(.system(size: 20, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
                     HStack(spacing: 8) {
-                        ForEach(["50 ₺", "100 ₺", "250 ₺"], id: \.self) { amount in
+                        ForEach([tx("50 ₺", "$50"), tx("100 ₺", "$100"), tx("250 ₺", "$250")], id: \.self) { amount in
                             Text(amount).font(.system(size: 13, weight: .semibold)).foregroundStyle(
                                 Color(hex: 0x2F8F5B)
                             )
@@ -1058,9 +1090,9 @@ private struct DonationMock: View {
                             .background(Color(hex: 0xE3F5EA), in: .rect(cornerRadius: 8))
                         }
                     }
-                    FieldMock(label: "Tutar", value: "-50 ₺", valueColor: Color(hex: 0x1B1E2B))
+                    FieldMock(label: tx("Tutar", "Amount"), value: tx("-50 ₺", "-$50"), valueColor: Color(hex: 0x1B1E2B))
                         .frame(width: 236)
-                    Text("Bağışı tamamla")
+                    Text(tx("Bağışı tamamla", "Complete donation"))
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                         .frame(width: 236, height: 36)
                         .background(Color(hex: 0x34A56F), in: .rect(cornerRadius: 9))
@@ -1095,7 +1127,7 @@ private struct MapMock: View {
             }
             HStack(spacing: 8) {
                 Image(systemName: "pawprint.fill").foregroundStyle(Color(hex: 0xFF8A4C))
-                Text("Yakındaki barınaklar").font(.system(size: 14, weight: .semibold)).foregroundStyle(
+                Text(tx("Yakındaki barınaklar", "Shelters nearby")).font(.system(size: 14, weight: .semibold)).foregroundStyle(
                     Color(hex: 0x1B1E2B))
             }
             .padding(.horizontal, 14)
@@ -1128,9 +1160,9 @@ private struct AvatarMock: View {
                         .frame(width: 110, height: 110)
                         .blur(radius: 5)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Ada Yıldız").font(.system(size: 19, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
-                        Text("Gönüllü · 2 sahiplendirme").font(.system(size: 12)).foregroundStyle(Color(hex: 0x6B7185))
-                        Text("Fotoğrafı değiştir")
+                        Text(tx("Ada Yıldız", "Ada Wilson")).font(.system(size: 19, weight: .bold)).foregroundStyle(Color(hex: 0x1B1E2B))
+                        Text(tx("Gönüllü · 2 sahiplendirme", "Volunteer · 2 adoptions")).font(.system(size: 12)).foregroundStyle(Color(hex: 0x6B7185))
+                        Text(tx("Fotoğrafı değiştir", "Change photo"))
                             .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: 0x4A70F5))
                             .padding(.horizontal, 12)
                             .frame(height: 30)

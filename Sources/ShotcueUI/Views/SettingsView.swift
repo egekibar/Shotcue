@@ -496,7 +496,7 @@ public struct SettingsView: View {
 
     /// The codes sorted by their names in the interface language, plus a stored one the list lacks.
     nonisolated static func languageChoices(
-        _ codes: [String], including stored: String, locale: Locale = .autoupdatingCurrent
+        _ codes: [String], including stored: String, locale: Locale = LocalizationOverride.locale
     ) -> [String] {
         var all = Set(codes)
         if !TranscriptionLanguage.isAutomatic(stored) { all.insert(stored) }
@@ -504,7 +504,7 @@ public struct SettingsView: View {
     }
 
     /// "Turkish" / "Türkçe" for "tr", in the interface language; the code itself when the system has no name.
-    nonisolated static func languageName(_ code: String, locale: Locale = .autoupdatingCurrent) -> String {
+    nonisolated static func languageName(_ code: String, locale: Locale = LocalizationOverride.locale) -> String {
         locale.localizedString(forLanguageCode: code).map { $0.capitalized(with: locale) } ?? code
     }
 

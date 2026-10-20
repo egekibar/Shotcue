@@ -244,4 +244,21 @@ struct SettingsStoreTests {
         fresh.appLanguage = .system
         #expect(fresh.isRestartNeededForLanguage == false)
     }
+
+    /// 1.3.0: an install from before keeps Turkish voice notes unless a language was picked; a new one follows the UI.
+    @MainActor
+    @Test func anExistingInstallKeepsTurkishVoiceNotes() {
+        let existing = SettingsStore(defaults: freshDefaults())
+        existing.keepTurkishTranscriptionForExistingInstall(true)
+        #expect(existing.sttLanguage == "tr")
+
+        let picked = SettingsStore(defaults: freshDefaults())
+        picked.sttLanguage = "de"
+        picked.keepTurkishTranscriptionForExistingInstall(true)
+        #expect(picked.sttLanguage == "de")
+
+        let fresh = SettingsStore(defaults: freshDefaults())
+        fresh.keepTurkishTranscriptionForExistingInstall(false)
+        #expect(fresh.sttLanguage == "en")
+    }
 }
