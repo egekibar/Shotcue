@@ -34,7 +34,7 @@
 </p>
 
 > [!NOTE]
-> **Shotcue Türkçe ve İngilizce konuşur.** Sistem dilini takip eder (başka dillerde İngilizce açılır); Ayarlar → Genel → Dil'den ya da macOS'un uygulama başına dil ayarından biri seçilebilir. Sesli notlar varsayılan olarak arayüz dilinde yazıya dökülür; Whisper'ın bildiği herhangi bir dil ya da otomatik algılama da seçilebilir. Ajanlar özetlerini arayüz dilinde yazar. Bu belgedeki buton ve menü adları uygulamanın Türkçe arayüzünde göründüğü gibidir.
+> **Shotcue Türkçe ve İngilizce konuşur.** Sistem dilini takip eder (başka dillerde İngilizce açılır); Ayarlar → Genel → Dil'den biri seçilebilir. Bu belgedeki buton ve menü adları uygulamanın Türkçe arayüzünde göründüğü gibidir.
 
 ## Nedir?
 
@@ -118,12 +118,12 @@ flowchart TB
 | **macOS** | 26 (Tahoe) ya da üstü |
 | **Mac** | Apple Silicon |
 | **Kodlama ajanı** | En az biri: Claude aboneliğinle oturum açılmış `claude` CLI'ı (2.1.278 ile denendi), ChatGPT ile oturum açılmış OpenAI `codex` CLI'ı (0.148 ile denendi) ya da Google'ın Antigravity CLI'ı `agy` (1.2.9 ile denendi) |
-| **Sesli notlar** *(isteğe bağlı)* | Varsayılan WhisperKit modeli için yaklaşık 1,6 GB disk; yalnızca sen istediğinde indirilir (~632 MB'lık bir model de sunulur). Ayarlar → Ses'te indirme duraklatılıp sürdürülebilir, model yeniden silinebilir |
+| **Sesli notlar** *(isteğe bağlı)* | Varsayılan WhisperKit modeli için yaklaşık 1,6 GB disk; yalnızca sen istediğinde indirilir (~632 MB'lık bir model de sunulur) |
 | **Git** *(isteğe bağlı)* | Diff görünümü ve proje güvenlik ağları için (`/usr/bin/git`) |
 
 **Shotcue CLI'ları nasıl bulur:** her ajan için Ayarlar → Ajanlar → *Yol*'a bir yol yazdıysan onu; yoksa bilinen kurulum yerlerini (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; `codex` için ChatGPT.app içindeki kopyayı da) ve son olarak login shell'inde `which <cli>` (arka planda, 3 saniye sınırıyla). Her birinin bulunan sürümü Ayarlar'da görünür. Ajanı bulunamayan görevin gönderimi bir açıklamayla reddedilir.
 
-**Codex ve Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* tüm projelerin ajanını seçer; her proje *Proje ayarları*'ndan kendi ajanını seçebilir. Codex görevi `codex exec --json` olarak çalışır (ekran görüntüleri `--image` ile eklenir; *Analiz* salt okunur sandbox'ta, `acceptEdits`/`dontAsk` proje klasörüyle sınırlı sandbox'ta, `bypassPermissions` sandbox'sız). Antigravity görevi `agy -p … --output-format stream-json` olarak çalışır (*Analiz* plan modunda; `bypassPermissions` dışındaki modlarda terminal sandbox'ı açık). İkisinde tur ve bütçe limiti yoktur; zaman aşımı ve eş zamanlılık sınırı geçerlidir. *Terminalde devam et* `codex resume <id>` ya da `agy --conversation <id>` ile devam eder; *Claude'da devam et* yalnızca Claude Code oturumları içindir; diğerlerinde gizlenir.
+**Codex ve Antigravity.** Ayarlar → Ajanlar → *Varsayılan ajan* tüm projelerin ajanını seçer; her proje *Proje ayarları*'ndan kendi ajanını seçebilir. Codex görevi `codex exec --json` olarak çalışır (ekran görüntüleri `--image` ile eklenir; *Analiz* salt okunur sandbox'ta, `acceptEdits`/`dontAsk` proje klasörüyle sınırlı sandbox'ta, `bypassPermissions` sandbox'sız). Antigravity görevi `agy -p … --output-format stream-json` olarak çalışır (*Analiz* plan modunda; `bypassPermissions` dışındaki modlarda terminal sandbox'ı açık). İkisinde tur ve bütçe limiti yoktur; zaman aşımı ve eş zamanlılık sınırı geçerlidir. *Terminalde devam et* `codex resume <id>` ya da `agy --conversation <id>` ile devam eder; *Claude'da devam et* yalnızca Claude Code oturumları içindir.
 
 ## Kurulum
 
@@ -184,7 +184,7 @@ Herhangi bir yerde **⌃⇧2**'ye bas ve bir bölge seç (Esc iptal eder). Hızl
 - **Not**: neyin yanlış olduğunu yaz ya da kaydetmek için **Sesli not**'a (⌘⇧V) tıkla; kayıt, panel kapansa bile arka planda Mac'inde yazıya dökülür.
 - **Proje**: son kullandığın proje seçili gelir; ⌘1 … ⌘9 ilk dokuz projeden birini seçer. Projesiz yakalama gelen kutusunda (*Gelen*) bekler.
 - **Mod**: *Uygula* (Claude dosyaları düzenleyebilir) ya da *Analiz* (yalnızca okuma). Projenin varsayılanıyla başlar.
-- **Kaydet ⌘↩** kaydeder · **Kaydet ve gönder ⌘⇧↩** kaydeder ve çalışmayı kuyruğa alır · **Zamanla…** zamanlar (*1 saat sonra*, *Yarın 9:00* gibi hızlı seçimler ya da tarih ve saat) · **Esc** paneli kapatır ve yakalamayı gelen kutusunda bırakır (sürmekte olan kayıt yine de saklanır).
+- **Kaydet ⌘↩** kaydeder · **Kaydet ve gönder ⌘⇧↩** kaydeder ve çalışmayı kuyruğa alır · **Zamanla…** zamanlar · **Esc** paneli kapatır ve yakalamayı gelen kutusunda bırakır (sürmekte olan kayıt yine de saklanır).
 
 Görevin başlığı notun (yoksa transkriptin) ilk cümlesidir; detay panelinde düzenlersen senin başlığın sabitlenir. Ayarlar → Genel'den her yakalamanın panoya da kopyalanmasını açabilirsin.
 
@@ -194,11 +194,11 @@ Görevin başlığı notun (yoksa transkriptin) ilk cümlesidir; detay panelinde
 
 **Kütüphane**'yi menü çubuğundan aç. Kenar çubuğu projelerini görev sayılarıyla, gelen kutusunu (*Gelen*) ve her durum için bir filtreyi (*Durum*) listeler.
 
-- Izgara ile liste arasında geçiş yap; *En yeni*, *En eski*, *Manuel* ya da *Duruma göre* sırala. Yanındaki filtre düğmesi bir projeyi ya da gelen kutusunu bir veya birden fazla duruma daraltır (başlıkta "3 / 12 öğe" yazar). Arama başlıklara, notlara ve transkriptlere bakar; büyük/küçük harf ve Türkçe karakter farkını gözetmez.
+- Izgara ile liste arasında geçiş yap; *En yeni*, *En eski*, *Manuel* ya da *Duruma göre* sırala. Arama başlıklara, notlara ve transkriptlere bakar; büyük/küçük harf ve Türkçe karakter farkını gözetmez.
 - Kartları taşımak için kenar çubuğundaki bir projeye sürükle; manuel sıralamada yeniden sıralamak için sürükle.
-- ⌘-tık ya da ⇧-tık birden çok görev seçer; boş bir yere tıklamak ya da Esc seçimi kaldırır. Alttaki çubuk **Ayrı ayrı gönder** (her biri ayrı çalışma), **Tek görev olarak gönder** (tek görevde ve tek çalışmada birleştir), **Projeye taşı**, **Zamanla…** ve **Sil** sunar.
+- ⌘-tık ya da ⇧-tık birden çok görev seçer. Alttaki çubuk o zaman **Ayrı ayrı gönder** (her biri ayrı çalışma), **Tek görev olarak gönder** (tek görevde ve tek çalışmada birleştir), **Projeye taşı**, **Zamanla…** ve **Sil** sunar.
 - **Proje ekle…** bir proje oluşturur: ad, klasör, varsayılan mod, model ve effort, günlük kuyruk ve güvenlik ağları. **Proje ayarları…** için projeye sağ tıkla.
-- Detay paneli (⌥⌘I) seçili görevi gösterir: görseller (birini seçip ⌘C ile kopyala), başlık, not, düzenlenebilir transkriptler (*Aç* kaydı çalar, *Yeniden çevir* yeniden yazıya döker), proje, mod, model seçimi, zamanlama, çalışma geçmişi (bir çalışmaya tıklayınca logu açılır, tekrar tıklayınca kapanır) ve aktarım düğmeleri.
+- Detay paneli (⌥⌘I) seçili görevi gösterir: görseller (birini seçip ⌘C ile kopyala), başlık, not, düzenlenebilir transkriptler (*Aç* kaydı çalar, *Yeniden çevir* yeniden yazıya döker), proje, mod, model seçimi, zamanlama, loglarıyla birlikte çalışma geçmişi ve aktarım düğmeleri.
 
 ### Klavye kısayolları
 
@@ -239,9 +239,9 @@ Detay panelinin aktarım (*Aktarım*) düğmeleri:
 | Düğme | Ne yapar |
 |---|---|
 | **Terminalde devam et** | Terminal'i proje klasöründe açar ve `claude --resume <oturum>` çalıştırır |
-| **Claude'da devam et** | Oturumu konuşma geçmişiyle birlikte Claude masaüstü uygulamasının Code sekmesine aktarır (`claude://resume?session=…`); çalışmanın kaldığı yerden devam edersin |
+| **Claude'da devam et** | Oturumu Claude Desktop'ta açar (`claude://resume?session=…`) |
 | **Değişiklikleri göster** | Kod karşılaştırma ekranını açar: solda durum rozetleri ve +/− sayılarıyla değişen dosyalar, sağda seçili dosyanın eski ve yeni satır numaralı diff'i. Çalışmanın başladığı commit'le karşılaştırır; izlenmeyen dosyalar eklenmiş olarak görünür. *Dosyayı kopyala* ve *Tümünü kopyala* bir dosyanın ya da tüm yamanın metnini kopyalar |
-| **Claude'da baştan başlat** | Claude masaüstü uygulamasında, Shotcue'nun göndereceği prompt hazır, yeni bir Code oturumu açar; göndermeye sen basarsın. Çalışmanın geçmişi gelmez ve projenin ajanı ne olursa olsun Claude Code ile başlar |
+| **Claude'da baştan başlat** | Claude Desktop'ın yazma alanını Shotcue'nun göndereceği prompt'la açar; göndermeye sen basarsın |
 
 ## Ayarlar
 
@@ -258,7 +258,7 @@ Ajanlar sekmesinde (Ayarlar → Ajanlar) varsayılan ajan, her CLI'ın yolu, var
 | *Effort* | CLI'ın varsayılanı | ajan başına; proje başına da ayarlanır |
 | *Ek sistem talimatı* | boş | Shotcue'nun kendi talimatından sonra eklenir |
 
-*Analiz* görevleri her zaman `dontAsk` ve salt okunur bir araç listesiyle (Read, Glob, Grep, WebFetch, WebSearch ve `git log/diff/status/show`) çalışır. Görevin model seçimi projenin modelinden, projenin modeli de varsayılandan önce gelir. Diğer sekmelerde arayüz **Dil**i (*Sistem dili*, *English* ya da *Türkçe*; *Şimdi yeniden başlat* ile geçerli olur, macOS'un uygulama başına dil ayarı da aynı işi görür), kısayol kaydedici, panoya kopyalama, oturum açılışında başlatma, *Görev çalışırken Mac'i uyanık tut* (varsayılan açık), depolama klasörü, transkripsiyon dili (Whisper'ın bildiği her dil ya da *Otomatik algıla*) ve modeli, mikrofon ve izinler bulunur.
+*Analiz* görevleri her zaman `dontAsk` ve salt okunur bir araç listesiyle (Read, Glob, Grep, WebFetch, WebSearch ve `git log/diff/status/show`) çalışır. Görevin model seçimi projenin modelinden, projenin modeli de varsayılandan önce gelir. Diğer sekmelerde arayüz dili, kısayol kaydedici, panoya kopyalama, oturum açılışında başlatma, *Görev çalışırken Mac'i uyanık tut* (varsayılan açık), depolama klasörü, transkripsiyon dili ve modeli, mikrofon ve izinler bulunur.
 
 ## Güvenlik
 
@@ -330,7 +330,7 @@ Tasarım spec'i (`docs/superpowers/specs/`), uygulama planları (`docs/superpowe
 - Notarize değil ve ad-hoc imzalı: ilk açılışta Gatekeeper uyarısı ve her güncellemeden sonra izin istekleri beklenir. Bu tür derlemelerde *Oturum açılışında başlat* kullanılamıyor görünebilir; durumu Ayarlar'ın en altındaki şerit gösterir, o durumda Shotcue'yu Sistem Ayarları → Genel → Giriş Öğeleri'nden elle ekleyebilirsin.
 - Yalnızca bölge yakalama (macOS'un `screencapture` aracı): pencere seçimi, işaretleme ya da gizleme yok. Panel başına bir yakalama; birden çok görseli birlikte göndermek için görevleri birleştir.
 - Zamanlamalar ve günlük kuyruk yalnızca Shotcue açıkken ve Mac uyanıkken çalışır.
-- Transkripsiyon her seferinde tek dille çalışır (ya da dili her kayıtta kendisi algılar); model ilk seferde büyük bir indirmedir.
+- Transkripsiyon tek dille çalışır; model ilk seferde büyük bir indirmedir.
 - Yeni transkripsiyon modeli, mikrofon, depolama klasörü ya da `claude` yolu Shotcue yeniden başlatılınca geçerli olur; depolama klasörünü değiştirmek mevcut verileri taşımaz.
 - Shotcue'nun kullandığı Claude Code CLI bayrakları sürümler arasında değişebilir; Claude Code 2.1.278 ile denendi.
 - *Claude'da baştan başlat* ekran görüntülerini dosya bağlantısı olarak iletir; Claude Desktop'ın onları ekleyip eklemediği Claude Desktop'a bağlıdır.
