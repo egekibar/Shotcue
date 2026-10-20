@@ -34,7 +34,7 @@
 </p>
 
 > [!NOTE]
-> **Shotcue speaks English and Turkish.** It follows your system language (English for any other language); Settings → General → Language picks one, and so does macOS's per-app language setting. Voice notes are transcribed in the interface's language by default, or in any language Whisper knows, or detected automatically. Agents write their summary in the interface's language. This README quotes the English interface; the [Turkish README](README.tr.md) quotes the Turkish one.
+> **Shotcue speaks English and Turkish.** It follows your system language (English for any other language), and Settings → General → Language picks one. This README quotes the English interface; the [Turkish README](README.tr.md) quotes the Turkish one.
 
 ## What it is
 
@@ -108,7 +108,7 @@ flowchart TB
 ```
 
 - **Capture** uses macOS's own `screencapture -i -s`: you drag a rectangle, Esc cancels. The PNG is stored with a 512 px thumbnail and becomes a task in the inbox.
-- **The prompt** lists the absolute paths of the screenshots, your note and the voice-note transcript, and the project folder. Claude is told to read the screenshots first and to finish with a three-line summary, the files it changed and anything it could not do. In *Implement* mode it should add or update tests and must not commit or push; in *Analyze* mode it must not change any file. It is asked to write its summary in the interface's language.
+- **The prompt** lists the absolute paths of the screenshots, your note and the voice-note transcript, and the project folder. Claude is told to read the screenshots first and to finish with a three-line summary, the files it changed and anything it could not do. In *Implement* mode it should add or update tests and must not commit or push; in *Analyze* mode it must not change any file.
 - **The run** is `claude -p` with `--output-format stream-json`, `--session-id <run id>` (so it can be resumed), `--add-dir <captures folder>` (so Claude can read the screenshots), plus the permission mode, turn limit and budget from Settings and, when one is chosen, the model and effort. The working directory is the project folder. `ANTHROPIC_API_KEY` is removed from the environment, so the run uses your Claude Code login; `CLAUDE_CODE_ENTRYPOINT=shotcue` tags it, so Claude Desktop lists the session with your other Claude Code sessions.
 
 ## Requirements
@@ -118,12 +118,12 @@ flowchart TB
 | **macOS** | 26 (Tahoe) or later |
 | **Mac** | Apple Silicon |
 | **Coding agent** | At least one of: the `claude` CLI logged in with your Claude subscription (tested with 2.1.278), OpenAI's `codex` CLI logged in with ChatGPT (tested with 0.148), or Google's Antigravity CLI `agy` (tested with 1.2.9) |
-| **Voice notes** *(optional)* | About 1.6 GB of disk for the default WhisperKit model, downloaded only when you ask (a ~632 MB model is also offered). Settings → Audio can pause and resume the download and delete the model again |
+| **Voice notes** *(optional)* | About 1.6 GB of disk for the default WhisperKit model, downloaded only when you ask (a ~632 MB model is also offered) |
 | **Git** *(optional)* | For the diff view and the per-project safety nets (`/usr/bin/git`) |
 
 **How Shotcue finds the CLIs:** for each agent, the path in Settings → Agents → *Path* if you set one; otherwise the usual install locations (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`; for `codex` also the copy inside ChatGPT.app), and finally `which <cli>` in your login shell (given 3 seconds, in the background). Settings shows the version it found for each. A task whose agent is missing is refused with an explanation.
 
-**Codex and Antigravity.** Settings → Agents → *Default Agent* picks the agent for every project, and each project can pick its own in *Project Settings…*. A Codex task runs as `codex exec --json` (the screenshots are attached with `--image`; *Analyze* uses the read-only sandbox, `acceptEdits`/`dontAsk` the workspace-write sandbox, `bypassPermissions` no sandbox). An Antigravity task runs as `agy -p … --output-format stream-json` (*Analyze* in plan mode, the terminal sandbox unless the mode is `bypassPermissions`). Both have no turn or budget limit; the timeout and the concurrency limit apply. *Continue in Terminal* resumes with `codex resume <id>` or `agy --conversation <id>`; *Continue in Claude* is for Claude Code sessions only and is hidden for the others.
+**Codex and Antigravity.** Settings → Agents → *Default Agent* picks the agent for every project, and each project can pick its own in *Project Settings…*. A Codex task runs as `codex exec --json` (the screenshots are attached with `--image`; *Analyze* uses the read-only sandbox, `acceptEdits`/`dontAsk` the workspace-write sandbox, `bypassPermissions` no sandbox). An Antigravity task runs as `agy -p … --output-format stream-json` (*Analyze* in plan mode, the terminal sandbox unless the mode is `bypassPermissions`). Both have no turn or budget limit; the timeout and the concurrency limit apply. *Continue in Terminal* resumes with `codex resume <id>` or `agy --conversation <id>`; *Continue in Claude* is for Claude Code sessions only.
 
 ## Install
 
@@ -184,7 +184,7 @@ Press **⌃⇧2** anywhere and drag over a region (Esc cancels). The quick panel
 - **Note**: type what is wrong, or click **Voice Note** (⌘⇧V) to record; the recording is transcribed on your Mac in the background, even after the panel closes.
 - **Project**: the last one you used is preselected; ⌘1 … ⌘9 pick one of the first nine. Without a project the capture waits in the *Inbox*.
 - **Mode**: *Implement* (Claude may edit files) or *Analyze* (read-only). It starts from the project's default.
-- **Save ⌘↩** saves · **Save and Send ⌘⇧↩** saves and queues the run · **Schedule…** schedules it (quick picks such as *In 1 hour* or *Tomorrow at 9:00*, or a date and time) · **Esc** closes the panel and leaves the capture in the inbox (a recording in progress is still saved).
+- **Save ⌘↩** saves · **Save and Send ⌘⇧↩** saves and queues the run · **Schedule…** schedules it · **Esc** closes the panel and leaves the capture in the inbox (a recording in progress is still saved).
 
 The task's title is the first sentence of the note (or of the transcript); edit it in the inspector to pin your own. Settings → General can also copy every capture to the clipboard.
 
@@ -194,11 +194,11 @@ The task's title is the first sentence of the note (or of the transcript); edit 
 
 Open **Library** from the menu bar. The sidebar lists your projects with task counts, the *Inbox* and one filter per status (*Status*).
 
-- Switch between grid and list; sort by *Newest*, *Oldest*, *Manual* or *By Status*. The filter button next to it narrows a project or the inbox to one or more statuses (the subtitle then reads "3 / 12 items"). Search looks at titles, notes and transcripts, ignoring case and accents.
+- Switch between grid and list; sort by *Newest*, *Oldest*, *Manual* or *By Status*. Search looks at titles, notes and transcripts, ignoring case and accents.
 - Drag cards onto a project in the sidebar to move them; in manual order, drag them to reorder.
-- ⌘-click or ⇧-click selects several. A click on empty space or Esc clears the selection. The bar at the bottom offers **Send Separately** (one run each), **Send as One Task** (merge into one task and one run), **Move to Project**, **Schedule…** and **Delete**.
+- ⌘-click or ⇧-click selects several. The bar at the bottom then offers **Send Separately** (one run each), **Send as One Task** (merge into one task and one run), **Move to Project**, **Schedule…** and **Delete**.
 - **Add Project…** creates a project: name, folder, default mode, model and effort, the daily queue and the safety nets. Right-click a project for **Project Settings…**.
-- The inspector (⌥⌘I) shows the selected task: its images (focus one and press ⌘C to copy it), title, note, the editable transcripts (*Play* plays the recording, *Transcribe Again* transcribes it again), project, mode, a model override, scheduling, the run history (click a run to show or hide its log), and the hand-off buttons.
+- The inspector (⌥⌘I) shows the selected task: its images (focus one and press ⌘C to copy it), title, note, the editable transcripts (*Play* plays the recording, *Transcribe Again* transcribes it again), project, mode, a model override, scheduling, the run history with logs, and the hand-off buttons.
 
 ### Keyboard shortcuts
 
@@ -239,9 +239,9 @@ The inspector's hand-off buttons (*Hand-off*):
 | Button | What it does |
 |---|---|
 | **Continue in Terminal** | Opens Terminal in the project folder and runs `claude --resume <session>` |
-| **Continue in Claude** | Imports the session, with its conversation, into the Claude desktop app's Code tab (`claude://resume?session=…`), to carry on where the run stopped |
+| **Continue in Claude** | Opens the session in Claude Desktop (`claude://resume?session=…`) |
 | **Show Changes** | Opens a code comparison: the changed files with status badges and +/− counts on the left, the selected file's diff with old and new line numbers on the right. It compares against the commit the run started from; untracked files show as added. *Copy File* and *Copy All* copy one file's patch or all of it |
-| **Start Over in Claude** | Opens a new Code session in the Claude desktop app with the prompt Shotcue would send; you press send. The run's history does not come along, and it starts with Claude Code whatever the project's agent |
+| **Start Over in Claude** | Opens Claude Desktop's composer with the same prompt Shotcue would send; you press send |
 
 ## Settings
 
@@ -258,7 +258,7 @@ The Agents tab (Settings → Agents) holds the default agent, each CLI's path, d
 | *Effort* | the CLI's default | per agent; per project too |
 | *Extra System Prompt* | empty | appended to Shotcue's own instructions |
 
-*Analyze* tasks always run with `dontAsk` and a read-only tool list (Read, Glob, Grep, WebFetch, WebSearch and `git log/diff/status/show`). A task's model override wins over the project's model, which wins over the default. The other tabs hold the interface **Language** (*System language*, *English* or *Türkçe*; it applies after *Restart now*, and macOS's per-app language setting does the same), the shortcut recorder, clipboard copy, open at login, *Keep the Mac awake while a task runs* (on by default), the storage folder, the transcription language (any language Whisper knows, or *Detect automatically*) and model, the microphone, and the permissions.
+*Analyze* tasks always run with `dontAsk` and a read-only tool list (Read, Glob, Grep, WebFetch, WebSearch and `git log/diff/status/show`). A task's model override wins over the project's model, which wins over the default. The other tabs hold the interface language, the shortcut recorder, clipboard copy, open at login, *Keep the Mac awake while a task runs* (on by default), the storage folder, the transcription language and model, the microphone, and the permissions.
 
 ## Safety
 
@@ -276,7 +276,7 @@ The Agents tab (Settings → Agents) holds the default agent, each CLI's path, d
 - **On-device transcription.** WhisperKit transcribes voice notes on your Mac; the audio never leaves it.
 - **No telemetry.** No analytics, crash reporting or accounts; Shotcue has no server. It uses the network only to download the transcription model and its tokenizer from Hugging Face (`argmaxinc/whisperkit-coreml`) after you click *Download Model*, and to check GitHub Releases for updates (`api.github.com`, at most once a day; off in Settings → General → *Updates*). Claude Code makes its own connections.
 - **What reaches Anthropic** is what Claude Code sends under your login: the prompt (note, transcript, file paths) and whatever Claude reads, including the screenshots and your project files. Don't send captures that show secrets you would not paste into Claude Code.
-- **Diagnostics.** *Run Diagnostics* (at the bottom of Settings) writes a local report (in English) to your temporary folder. From `claude auth status` it copies only `loggedIn`, `authMethod` and `subscriptionType`, never your e-mail address.
+- **Diagnostics.** *Run Diagnostics* (at the bottom of Settings) writes a local report to your temporary folder. From `claude auth status` it copies only `loggedIn`, `authMethod` and `subscriptionType`, never your e-mail address.
 
 ## Build from source
 
@@ -330,7 +330,7 @@ The design spec (`docs/superpowers/specs/`), the implementation plans (`docs/sup
 - Not notarized and ad-hoc signed: expect the Gatekeeper prompt on first launch and the permission prompts after each update. *Open at login* may report itself unavailable for such builds; the strip at the bottom of Settings shows its state, and then you can add Shotcue by hand under System Settings → General → Login Items.
 - Region capture only (macOS's `screencapture`): no window picking, annotation or redaction. One capture per panel; merge tasks to send several images together.
 - Schedules and the daily queue run only while Shotcue is running and the Mac is awake.
-- Transcription uses one language at a time (or detects it per recording); the model is a large download the first time.
+- Transcription uses one language at a time; the model is a large download the first time.
 - A new transcription model, microphone, storage folder or `claude` path takes effect after restarting Shotcue, and moving the storage folder does not move the existing data.
 - Shotcue passes Claude Code CLI flags that can change between versions; it was tested with Claude Code 2.1.278.
 - *Start Over in Claude* passes the screenshots as file links; whether Claude Desktop attaches them depends on Claude Desktop.
