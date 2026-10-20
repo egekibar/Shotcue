@@ -19,7 +19,7 @@ public enum ScheduleSuggestions {
     /// "In 1 hour" (rounded up to five minutes), "This evening at 18:00" while there is time, "Tomorrow at 09:00", the
     /// times in the locale's clock ("6:00 PM" in US English).
     public static func suggestions(
-        now: Date, calendar: Calendar, locale: Locale = .autoupdatingCurrent
+        now: Date, calendar: Calendar, locale: Locale = LocalizationOverride.locale
     ) -> [Suggestion] {
         func clock(_ date: Date) -> String {
             date.formatted(

@@ -2,7 +2,6 @@
 
 /* Restart for a language change */
 "Shotcue will restart to switch the language." = "Dili değiştirmek için Shotcue yeniden başlatılacak.";
-"%lld running tasks will be stopped. %@ If you cancel, the language changes the next time Shotcue starts." = "Çalışan %lld görev durdurulacak. %@ Vazgeçersen dil, Shotcue bir sonraki açılışında değişir.";
 "Stop and Restart" = "Durdur ve yeniden başlat";
 
 /* App: capture, quit, updates, diagnostics bar, shortcut, login item */
@@ -22,10 +21,8 @@
 "Shotcue Setup" = "Shotcue Kurulumu";
 "You can run an interrupted task again later, or continue it in Terminal." = "Yarıda kalan görevi sonra yeniden çalıştırabilir ya da Terminalde devam ettirebilirsin.";
 "Shotcue will restart to install the update." = "Güncellemeyi kurmak için Shotcue yeniden başlatılacak.";
-"%lld running tasks will be stopped. %@ If you cancel, the update is not installed for now." = "Çalışan %lld görev durdurulacak. %@ Vazgeçersen güncelleme şimdilik kurulmaz.";
 "Stop and Update" = "Durdur ve güncelle";
 "Shotcue will restart so that the Screen Recording access applies." = "Ekran Kaydı izninin geçerli olması için Shotcue yeniden başlatılacak.";
-"%lld running tasks will be stopped. %@ If you cancel, the access applies once Shotcue restarts." = "Çalışan %lld görev durdurulacak. %@ Vazgeçersen izin, Shotcue yeniden başlayınca geçerli olur.";
 "%lld running tasks will be stopped." = "Çalışan %lld görev durdurulacak.";
 "Quitting stops the running agent sessions. %@" = "Çıkarken çalışan ajan oturumları durdurulur. %@";
 "Stop and Quit" = "Durdur ve çık";
@@ -55,3 +52,9 @@
 "not available: add Shotcue by hand in System Settings > General > Login Items" = "kullanılamıyor — Shotcue'yu Sistem Ayarları > Genel > Giriş Öğeleri'nden elle ekle";
 "unknown" = "bilinmiyor";
 "Library" = "Kütüphane";
+
+/* Singular forms (English) */
+"1 running task will be stopped." = "Çalışan 1 görev durdurulacak.";
+"If you cancel, the language changes the next time Shotcue starts." = "Vazgeçersen dil, Shotcue bir sonraki açılışında değişir.";
+"If you cancel, the update is not installed for now." = "Vazgeçersen güncelleme şimdilik kurulmaz.";
+"If you cancel, the access applies once Shotcue restarts." = "Vazgeçersen izin, Shotcue yeniden başlayınca geçerli olur.";

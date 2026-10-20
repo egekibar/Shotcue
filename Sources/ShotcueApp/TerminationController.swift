@@ -219,24 +219,29 @@ final class TerminationController {
         alert.alertStyle = .warning
         let resumeHint =
             L10n.t("You can run an interrupted task again later, or continue it in Terminal.")
+        // English has a singular; Turkish reads the same either way.
+        let stopping =
+            count == 1 ? L10n.t("1 running task will be stopped.") : L10n.t("\(count) running tasks will be stopped.")
         if relaunchRequested, relaunchReason == .languageChange {
             alert.messageText = L10n.t("Shotcue will restart to switch the language.")
-            alert.informativeText = L10n.t(
-                "\(count) running tasks will be stopped. \(resumeHint) If you cancel, the language changes the next time Shotcue starts."
-            )
+            alert.informativeText = [
+                stopping, resumeHint, L10n.t("If you cancel, the language changes the next time Shotcue starts."),
+            ].joined(separator: " ")
             alert.addButton(withTitle: L10n.t("Stop and Restart"))
         } else if relaunchRequested, relaunchReason == .update {
             alert.messageText = L10n.t("Shotcue will restart to install the update.")
-            alert.informativeText =
-                L10n.t("\(count) running tasks will be stopped. \(resumeHint) If you cancel, the update is not installed for now.")
+            alert.informativeText = [
+                stopping, resumeHint, L10n.t("If you cancel, the update is not installed for now."),
+            ].joined(separator: " ")
             alert.addButton(withTitle: L10n.t("Stop and Update"))
         } else if relaunchRequested {
             alert.messageText = L10n.t("Shotcue will restart so that the Screen Recording access applies.")
-            alert.informativeText =
-                L10n.t("\(count) running tasks will be stopped. \(resumeHint) If you cancel, the access applies once Shotcue restarts.")
+            alert.informativeText = [
+                stopping, resumeHint, L10n.t("If you cancel, the access applies once Shotcue restarts."),
+            ].joined(separator: " ")
             alert.addButton(withTitle: L10n.t("Stop and Restart"))
         } else {
-            alert.messageText = L10n.t("\(count) running tasks will be stopped.")
+            alert.messageText = stopping
             alert.informativeText = L10n.t("Quitting stops the running agent sessions. \(resumeHint)")
             alert.addButton(withTitle: L10n.t("Stop and Quit"))
         }

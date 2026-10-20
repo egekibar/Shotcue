@@ -226,7 +226,6 @@
 "Settings…" = "Ayarlar…";
 "Check for Updates…" = "Güncellemeleri denetle…";
 "Quit" = "Çık";
-"%lld files · +%lld −%lld" = "%lld dosya · +%lld −%lld";
 "No changes" = "Değişiklik yok";
 "The working tree shows no difference since this run." = "Bu çalıştırmadan sonra çalışma ağacında fark bulunmadı.";
 "Select a file" = "Bir dosya seçin";
@@ -372,3 +371,10 @@
 "Shows this run's code changes, file by file." = "Bu çalışmanın yaptığı kod değişikliklerini dosya dosya gösterir.";
 "Opens a new session in the Claude desktop app with the prompt filled in; you press send. The earlier run's history does not come along." = "Claude masaüstü uygulamasında yeni bir oturum açar; komut hazır gelir, göndermeyi sen yaparsın. Önceki çalışmanın geçmişi gelmez.";
 "The task starts with Claude Code even though the project uses %@." = "Proje %@ kullansa da görev Claude Code ile başlar.";
+
+/* Singular forms (English) */
+"1 file" = "1 dosya";
+"%lld files" = "%lld dosya";
+"1 status" = "1 durum";
+"1 recording" = "1 kayıt";
+"1 item" = "1 öğe";

@@ -1,4 +1,5 @@
 import Foundation
+import ShotcueCore
 
 /// Pure display formatting in the app's language (words from `L10n`) and its locale's date and time conventions
 /// (patterns from templates, so "17.09" in Turkish is "9/17" in US English and the clock follows the 12/24-hour setting).
@@ -19,7 +20,7 @@ public enum Formatting {
     /// Future dates collapse to "just now" so a freshly written `updatedAt` never reads as negative.
     nonisolated public static func relativeDate(
         _ date: Date, now: Date,
-        calendar: Calendar = .current, locale: Locale = .autoupdatingCurrent
+        calendar: Calendar = .current, locale: Locale = LocalizationOverride.locale
     ) -> String {
         let delta = now.timeIntervalSince(date)
         if delta < 60 { return L10n.t("just now") }
@@ -35,21 +36,21 @@ public enum Formatting {
 
     /// "12:00" or "12:00 PM" — used by the scheduled-at row and the daily queue time.
     nonisolated public static func clockTime(
-        _ date: Date, calendar: Calendar = .current, locale: Locale = .autoupdatingCurrent
+        _ date: Date, calendar: Calendar = .current, locale: Locale = LocalizationOverride.locale
     ) -> String {
         formatted(date, template: "jmm", calendar: calendar, locale: locale)
     }
 
     /// "22.09 12:00" — used by the inspector's "Zamanlandı" line.
     nonisolated public static func dateAndTime(
-        _ date: Date, calendar: Calendar = .current, locale: Locale = .autoupdatingCurrent
+        _ date: Date, calendar: Calendar = .current, locale: Locale = LocalizationOverride.locale
     ) -> String {
         formatted(date, template: "dMMjmm", calendar: calendar, locale: locale)
     }
 
     /// "22 Eylül Salı 12:00" / "Tuesday, September 22 at 12:00 PM" — the schedule form's summary line.
     nonisolated public static func scheduleSummary(
-        _ date: Date, calendar: Calendar = .current, locale: Locale = .autoupdatingCurrent
+        _ date: Date, calendar: Calendar = .current, locale: Locale = LocalizationOverride.locale
     ) -> String {
         formatted(date, template: "EEEEdMMMMjmm", calendar: calendar, locale: locale)
     }

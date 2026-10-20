@@ -207,7 +207,10 @@ public struct QuickPanelView: View {
                 .foregroundStyle(.secondary)
 
             if !store.voiceNotes.isEmpty {
-                Label(L10n.t("\(store.voiceNotes.count) recordings"), systemImage: "waveform")
+                Label(
+                    store.voiceNotes.count == 1
+                        ? L10n.t("1 recording") : L10n.t("\(store.voiceNotes.count) recordings"),
+                    systemImage: "waveform")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

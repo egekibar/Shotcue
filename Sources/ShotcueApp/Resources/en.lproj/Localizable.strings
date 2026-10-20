@@ -2,7 +2,6 @@
 
 /* Restart for a language change */
 "Shotcue will restart to switch the language." = "Shotcue will restart to switch the language.";
-"%lld running tasks will be stopped. %@ If you cancel, the language changes the next time Shotcue starts." = "%lld running tasks will be stopped. %@ If you cancel, the language changes the next time Shotcue starts.";
 "Stop and Restart" = "Stop and Restart";
 
 /* App: capture, quit, updates, diagnostics bar, shortcut, login item */
@@ -22,10 +21,8 @@
 "Shotcue Setup" = "Shotcue Setup";
 "You can run an interrupted task again later, or continue it in Terminal." = "You can run an interrupted task again later, or continue it in Terminal.";
 "Shotcue will restart to install the update." = "Shotcue will restart to install the update.";
-"%lld running tasks will be stopped. %@ If you cancel, the update is not installed for now." = "%lld running tasks will be stopped. %@ If you cancel, the update is not installed for now.";
 "Stop and Update" = "Stop and Update";
 "Shotcue will restart so that the Screen Recording access applies." = "Shotcue will restart so that the Screen Recording access applies.";
-"%lld running tasks will be stopped. %@ If you cancel, the access applies once Shotcue restarts." = "%lld running tasks will be stopped. %@ If you cancel, the access applies once Shotcue restarts.";
 "%lld running tasks will be stopped." = "%lld running tasks will be stopped.";
 "Quitting stops the running agent sessions. %@" = "Quitting stops the running agent sessions. %@";
 "Stop and Quit" = "Stop and Quit";
@@ -55,3 +52,9 @@
 "not available: add Shotcue by hand in System Settings > General > Login Items" = "not available: add Shotcue by hand in System Settings > General > Login Items";
 "unknown" = "unknown";
 "Library" = "Library";
+
+/* Singular forms (English) */
+"1 running task will be stopped." = "1 running task will be stopped.";
+"If you cancel, the language changes the next time Shotcue starts." = "If you cancel, the language changes the next time Shotcue starts.";
+"If you cancel, the update is not installed for now." = "If you cancel, the update is not installed for now.";
+"If you cancel, the access applies once Shotcue restarts." = "If you cancel, the access applies once Shotcue restarts.";

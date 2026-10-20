@@ -23,7 +23,8 @@ public struct DiffSheet: View {
 
     /// "3 dosya · +120 −34".
     var summary: String {
-        L10n.t("\(document.files.count) files · +\(document.additions) −\(document.deletions)")
+        (document.files.count == 1 ? L10n.t("1 file") : L10n.t("\(document.files.count) files"))
+            + " · +\(document.additions) −\(document.deletions)"
     }
 
     private var selectedFile: DiffFile? {
