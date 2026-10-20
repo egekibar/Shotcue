@@ -1,0 +1,7 @@
+/* ShotcueClaudeBridge strings (en). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Notifications */
+"Open" = "Open";
+"Continue in Terminal" = "Continue in Terminal";
+"Run Again" = "Run Again";
+"Done" = "Done";

@@ -44,15 +44,15 @@ public enum FoundationModelsStatus: String, Sendable, CaseIterable {
         #endif
     }
 
-    /// Turkish copy for the settings row.
+    /// The diagnostics row's text, in the app's language.
     public var localizedDescription: String {
         switch self {
-        case .unsupportedOS: return "Bu macOS sürümünde yok"
-        case .available: return "Hazır"
-        case .appleIntelligenceNotEnabled: return "Apple Intelligence kapalı"
-        case .deviceNotEligible: return "Bu cihaz desteklemiyor"
-        case .modelNotReady: return "Model indiriliyor"
-        case .unavailableOther: return "Kullanılamıyor"
+        case .unsupportedOS: return L10n.t("Not in this version of macOS")
+        case .available: return L10n.t("Ready")
+        case .appleIntelligenceNotEnabled: return L10n.t("Apple Intelligence is off")
+        case .deviceNotEligible: return L10n.t("Not supported on this device")
+        case .modelNotReady: return L10n.t("Model downloading")
+        case .unavailableOther: return L10n.t("Not available")
         }
     }
 }

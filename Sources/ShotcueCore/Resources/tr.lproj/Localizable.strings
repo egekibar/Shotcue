@@ -1,1 +1,59 @@
 /* ShotcueCore strings (tr). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Run errors */
+"The run ended with an error." = "Çalışma hata ile bitti.";
+"%@ reported an error" = "%@ hata bildirdi";
+"Log in to %@ again." = "%@ ile tekrar giriş yapın.";
+"Settings > Agents" = "Ayarlar > Ajanlar";
+"Cancelled." = "İptal edildi.";
+"Cancelled before %@ started." = "%@ başlamadan iptal edildi.";
+"Stopped part way because the app quit." = "Uygulama kapandığı için yarıda kaldı.";
+"If the session started, you can continue it in Terminal or run it again." = "Oturum başladıysa Terminalde devam edebilir ya da yeniden çalıştırabilirsin.";
+"Timed out: the run was stopped at its time limit." = "Zaman aşımı: çalışma süre sınırında durduruldu.";
+"If needed, raise the timeout in %@ and run it again." = "Gerekirse %@'dan zaman aşımını artırıp yeniden çalıştır.";
+"%@ was not found." = "%@ bulunamadı.";
+"Check its path in %@." = "%@'dan yolu kontrol et.";
+"%@ could not be started." = "%@ başlatılamadı.";
+"Run `%@` in Terminal and log in." = "Terminalde `%@` çalıştırıp giriş yap.";
+"%@ exited with an error (code %lld)." = "%@ hata ile çıktı (kod %lld).";
+"%@ exited with an error." = "%@ hata ile çıktı.";
+"%@ exited without a result line." = "%@ sonuç satırı üretmeden çıktı.";
+"Turn limit reached (%lld turns)." = "Tur limiti aşıldı (%lld tur).";
+"Turn limit reached." = "Tur limiti aşıldı.";
+"Raise the turn limit in %@ and run it again." = "%@'dan tur limitini artırıp yeniden çalıştır.";
+"Budget limit reached." = "Bütçe limiti aşıldı.";
+"Raise the budget limit in %@ and run it again." = "%@'dan bütçe limitini artırıp yeniden çalıştır.";
+"%@ stopped with an error while running." = "%@ çalışırken bir hatayla durdu.";
+"Check the log and run it again." = "Logu inceleyip yeniden çalıştır.";
+"Not sent: the voice note is not transcribed yet." = "Sesli not henüz yazıya dökülmediği için gönderilmedi.";
+"Send it again once the transcript is done." = "Transkript bitince yeniden gönder.";
+"Not sent: the voice note could not be transcribed." = "Sesli not yazıya dökülemediği için gönderilmedi.";
+"Type the transcript or transcribe it again, then send it again." = "Transkripti elle yaz ya da yeniden çevir, sonra yeniden gönder.";
+"Not sent: the voice notes could not be read." = "Sesli notlar okunamadığı için gönderilmedi.";
+"Send it again." = "Yeniden gönder.";
+"A new git branch could not be created; %@ was not started." = "Yeni git branch'i açılamadı; %@ başlatılmadı.";
+"Fix the project's git state, or turn off \"Start every run on a new branch\" in the project settings." = "Projenin git durumunu düzelt ya da proje ayarlarında \"Her çalıştırmayı yeni branch'te başlat\"ı kapat.";
+"The changes could not be stashed; %@ was not started." = "Değişiklikler stash'lenemedi; %@ başlatılmadı.";
+"Fix the project's git state, or turn off \"Stash changes before every run\" in the project settings." = "Projenin git durumunu düzelt ya da proje ayarlarında \"Çalıştırmadan önce değişiklikleri stash'le\"yi kapat.";
+"Project not found." = "Proje bulunamadı.";
+"Assign the task to a project and send it again." = "Görevi bir projeye atayıp yeniden gönder.";
+"The project could not be read." = "Proje okunamadı.";
+"Project folder not found." = "Proje klasörü bulunamadı.";
+"Right-click the project in the library and fix its path in \"Project Settings…\"." = "Kütüphanede projeye sağ tıklayıp \"Proje ayarları…\"ndan yolu düzelt.";
+"The task changed or was deleted before %@ started; it was not run." = "Görev, %@ başlatılmadan önce değişti ya da silindi; çalıştırılmadı.";
+"An unexpected error occurred." = "Beklenmeyen bir hata oluştu.";
+
+/* Schedule picks and updates */
+"In 1 hour" = "1 saat sonra";
+"This evening at %@" = "Bu akşam %@";
+"Tomorrow at %@" = "Yarın %@";
+"GitHub could not be reached. Check your internet connection and try again." = "GitHub'a ulaşılamadı. İnternet bağlantını kontrol edip yeniden dene.";
+"GitHub is getting too many requests right now. Try again in an hour." = "GitHub şu an çok fazla istek aldı. Bir saat sonra yeniden dene.";
+"The latest release's details could not be read." = "Son sürümün bilgisi okunamadı.";
+"This release has no DMG to download." = "Bu sürümün indirilebilir bir DMG dosyası yok.";
+"This release has no SHA-256 file, so the update cannot be verified." = "Bu sürümün SHA-256 dosyası yok; güncelleme doğrulanamaz.";
+"The update could not be verified: the downloaded file's SHA-256 does not match." = "Güncelleme doğrulanamadı: indirilen dosyanın SHA-256 değeri tutmuyor.";
+"Shotcue is not running from an app bundle, so the update cannot be installed." = "Shotcue bir uygulama paketinden çalışmıyor; güncelleme kurulamaz.";
+"%@ is not writable. You can install the update from the DMG yourself." = "%@ klasörüne yazılamıyor. Güncellemeyi DMG'den elle kurabilirsin.";
+"The downloaded package is not the expected app (%@)." = "İndirilen paket beklenen uygulama değil (%@).";
+"The update could not be prepared." = "Güncelleme hazırlanamadı.";

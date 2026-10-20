@@ -37,14 +37,14 @@ struct RunErrorTextTests {
 
     @Test func limitStopsSuggestRaisingTheLimit() throws {
         let turns = try #require(RunErrorText.describe(RunErrorCode.maxTurns, numTurns: 30))
-        #expect(turns.message == "Tur limiti aşıldı (30 tur).")
-        #expect(turns.suggestion == "Ayarlar > Ajanlar'dan tur limitini artırıp yeniden çalıştır.")
+        #expect(turns.message == "Turn limit reached (30 turns).")
+        #expect(turns.suggestion == "Raise the turn limit in Settings > Agents and run it again.")
         let budget = try #require(RunErrorText.describe(RunErrorCode.maxBudget))
-        #expect(budget.message == "Bütçe limiti aşıldı.")
-        #expect(budget.suggestion == "Ayarlar > Ajanlar'dan bütçe limitini artırıp yeniden çalıştır.")
+        #expect(budget.message == "Budget limit reached.")
+        #expect(budget.suggestion == "Raise the budget limit in Settings > Agents and run it again.")
         #expect(
             RunErrorText.notificationBody(for: RunErrorCode.maxTurns, numTurns: 30)
-                == "Tur limiti aşıldı (30 tur). Ayarlar > Ajanlar'dan tur limitini artırıp yeniden çalıştır.")
+                == "Turn limit reached (30 turns). Raise the turn limit in Settings > Agents and run it again.")
     }
 
     @Test func aDetailIsShownUnderTheTurkishText() throws {
@@ -54,10 +54,10 @@ struct RunErrorTextTests {
         #expect(text.detail == "fatal: not a git repository")
 
         let failed = try #require(RunErrorText.describe(RunErrorCode.claudeFailed, exitCode: 2))
-        #expect(failed.message == "claude hata ile çıktı (kod 2).")
+        #expect(failed.message == "claude exited with an error (code 2).")
 
         let loggedOut = try #require(RunErrorText.describe(RunErrorCode.claudeNotLoggedIn))
-        #expect(loggedOut.message == "claude ile tekrar giriş yapın.")  // spec §8, verbatim
+        #expect(loggedOut.message == "Log in to claude again.")  // spec §8
     }
 
     /// claude reports API and auth failures (a rejected key, a usage limit) as a result with subtype `success` and
@@ -67,26 +67,26 @@ struct RunErrorTextTests {
         let stored = RunErrorCode.compose(RunErrorCode.claudeError, detail: "Invalid API key · Please run /login")
         #expect(stored == "claude_error: Invalid API key · Please run /login")
         let text = try #require(RunErrorText.describe(stored))
-        #expect(text.message == "claude hata bildirdi.")
+        #expect(text.message == "claude reported an error.")
         #expect(text.detail == "Invalid API key · Please run /login")
         // A rejected key is a lost session (spec §8): the text asks for a new login, first in the notification.
-        #expect(text.suggestion == "claude ile tekrar giriş yapın.")
+        #expect(text.suggestion == "Log in to claude again.")
         #expect(
             RunErrorText.notificationBody(for: stored)
-                == "claude ile tekrar giriş yapın. claude hata bildirdi: Invalid API key · Please run /login")
+                == "Log in to claude again. claude reported an error: Invalid API key · Please run /login")
 
         // A line that holds ": " itself stays whole; an overloaded API is not a login problem.
         let overloaded = RunErrorCode.compose(RunErrorCode.claudeError, detail: "API Error: 529 Overloaded")
         #expect(RunErrorText.describe(overloaded)?.detail == "API Error: 529 Overloaded")
         #expect(RunErrorText.describe(overloaded)?.suggestion == nil)
-        #expect(RunErrorText.notificationBody(for: overloaded) == "claude hata bildirdi: API Error: 529 Overloaded")
+        #expect(RunErrorText.notificationBody(for: overloaded) == "claude reported an error: API Error: 529 Overloaded")
         // Without a result line there is nothing to quote.
-        #expect(RunErrorText.notificationBody(for: RunErrorCode.claudeError) == "claude hata bildirdi.")
+        #expect(RunErrorText.notificationBody(for: RunErrorCode.claudeError) == "claude reported an error.")
 
         // Rows written before this code existed hold claude's subtype, `success`, for the same failure; their result
         // text (shown above in the inspector) carries claude's line.
         let legacy = try #require(RunErrorText.describe(ClaudeRunResult.successSubtype))
-        #expect(legacy.message == "claude hata bildirdi.")
+        #expect(legacy.message == "claude reported an error.")
         #expect(legacy.detail == nil)
     }
 
@@ -108,14 +108,14 @@ struct RunErrorTextTests {
         #expect(RunErrorText.looksLikeAuthFailure(line) == isAuthFailure)
         let stored = RunErrorCode.compose(RunErrorCode.claudeError, detail: line)
         let text = try #require(RunErrorText.describe(stored))
-        #expect(text.message == "claude hata bildirdi.")
+        #expect(text.message == "claude reported an error.")
         #expect(text.detail == line)
-        #expect(text.suggestion == (isAuthFailure ? "claude ile tekrar giriş yapın." : nil))
+        #expect(text.suggestion == (isAuthFailure ? "Log in to claude again." : nil))
         let body = RunErrorText.notificationBody(for: stored)
         #expect(
             body
                 == (isAuthFailure
-                    ? "claude ile tekrar giriş yapın. claude hata bildirdi: \(line)" : "claude hata bildirdi: \(line)"))
+                    ? "Log in to claude again. claude reported an error: \(line)" : "claude reported an error: \(line)"))
     }
 
     /// A notification banner shows the start of its body and cuts the rest. claude's line for a lost session can run
@@ -127,8 +127,8 @@ struct RunErrorTextTests {
             + #"id":"req_011CTc9mQ7Zr4xWfVbN2pLsE"} · Please run /login"#
         #expect(line.count > 200)
         let body = RunErrorText.notificationBody(for: RunErrorCode.compose(RunErrorCode.claudeError, detail: line))
-        #expect(body.hasPrefix("claude ile tekrar giriş yapın. "))
-        #expect(body.hasSuffix("claude hata bildirdi: \(line)"))
+        #expect(body.hasPrefix("Log in to claude again. "))
+        #expect(body.hasSuffix("claude reported an error: \(line)"))
     }
 
     /// The inspector shows claude's line once, as the run's result text (primary text): the failure's detail, which
@@ -152,7 +152,7 @@ struct RunErrorTextTests {
 
     @Test func anUnknownCodeFallsBackToTurkishWithTheRawCodeUnderIt() throws {
         let text = try #require(RunErrorText.describe("error_something_new"))
-        #expect(text.message == "Çalışma hata ile bitti.")
+        #expect(text.message == "The run ended with an error.")
         #expect(text.detail == "error_something_new")
         let withDetail = try #require(RunErrorText.describe("brand_new_code: ayrıntı"))
         #expect(withDetail.detail == "brand_new_code: ayrıntı")

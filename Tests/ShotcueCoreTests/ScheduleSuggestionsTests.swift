@@ -16,12 +16,20 @@ struct ScheduleSuggestionsTests {
     }
 
     @Test func morningOffersAnHourLaterThisEveningAndTomorrow() {
-        let suggestions = ScheduleSuggestions.suggestions(now: at(10, 2), calendar: cal)
-        #expect(suggestions.map(\.label) == ["1 saat sonra", "Bu akşam 18:00", "Yarın 09:00"])
+        let suggestions = ScheduleSuggestions.suggestions(now: at(10, 2), calendar: cal, locale: turkish)
+        #expect(suggestions.map(\.label) == ["In 1 hour", "This evening at 18:00", "Tomorrow at 9:00"])
         // "1 saat sonra" lands on a round five minutes, never earlier than an hour.
         #expect(suggestions[0].date == at(11, 5))
         #expect(suggestions[1].date == at(18, 0))
         #expect(suggestions[2].date == at(9, 0, day: 23))
+    }
+
+    let turkish = Locale(identifier: "tr_TR")
+
+    /// The times follow the locale's clock.
+    @Test func suggestionTimesFollowTheLocale() {
+        let american = ScheduleSuggestions.suggestions(now: at(10, 2), calendar: cal, locale: Locale(identifier: "en_US"))
+        #expect(american.map(\.label) == ["In 1 hour", "This evening at 6:00\u{202F}PM", "Tomorrow at 9:00\u{202F}AM"])
     }
 
     @Test func anHourLaterOnTheDotStaysPut() {
@@ -30,10 +38,10 @@ struct ScheduleSuggestionsTests {
 
     /// Less than half an hour before 18:00, "this evening" is no longer worth offering.
     @Test func thisEveningDisappearsCloseTo18() {
-        let late = ScheduleSuggestions.suggestions(now: at(17, 40), calendar: cal)
-        #expect(late.map(\.label) == ["1 saat sonra", "Yarın 09:00"])
-        #expect(ScheduleSuggestions.suggestions(now: at(17, 30), calendar: cal).map(\.label).contains("Bu akşam 18:00"))
-        #expect(!ScheduleSuggestions.suggestions(now: at(21, 0), calendar: cal).map(\.label).contains("Bu akşam 18:00"))
+        let late = ScheduleSuggestions.suggestions(now: at(17, 40), calendar: cal, locale: turkish)
+        #expect(late.map(\.label) == ["In 1 hour", "Tomorrow at 9:00"])
+        #expect(ScheduleSuggestions.suggestions(now: at(17, 30), calendar: cal).count == 3)
+        #expect(ScheduleSuggestions.suggestions(now: at(21, 0), calendar: cal).count == 2)
     }
 
     @Test func pastAndPresentCannotBeScheduled() {

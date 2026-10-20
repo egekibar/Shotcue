@@ -526,7 +526,7 @@ public actor RunCoordinator: TaskDispatcher {
     /// Spec §5.5: the "done" notification carries the one-line summary. The run's cost is recorded but never shown:
     /// on a subscription it is only an API-price estimate, and a dollar figure reads like a bill.
     static func doneBody(summary: String?) -> String {
-        summary ?? "Tamamlandı"
+        summary ?? L10n.t("Done")
     }
 
     /// The first line git printed (its stderr), which says what is wrong; otherwise the error's own description.

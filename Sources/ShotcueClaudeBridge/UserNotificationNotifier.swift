@@ -36,9 +36,9 @@ public final class UserNotificationNotifier: Notifier, @unchecked Sendable {
     // MARK: - Pure parts (unit tested without the real center)
 
     public static func categories() -> Set<UNNotificationCategory> {
-        let open = UNNotificationAction(identifier: openAction, title: "Aç", options: [.foreground])
-        let terminal = UNNotificationAction(identifier: terminalAction, title: "Terminalde devam et", options: [])
-        let retry = UNNotificationAction(identifier: retryAction, title: "Yeniden çalıştır", options: [])
+        let open = UNNotificationAction(identifier: openAction, title: L10n.t("Open"), options: [.foreground])
+        let terminal = UNNotificationAction(identifier: terminalAction, title: L10n.t("Continue in Terminal"), options: [])
+        let retry = UNNotificationAction(identifier: retryAction, title: L10n.t("Run Again"), options: [])
         return [
             UNNotificationCategory(
                 identifier: runDoneCategory, actions: [open, terminal],

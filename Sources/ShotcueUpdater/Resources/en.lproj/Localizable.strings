@@ -1,0 +1,6 @@
+/* ShotcueUpdater strings (en). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Update package checks */
+"the DMG has no app" = "the DMG has no app";
+"a different bundle ID" = "a different bundle ID";
+"not version %@" = "not version %@";

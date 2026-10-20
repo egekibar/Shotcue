@@ -23,7 +23,7 @@ struct DiffTextTests {
         let long = String(repeating: "+line\n", count: 100)
         let text = DiffText.compose(tracked: long, untracked: [], maxBytes: 20)
         #expect(text == "+line\n+line\n+line\n" + DiffText.truncationNotice(maxBytes: 20))
-        #expect(DiffText.truncationNotice(maxBytes: 20) == "… (çıktı 20 bayttan sonra kesildi)")
+        #expect(DiffText.truncationNotice(maxBytes: 20) == "… (output cut after 20 bytes)")
         #expect(DiffText.truncated("kısa", maxBytes: 100) == "kısa")
     }
 
