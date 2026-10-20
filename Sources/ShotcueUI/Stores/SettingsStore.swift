@@ -64,6 +64,14 @@ public final class SettingsStore {
         static let skippedUpdateVersion = "skippedUpdateVersion"
     }
 
+    /// Before 1.3.0 voice notes were always Turkish unless changed. An install from then that never picked a language
+    /// keeps Turkish, so an English system does not switch its transcription silently; a new install follows the
+    /// interface (`defaultSTTLanguage`).
+    public func keepTurkishTranscriptionForExistingInstall(_ isExistingInstall: Bool) {
+        guard isExistingInstall, defaults.object(forKey: Key.sttLanguage) == nil else { return }
+        sttLanguage = "tr"
+    }
+
     /// A new install transcribes in the interface's language.
     nonisolated public static var defaultSTTLanguage: String {
         TranscriptionLanguage.defaultCode(interfaceLanguage: L10n.bundle.preferredLocalizations.first)

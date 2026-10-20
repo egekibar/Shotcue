@@ -66,6 +66,9 @@ final class AppEnvironment {
         self.fileStore = fileStore
 
         // 2. Database + repositories.
+        // Checked before opening: opening creates the file.
+        let isExistingInstall = FileManager.default.fileExists(atPath: fileStore.databaseURL.path)
+        settings.keepTurkishTranscriptionForExistingInstall(isExistingInstall)
         let database = try AppDatabase.open(at: fileStore.databaseURL)
         self.database = database
         let projects = GRDBProjectRepository(database: database)

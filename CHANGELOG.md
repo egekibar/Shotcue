@@ -7,30 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-10-20
+
 ### Added
 
-- The transcription model download can be paused and resumed (Ayarlar → Ses → Transkripsiyon: *Duraklat*,
-  *Devam et*). A resumed download picks up from the partial files instead of starting over, also after Shotcue was
-  restarted. The model, or a partial download, can be deleted from there (*Modeli sil*, *İndirileni sil*, after a
-  confirmation), and Settings shows how much disk it takes.
+- **English and Turkish.** The interface follows the system language (English for any other language); Settings →
+  General → Language picks *System language*, *English* or *Türkçe* and applies it after *Restart now*, as does macOS's
+  per-app language setting. Dates and times follow the locale (day-month order, 12- or 24-hour clock).
+- Voice notes in any language Whisper transcribes, or *Detect automatically*; a new install transcribes in the
+  interface's language, and an existing one keeps Turkish unless another language was picked.
+- Agents write their summary in the interface's language.
+- A status filter in the library toolbar narrows a project or the inbox to one or more statuses, in the grid and the
+  list; the subtitle then reads "3 / 12 items".
+- The transcription model download can be paused and resumed (Settings → Audio → *Pause*, *Resume*), also after a
+  restart, from the partial files. The model or a partial download can be deleted there, and Settings shows how much
+  disk it takes.
+- A click on the open run in the inspector closes its log; a chevron shows which log is open.
 
 ### Changed
 
-- The inspector's hand-off buttons say what they do: *Claude'da devam et* (was *Desktop'ta aç*) carries on the
-  run's session, *Claude'da baştan başlat* (was *Desktop composer'da aç*) starts it over without its history, and
-  *Değişiklikleri göster* (was *Diff'i göster*). Each has a tooltip, *Claude'da devam et* is hidden for Codex and
-  Antigravity sessions, and the buttons line up in one or two columns as the inspector is resized.
+- The inspector's hand-off buttons say what they do: *Continue in Terminal*, *Continue in Claude* (was *Desktop'ta
+  aç*), *Start Over in Claude* (was *Desktop composer'da aç*) and *Show Changes* (was *Diff'i göster*), with
+  tooltips; *Continue in Claude* is hidden for Codex and Antigravity sessions, and the buttons line up in one or two
+  columns as the inspector is resized.
+- *Schedule…* has quick picks (*In 1 hour*, *This evening at 18:00*, *Tomorrow at 9:00*), a calendar, a typed time and
+  a summary line; a time in the past cannot be scheduled.
+- The diagnostics report is written in English.
 
 ### Fixed
 
-- Clicking the library grid no longer draws a focus ring in the accent color around the whole pane. ⌫ still
-  deletes the selected tasks.
-- A click on the library grid's empty space, or Esc, clears the selection.
-- A selected card's ring no longer covers its thumbnail: the card is clipped to its rounded corners and the ring
-  sits just outside it.
-- The library's sort button shows the current order again (*En yeni*, *En eski*, …); it was blank.
-- *Desktop'ta aç* opens the run's session in Claude Desktop again. Desktop 2.42304 moved the import link to
-  `claude://resume?session=…` and ignored the old `claude://code/resume`, so the button did nothing.
+- *Continue in Claude* opens the run's session in Claude Desktop again: Desktop 2.42304 moved the import link to
+  `claude://resume?session=…` and ignored the old one.
+- The schedule picker no longer breaks its label into one letter per line or shows an analog clock.
+- The library's sort button shows the current order again; it was blank.
+- Clicking the library grid no longer draws a focus ring around the whole pane; a click on empty space, or Esc,
+  clears the selection.
+- A selected card's ring no longer covers its thumbnail.
 
 ## [1.2.2] — 2026-10-06
 
@@ -112,7 +124,8 @@ First public release. macOS 26 or later on Apple Silicon; the UI is in Turkish.
   report in Settings.
 - `make dmg` builds the release DMG (`dist/Shotcue-<version>.dmg`) and its SHA-256 file.
 
-[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/egekibar/Shotcue/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/egekibar/Shotcue/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/egekibar/Shotcue/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/egekibar/Shotcue/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/egekibar/Shotcue/compare/v1.1.0...v1.2.0
