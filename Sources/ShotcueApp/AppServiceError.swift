@@ -9,7 +9,7 @@ enum AppServiceError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .storageUnavailable(let path):
-            return "Depolama klasörü kullanılamıyor: \(path)"
+            return L10n.t("The storage folder cannot be used: \(path)")
         }
     }
 }

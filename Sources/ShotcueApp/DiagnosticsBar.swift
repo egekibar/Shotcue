@@ -24,11 +24,11 @@ struct DiagnosticsBar: View {
                     }
                 }
                 HStack(spacing: 6) {
-                    Text("Girişte başlat: \(loginItemStatus)")
+                    Text(L10n.t("Open at login: \(loginItemStatus)"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     // macOS can park the registration in `requiresApproval`; this is the only way out.
-                    Button("Giriş Öğeleri") { LoginItemManager.openSystemSettings() }
+                    Button(L10n.t("Login Items")) { LoginItemManager.openSystemSettings() }
                         .buttonStyle(.link)
                         .font(.caption)
                 }
@@ -44,7 +44,7 @@ struct DiagnosticsBar: View {
                 }
             }
             Spacer()
-            Button("Tanılama çalıştır", action: run)
+            Button(L10n.t("Run Diagnostics"), action: run)
                 .disabled(status.diagnosticsRunning)
             if status.diagnosticsRunning {
                 ProgressView().controlSize(.small)

@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 }
             } catch {
                 environment.status.lastError =
-                    "Yarım kalan çalışmalar işaretlenemedi: \(error.localizedDescription)"
+                    L10n.t("Interrupted runs could not be marked: \(error.localizedDescription)")
             }
             await environment.scheduler.start()
             await environment.scheduler.tick()
@@ -146,19 +146,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             // `Run.id` doubles as the session id (Plan 00 Task 1), Codex and Antigravity report their own.
             guard let (agent, sessionID) = await Self.session(runID: runID, taskID: taskID, environment: environment)
             else {
-                environment.status.lastError = "Devam edilecek oturum bulunamadı."
+                environment.status.lastError = L10n.t("No session to continue was found.")
                 return
             }
             // The session resumes from the task's project folder, where the run worked (final review M6).
             guard let projectPath = await Self.projectPath(taskID: taskID, environment: environment) else {
-                environment.status.lastError = "Oturum proje klasöründen devam ettirilir; görevin bir projesi yok."
+                environment.status.lastError = L10n.t("A session continues from its project folder, and this task has no project.")
                 return
             }
             do {
                 try environment.services.handoff.openInTerminal(
                     agent: agent, sessionID: sessionID, projectPath: projectPath)
             } catch {
-                environment.status.lastError = "Terminal açılamadı: \(error.localizedDescription)"
+                environment.status.lastError = L10n.t("Terminal could not be opened: \(error.localizedDescription)")
             }
 
         case UserNotificationNotifier.retryAction:
@@ -167,7 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             do {
                 try await environment.services.dispatcher.enqueue(taskID: taskID)
             } catch {
-                environment.status.lastError = "Yeniden çalıştırılamadı: \(error.localizedDescription)"
+                environment.status.lastError = L10n.t("Could not run it again: \(error.localizedDescription)")
             }
 
         default:

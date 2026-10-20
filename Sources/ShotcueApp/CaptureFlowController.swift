@@ -61,7 +61,7 @@ final class CaptureFlowController {
             captured = try await services.capture.captureRegion(to: temporaryURL)
         } catch {
             try? FileManager.default.removeItem(at: temporaryURL)
-            await report(title: "Yakalama başarısız", error: error)
+            await report(title: L10n.t("Capture failed"), error: error)
             return
         }
         guard let captured else {
@@ -82,7 +82,7 @@ final class CaptureFlowController {
             try FileManager.default.moveItem(at: captured.fileURL, to: destination)
         } catch {
             try? FileManager.default.removeItem(at: temporaryURL)
-            await report(title: "Yakalama diske yazılamadı", error: error)
+            await report(title: L10n.t("The capture could not be written to disk"), error: error)
             return
         }
 
@@ -111,7 +111,7 @@ final class CaptureFlowController {
             // No half-created task: drop the row (if it landed) and the file (spec §8).
             try? await services.tasks.deleteTask(id: task.id)
             try? FileManager.default.removeItem(at: destination)
-            await report(title: "Yakalama kaydedilemedi", error: error)
+            await report(title: L10n.t("The capture could not be saved"), error: error)
             return
         }
 
@@ -166,11 +166,11 @@ final class CaptureFlowController {
         switch error {
         case CaptureError.screencaptureFailed(let exitCode, let stderr):
             return stderr.isEmpty
-                ? "screencapture \(exitCode) koduyla çıktı" : "screencapture (\(exitCode)): \(stderr)"
+                ? L10n.t("screencapture exited with code \(Int(exitCode))") : "screencapture (\(exitCode)): \(stderr)"
         case CaptureError.unreadableImage(let url):
-            return "Görüntü okunamadı: \(url.lastPathComponent)"
+            return L10n.t("The image could not be read: \(url.lastPathComponent)")
         case CaptureError.launchFailed(let message):
-            return "screencapture başlatılamadı: \(message)"
+            return L10n.t("screencapture could not be started: \(message)")
         default:
             return error.localizedDescription
         }

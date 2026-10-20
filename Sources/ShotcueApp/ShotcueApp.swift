@@ -15,7 +15,7 @@ struct ShotcueApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("Kütüphane", id: AppWindowID.library) {
+        Window(L10n.t("Library"), id: AppWindowID.library) {
             LibrarySceneRoot()
         }
         .defaultSize(width: 1180, height: 760)

@@ -7,7 +7,7 @@ nonisolated struct AgentMissingError: LocalizedError, Equatable {
     var agent: AgentKind = .claude
 
     var errorDescription: String? {
-        "\(agent.executableName) bulunamadı — Ayarlar > Ajanlar'dan yolu ayarlayıp Shotcue'yu yeniden başlatın."
+        L10n.t("\(agent.executableName) was not found. Set its path in Settings > Agents and restart Shotcue.")
     }
 }
 
