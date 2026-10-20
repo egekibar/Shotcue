@@ -1,5 +1,6 @@
 import AppKit
 import ShotcueCore
+import ShotcueNotes
 import ShotcueUI
 import SwiftUI
 
@@ -95,6 +96,7 @@ struct SettingsSceneRoot: View {
                 onDeleteModel: { Task { await environment.transcriberModel.deleteModel() } },
                 modelDownloadSize: environment.transcriberModel.downloadSizeText,
                 modelDiskUsage: environment.transcriberModel.diskUsageText,
+                sttLanguages: WhisperKitEngine.supportedLanguageCodes(),
                 inputDevices: status.inputDevices,
                 appVersion: environment.updates.appVersionText,
                 onCheckForUpdates: { environment.updates.checkNow() },

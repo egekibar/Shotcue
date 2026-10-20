@@ -70,9 +70,8 @@
 "dontAsk (read-only)" = "dontAsk (read-only)";
 
 /* Settings > Audio */
+"Detect automatically" = "Detect automatically";
 "Transcription" = "Transcription";
-"Turkish" = "Turkish";
-"English" = "English";
 "Status" = "Status";
 "On disk" = "On disk";
 "Voice notes can be recorded before the model is ready; they wait and are transcribed once it arrives." = "Voice notes can be recorded before the model is ready; they wait and are transcribed once it arrives.";

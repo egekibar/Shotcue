@@ -70,9 +70,8 @@
 "dontAsk (read-only)" = "dontAsk (yalnızca okuma)";
 
 /* Settings > Audio */
+"Detect automatically" = "Otomatik algıla";
 "Transcription" = "Transkripsiyon";
-"Turkish" = "Türkçe";
-"English" = "İngilizce";
 "Status" = "Durum";
 "On disk" = "Diskte";
 "Voice notes can be recorded before the model is ready; they wait and are transcribed once it arrives." = "Model hazır olmadan da sesli not alınabilir; transkripsiyon bekler ve model gelince kuyruk işlenir.";

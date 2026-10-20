@@ -34,7 +34,8 @@ struct SettingsStoreTests {
         #expect(store.permissionMode == "bypassPermissions")
         #expect(store.extraSystemPrompt == "")
         #expect(store.keepAwake == true)
-        #expect(store.sttLanguage == "tr")
+        // A new install transcribes in the interface language; tests run in English.
+        #expect(store.sttLanguage == "en")
         #expect(store.sttModel == "openai_whisper-large-v3-v20240930_turbo")
         #expect(store.inputDeviceUID == nil)
         #expect(store.foundationModelsEnabled == false)

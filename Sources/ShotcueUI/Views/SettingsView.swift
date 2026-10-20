@@ -23,6 +23,8 @@ public struct SettingsView: View {
     public let modelDownloadSize: String?
     /// What the model (or its partial download) takes on disk ("1,5 GB"); nil when nothing is there.
     public let modelDiskUsage: String?
+    /// Whisper's language codes for the voice-note language picker; filled by the App layer from WhisperKit.
+    public let sttLanguages: [String]
     /// Input devices for the "Giriş cihazı" picker; empty → a UID text field is shown instead.
     /// Filled by the App layer from `AudioDeviceCatalog.inputDevices()` (ShotcueNotes).
     public let inputDevices: [(uid: String, name: String)]
@@ -46,6 +48,7 @@ public struct SettingsView: View {
         onDeleteModel: @escaping () -> Void = {},
         modelDownloadSize: String? = nil,
         modelDiskUsage: String? = nil,
+        sttLanguages: [String] = SettingsStore.sttLanguageChoices,
         inputDevices: [(uid: String, name: String)] = [],
         appVersion: String? = nil,
         onCheckForUpdates: (() -> Void)? = nil,
@@ -63,6 +66,7 @@ public struct SettingsView: View {
         self.onDeleteModel = onDeleteModel
         self.modelDownloadSize = modelDownloadSize
         self.modelDiskUsage = modelDiskUsage
+        self.sttLanguages = sttLanguages
         self.inputDevices = inputDevices
         self.appVersion = appVersion
         self.onCheckForUpdates = onCheckForUpdates
@@ -328,8 +332,11 @@ public struct SettingsView: View {
         return Form {
             Section(L10n.t("Transcription")) {
                 Picker(L10n.t("Language"), selection: $store.sttLanguage) {
-                    Text(L10n.t("Turkish")).tag("tr")
-                    Text(L10n.t("English")).tag("en")
+                    Text(L10n.t("Detect automatically")).tag(TranscriptionLanguage.automatic)
+                    Divider()
+                    ForEach(Self.languageChoices(sttLanguages, including: settings.sttLanguage), id: \.self) { code in
+                        Text(Self.languageName(code)).tag(code)
+                    }
                 }
                 Picker(L10n.t("Model"), selection: $store.sttModel) {
                     ForEach(SettingsStore.sttModelChoices, id: \.self) { model in
@@ -486,6 +493,20 @@ public struct SettingsView: View {
     }
 
     // MARK: - Pure copy helpers
+
+    /// The codes sorted by their names in the interface language, plus a stored one the list lacks.
+    nonisolated static func languageChoices(
+        _ codes: [String], including stored: String, locale: Locale = .autoupdatingCurrent
+    ) -> [String] {
+        var all = Set(codes)
+        if !TranscriptionLanguage.isAutomatic(stored) { all.insert(stored) }
+        return all.sorted { languageName($0, locale: locale).localizedStandardCompare(languageName($1, locale: locale)) == .orderedAscending }
+    }
+
+    /// "Turkish" / "Türkçe" for "tr", in the interface language; the code itself when the system has no name.
+    nonisolated static func languageName(_ code: String, locale: Locale = .autoupdatingCurrent) -> String {
+        locale.localizedString(forLanguageCode: code).map { $0.capitalized(with: locale) } ?? code
+    }
 
     nonisolated static func isDownloading(_ state: TranscriberModelState) -> Bool {
         if case .downloading = state { return true }

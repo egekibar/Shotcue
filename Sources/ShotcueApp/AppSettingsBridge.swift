@@ -56,7 +56,7 @@ enum AppSettingsBridge {
             antigravityEffort: nonEmpty(settings.antigravityDefaultEffort),
             extraSystemPrompt: settings.extraSystemPrompt,
             keepAwake: settings.keepAwake,
-            sttLanguage: nonEmpty(settings.sttLanguage) ?? "tr",
+            sttLanguage: nonEmpty(settings.sttLanguage) ?? SettingsStore.defaultSTTLanguage,
             sttModel: nonEmpty(settings.sttModel) ?? defaultSTTModel,
             inputDeviceUID: nonEmpty(settings.inputDeviceUID),
             hotKey: settings.hotKey,

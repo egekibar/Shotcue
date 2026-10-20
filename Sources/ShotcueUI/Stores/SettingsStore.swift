@@ -64,7 +64,10 @@ public final class SettingsStore {
         static let skippedUpdateVersion = "skippedUpdateVersion"
     }
 
-    public static let defaultSTTLanguage = "tr"
+    /// A new install transcribes in the interface's language.
+    nonisolated public static var defaultSTTLanguage: String {
+        TranscriptionLanguage.defaultCode(interfaceLanguage: L10n.bundle.preferredLocalizations.first)
+    }
     public static let defaultSTTModel = "openai_whisper-large-v3-v20240930_turbo"
     public static let defaultPermissionMode = ClaudePermissionMode.bypassPermissions.rawValue
     /// Offered in Ayarlar > Ses; both are in `WhisperKit.recommendedModels().supported` (spec §6.2).

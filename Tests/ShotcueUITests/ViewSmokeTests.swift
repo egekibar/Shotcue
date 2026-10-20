@@ -258,6 +258,19 @@ struct SettingsViewTests {
         bundle.cleanUp()
     }
 
+    /// Voice-note languages are named in the interface language and sorted by those names.
+    @Test func transcriptionLanguagesAreNamedAndSorted() {
+        let turkish = Locale(identifier: "tr_TR")
+        #expect(SettingsView.languageName("de", locale: turkish) == "Almanca")
+        #expect(SettingsView.languageName("de", locale: Locale(identifier: "en_US")) == "German")
+        #expect(
+            SettingsView.languageChoices(["tr", "en", "de"], including: "tr", locale: Locale(identifier: "en_US"))
+                == ["en", "de", "tr"])
+        // A stored code the list lacks stays selectable; "auto" is its own row.
+        #expect(SettingsView.languageChoices(["en"], including: "xx", locale: turkish).contains("xx"))
+        #expect(!SettingsView.languageChoices(["en"], including: "auto", locale: turkish).contains("auto"))
+    }
+
     @MainActor
     @Test func transcriberStateCopyCoversEveryCase() {
         #expect(SettingsView.modelStateLabel(.notDownloaded) == "Not downloaded")
