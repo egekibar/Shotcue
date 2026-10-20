@@ -309,7 +309,8 @@ final class AppEnvironment {
             status.hotKeyError = nil
             AppLog.app.notice("hotkey \(combo.label, privacy: .public) registered")
         } catch {
-            let reason = L10n.t("The shortcut \(combo.label) could not be registered (\(Self.describe(hotKeyError: error))).")
+            let problem = Self.describe(hotKeyError: error)
+            let reason = L10n.t("The shortcut \(combo.label) could not be registered (\(problem)).")
             defer { AppLog.app.error("\(self.status.hotKeyError ?? reason, privacy: .public)") }
             guard let previous else {
                 status.hotKeyError = reason
@@ -320,7 +321,8 @@ final class AppEnvironment {
                 status.hotKeyError = L10n.t("\(reason) \(previous.label) stays in use.")
                 settings.hotKey = previous
             } catch {
-                status.hotKeyError = L10n.t("\(reason) The previous shortcut \(previous.label) could not be restored either.")
+                status.hotKeyError = L10n.t(
+                    "\(reason) The previous shortcut \(previous.label) could not be restored either.")
             }
         }
     }
