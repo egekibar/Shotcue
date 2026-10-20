@@ -41,12 +41,12 @@ public struct TaskInspectorView: View {
         .id(store.taskID)
         .inspectorColumnWidth(min: 300, ideal: 380, max: 560)
         .alert(
-            "Bir şey ters gitti",
+            L10n.t("Something went wrong"),
             isPresented: Binding(
                 get: { store.lastError != nil },
                 set: { if !$0 { store.lastError = nil } })
         ) {
-            Button("Tamam") { store.lastError = nil }
+            Button(L10n.t("OK")) { store.lastError = nil }
         } message: {
             Text(store.lastError ?? "")
         }
@@ -70,19 +70,19 @@ public struct TaskInspectorView: View {
                 StatusChip(status: task.status)
                 Spacer(minLength: 8)
                 if store.canCancel {
-                    Button("İptal", systemImage: "stop.circle") {
+                    Button(L10n.t("Cancel Run"), systemImage: "stop.circle") {
                         Task { await store.cancel() }
                     }
                     .buttonStyle(.glass)
                 }
                 if task.status == .failed || task.status == .cancelled || task.status == .done {
-                    Button("Yeniden çalıştır", systemImage: "arrow.clockwise") {
+                    Button(L10n.t("Run Again"), systemImage: "arrow.clockwise") {
                         Task { await store.retry() }
                     }
                     .buttonStyle(.glass)
                     .disabled(store.isWaitingForTranscript)
                 }
-                Button("Şimdi gönder", systemImage: "paperplane.fill") {
+                Button(L10n.t("Send Now"), systemImage: "paperplane.fill") {
                     Task { await store.sendNow() }
                 }
                 .buttonStyle(.glassProminent)
@@ -91,13 +91,13 @@ public struct TaskInspectorView: View {
             if store.isWaitingForTranscript {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Sesli not yazıya dökülüyor… Bitince görev gönderilecek.")
+                    Text(L10n.t("The voice note is being transcribed… The task will be sent when it is done."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
         } else {
-            Text("Görev yüklenemedi.").foregroundStyle(.secondary)
+            Text(L10n.t("The task could not be loaded.")).foregroundStyle(.secondary)
         }
     }
 
@@ -107,7 +107,7 @@ public struct TaskInspectorView: View {
     private var capturesSection: some View {
         if !store.captures.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                sectionTitle("GÖRSELLER")
+                sectionTitle(L10n.t("IMAGES"))
                 ForEach(store.captures) { capture in
                     captureRow(capture)
                 }
@@ -137,17 +137,17 @@ public struct TaskInspectorView: View {
             // the text fields and the run log keep their own ⌘C (no global key equivalent on a button).
             .focusable()
             .onCopyCommand { copyProviders(for: capture) }
-            .help("Görseli seçip ⌘C ile kopyalayabilirsin.")
+            .help(L10n.t("Select the image and press ⌘C to copy it."))
 
             HStack(spacing: 8) {
                 Text("\(capture.width)×\(capture.height) @\(Int(capture.scale))x")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 6)
-                Button("Kopyala", systemImage: "doc.on.doc") {
+                Button(L10n.t("Copy"), systemImage: "doc.on.doc") {
                     store.copyImage(captureID: capture.id)
                 }
-                Button("Finder'da göster", systemImage: "folder") {
+                Button(L10n.t("Show in Finder"), systemImage: "folder") {
                     store.revealInFinder(captureID: capture.id)
                 }
             }
@@ -169,9 +169,9 @@ public struct TaskInspectorView: View {
     private var titleAndNoteSection: some View {
         if let task = store.task {
             VStack(alignment: .leading, spacing: 6) {
-                sectionTitle("BAŞLIK")
+                sectionTitle(L10n.t("TITLE"))
                 TextField(
-                    "Başlık",
+                    L10n.t("Title"),
                     text: Binding(get: { store.titleDraft }, set: { store.editTitle($0) }),
                     axis: .vertical
                 )
@@ -180,12 +180,12 @@ public struct TaskInspectorView: View {
                 .onSubmit { Task { await store.commit(.title) } }
                 .disabled(!store.isEditable)
                 if !task.titleEditedByUser {
-                    Text("Nottan otomatik türetiliyor. Düzenlersen sabitlenir.")
+                    Text(L10n.t("Derived from the note. Edit it to keep your own."))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
-                sectionTitle("NOT")
+                sectionTitle(L10n.t("NOTE"))
                 TextEditor(text: Binding(get: { store.noteDraft }, set: { store.editNote($0) }))
                     .focused($focusedField, equals: .note)
                     .font(.body)
@@ -204,7 +204,7 @@ public struct TaskInspectorView: View {
     private var transcriptSection: some View {
         if !store.voiceNotes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                sectionTitle("SESLİ NOT")
+                sectionTitle(L10n.t("VOICE NOTE"))
                 ForEach(store.voiceNotes) { note in
                     voiceNoteRow(note)
                 }
@@ -220,10 +220,10 @@ public struct TaskInspectorView: View {
                     .foregroundStyle(.secondary)
                 transcriptStateBadge(note)
                 Spacer(minLength: 6)
-                Button("Aç", systemImage: "play.circle") {
+                Button(L10n.t("Play"), systemImage: "play.circle") {
                     store.openAudio(voiceNoteID: note.id)
                 }
-                Button("Yeniden çevir", systemImage: "arrow.clockwise") {
+                Button(L10n.t("Transcribe Again"), systemImage: "arrow.clockwise") {
                     Task { await store.retranscribe(voiceNoteID: note.id) }
                 }
             }
@@ -258,14 +258,14 @@ public struct TaskInspectorView: View {
             Label(status.label ?? "", systemImage: "arrow.down.circle")
                 .font(.caption2).foregroundStyle(.orange)
             if let model = store.modelStore {
-                Button("Modeli indir (\(model.downloadSizeText))") { model.startDownload() }
+                Button(L10n.t("Download Model (\(model.downloadSizeText))")) { model.startDownload() }
                     .font(.caption2)
             }
         case .modelPaused:
             Label(status.label ?? "", systemImage: "pause.circle")
                 .font(.caption2).foregroundStyle(.orange)
             if let model = store.modelStore {
-                Button("İndirmeye devam et") { model.startDownload() }
+                Button(L10n.t("Resume Download")) { model.startDownload() }
                     .font(.caption2)
             }
         case .failed:
@@ -285,14 +285,14 @@ public struct TaskInspectorView: View {
     private var routingSection: some View {
         if let task = store.task {
             VStack(alignment: .leading, spacing: 8) {
-                sectionTitle("YÖNLENDİRME")
+                sectionTitle(L10n.t("ROUTING"))
                 Picker(
-                    "Proje",
+                    L10n.t("Project"),
                     selection: Binding<UUID?>(
                         get: { task.projectID },
                         set: { newValue in Task { await store.setProject(newValue) } })
                 ) {
-                    Text("Seçilmedi").tag(UUID?.none)
+                    Text(L10n.t("None")).tag(UUID?.none)
                     ForEach(store.projects) { project in
                         Text(project.name).tag(Optional(project.id))
                     }
@@ -308,25 +308,25 @@ public struct TaskInspectorView: View {
                 }
 
                 Picker(
-                    "Mod",
+                    L10n.t("Mode"),
                     selection: Binding<TaskMode>(
                         get: { task.mode },
                         set: { newValue in Task { await store.setMode(newValue) } })
                 ) {
-                    Text("Analiz").tag(TaskMode.analyze)
-                    Text("Uygula").tag(TaskMode.implement)
+                    Text(L10n.t("Analyze")).tag(TaskMode.analyze)
+                    Text(L10n.t("Implement")).tag(TaskMode.implement)
                 }
                 .pickerStyle(.segmented)
                 .disabled(!store.isEditable)
 
-                LabeledContent("Ajan") {
+                LabeledContent(L10n.t("Agent")) {
                     Text(store.agent.displayName)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: 240, alignment: .leading)
 
                 Picker(
-                    "Model",
+                    L10n.t("Model"),
                     selection: Binding<String>(
                         get: { task.modelOverride ?? "" },
                         set: { newValue in Task { await store.setModelOverride(newValue) } })
@@ -334,7 +334,7 @@ public struct TaskInspectorView: View {
                     ForEach(
                         AgentModelChoices.options(for: store.agent, including: task.modelOverride), id: \.self
                     ) { model in
-                        Text(model.isEmpty ? "Proje varsayılanı" : model).tag(model)
+                        Text(model.isEmpty ? L10n.t("Project default") : model).tag(model)
                     }
                 }
                 // Leading, like the Proje and Mod rows: a flexible frame centres its content by default.
@@ -350,18 +350,18 @@ public struct TaskInspectorView: View {
     private var schedulingSection: some View {
         if store.task != nil {
             VStack(alignment: .leading, spacing: 8) {
-                sectionTitle("ZAMANLAMA")
+                sectionTitle(L10n.t("SCHEDULE"))
                 if let scheduledAt = store.scheduledFor {
                     HStack(spacing: 8) {
                         Label(Formatting.dateAndTime(scheduledAt), systemImage: "clock")
                             .font(.callout)
                         Spacer(minLength: 6)
-                        Button("Kaldır") { Task { await store.unschedule() } }
+                        Button(L10n.t("Remove")) { Task { await store.unschedule() } }
                             .buttonStyle(.glass)
                     }
                 } else {
                     HStack(spacing: 8) {
-                        Button("Tarih seç…", systemImage: "calendar") {
+                        Button(L10n.t("Pick a Date…"), systemImage: "calendar") {
                             store.isSchedulePresented = true
                         }
                         .buttonStyle(.glass)
@@ -378,7 +378,7 @@ public struct TaskInspectorView: View {
                                     Task { await store.schedule(at: when) }
                                 })
                         }
-                        Button("Günlük kuyruğa al", systemImage: "calendar.badge.clock") {
+                        Button(L10n.t("Add to Daily Queue"), systemImage: "calendar.badge.clock") {
                             Task { await store.addToDailyQueue() }
                         }
                         .buttonStyle(.glass)
@@ -394,9 +394,9 @@ public struct TaskInspectorView: View {
     @ViewBuilder
     private var runsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("ÇALIŞMALAR")
+            sectionTitle(L10n.t("RUNS"))
             if store.runs.isEmpty {
-                Text("Bu görev hiç gönderilmedi.")
+                Text(L10n.t("This task was never sent."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -477,7 +477,7 @@ public struct TaskInspectorView: View {
             }
         }
         .buttonStyle(.plain)
-        .help(store.selectedRunID == run.id ? "Logu kapat" : "Logu göster")
+        .help(store.selectedRunID == run.id ? L10n.t("Hide Log") : L10n.t("Show Log"))
     }
 
     // MARK: - Handoff
@@ -486,15 +486,15 @@ public struct TaskInspectorView: View {
     /// resizes between 300 and 560 pt), so a long title never squeezes its neighbour.
     private var handoffSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("AKTARIM")
+            sectionTitle(L10n.t("HAND-OFF"))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 8)], alignment: .leading, spacing: 8) {
-                handoffButton("Terminalde devam et", systemImage: "terminal", help: Self.terminalResumeHelp) {
+                handoffButton(L10n.t("Continue in Terminal"), systemImage: "terminal", help: Self.terminalResumeHelp) {
                     Task { await store.openInTerminal() }
                 }
                 .disabled(store.sessionID == nil)
 
                 if store.showsClaudeResume {
-                    handoffButton("Claude'da devam et", systemImage: "arrow.uturn.forward", help: Self.claudeResumeHelp)
+                    handoffButton(L10n.t("Continue in Claude"), systemImage: "arrow.uturn.forward", help: Self.claudeResumeHelp)
                     {
                         Task { await store.openInDesktop() }
                     }
@@ -502,7 +502,7 @@ public struct TaskInspectorView: View {
                 }
 
                 handoffButton(
-                    "Claude'da baştan başlat", systemImage: "arrow.counterclockwise",
+                    L10n.t("Start Over in Claude"), systemImage: "arrow.counterclockwise",
                     help: Self.claudeRestartHelp(projectAgent: store.agent)
                 ) {
                     Task { await store.openComposer() }
@@ -511,7 +511,7 @@ public struct TaskInspectorView: View {
 
                 if let run = store.runs.first(where: { $0.id == store.selectedRunID }) ?? store.latestRun {
                     handoffButton(
-                        "Değişiklikleri göster", systemImage: "plus.forwardslash.minus", help: Self.diffHelp
+                        L10n.t("Show Changes"), systemImage: "plus.forwardslash.minus", help: Self.diffHelp
                     ) {
                         Task { await store.showDiff(runID: run.id) }
                     }
@@ -540,19 +540,24 @@ public struct TaskInspectorView: View {
 
     // MARK: - Handoff copy
 
-    nonisolated static let terminalResumeHelp =
-        "Son çalışmanın oturumuna, görevin kendi ajanıyla Terminal'de devam eder."
-    nonisolated static let claudeResumeHelp =
-        "Son çalışmanın oturumunu Claude masaüstü uygulamasına aktarır; konuşma geçmişiyle kaldığın yerden devam edersin."
-    nonisolated static let diffHelp = "Bu çalışmanın yaptığı kod değişikliklerini dosya dosya gösterir."
+    nonisolated static var terminalResumeHelp: String {
+        L10n.t("Continues the last run's session in Terminal, with the task's own agent.")
+    }
+    nonisolated static var claudeResumeHelp: String {
+        L10n.t(
+            "Moves the last run's session into the Claude desktop app, so you carry on where it stopped, with its history."
+        )
+    }
+    nonisolated static var diffHelp: String { L10n.t("Shows this run's code changes, file by file.") }
 
     /// The composer always opens the Claude desktop app, whatever agent the project runs.
     nonisolated static func claudeRestartHelp(projectAgent: AgentKind) -> String {
-        let base =
-            "Claude masaüstü uygulamasında yeni bir oturum açar; komut hazır gelir, göndermeyi sen yaparsın. "
-            + "Önceki çalışmanın geçmişi gelmez."
+        let base = L10n.t(
+            "Opens a new session in the Claude desktop app with the prompt filled in; you press send. The earlier run's history does not come along."
+        )
         guard projectAgent != .claude else { return base }
-        return base + " Proje \(projectAgent.displayName) kullansa da görev Claude Code ile başlar."
+        return base + " "
+            + L10n.t("The task starts with Claude Code even though the project uses \(projectAgent.displayName).")
     }
 
     private func sectionTitle(_ text: String) -> some View {

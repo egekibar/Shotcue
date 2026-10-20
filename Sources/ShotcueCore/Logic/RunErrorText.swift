@@ -1,8 +1,8 @@
 import Foundation
 
-/// A run's failure as the user reads it.
+/// A run's failure as the user reads it, in the app's language.
 public struct RunErrorDescription: Hashable, Sendable {
-    /// What happened, in one Turkish sentence.
+    /// What happened, in one sentence.
     public var message: String
     /// What to do about it, when there is something to do (spec §8: after a limit stop, raise the limit).
     public var suggestion: String?
@@ -25,7 +25,7 @@ public struct RunErrorDescription: Hashable, Sendable {
     }
 }
 
-/// The one place `Run.error` codes become Turkish (final review I6): the inspector's run rows and the RUN_FAILED
+/// The one place `Run.error` codes become text (final review I6): the inspector's run rows and the RUN_FAILED
 /// notification both read it, and the database keeps the codes.
 public enum RunErrorText {
     /// nil when nothing is stored. `exitCode` / `numTurns` are the run's own, for the codes that mention them; `agent`
@@ -39,7 +39,7 @@ public enum RunErrorText {
             return RunErrorDescription(message: stored.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         guard var text = known(code, detail: detail, exitCode: exitCode, numTurns: numTurns, agent: agent) else {
-            return RunErrorDescription(message: "Çalışma hata ile bitti.", detail: stored)
+            return RunErrorDescription(message: L10n.t("The run ended with an error."), detail: stored)
         }
         text.detail = detail
         return text
@@ -54,7 +54,7 @@ public enum RunErrorText {
         for stored: String?, exitCode: Int32? = nil, numTurns: Int? = nil, agent: AgentKind = .claude
     ) -> String {
         guard let text = describe(stored, exitCode: exitCode, numTurns: numTurns, agent: agent) else {
-            return "Çalışma hata ile bitti."
+            return L10n.t("The run ended with an error.")
         }
         if let stored, let line = text.detail, RunErrorCode.parse(stored)?.code == RunErrorCode.claudeError {
             // `claude_error`'s only suggestion is the login hint (`known`).
@@ -64,10 +64,10 @@ public enum RunErrorText {
     }
 
     /// `claude_error` in Turkish: the inspector shows it under the agent's line, the notification before it.
-    private static func errorLead(_ agent: AgentKind) -> String { "\(agent.executableName) hata bildirdi" }
+    private static func errorLead(_ agent: AgentKind) -> String { L10n.t("\(agent.executableName) reported an error") }
 
     /// Spec §8 ("Oturum düşmüş"): what a lost session says, whether stderr or the agent's own error line tells.
-    private static func loginAgain(_ agent: AgentKind) -> String { "\(agent.executableName) ile tekrar giriş yapın." }
+    private static func loginAgain(_ agent: AgentKind) -> String { L10n.t("Log in to \(agent.executableName) again.") }
 
     /// The command that logs the agent's CLI in again.
     private static func loginCommand(_ agent: AgentKind) -> String {
@@ -79,7 +79,7 @@ public enum RunErrorText {
     }
 
     /// Where the agents' paths and limits are set.
-    static let settingsTab = "Ayarlar > Ajanlar"
+    static let settingsTab = L10n.t("Settings > Agents")
 
     /// Parts of an agent's error line that mean the session is lost or rejected, compared case-insensitively: "Invalid
     /// API key · Please run /login", "Not logged in", an API `authentication_error`, Codex's "401 Unauthorized",
@@ -101,28 +101,28 @@ public enum RunErrorText {
         let cli = agent.executableName
         switch code {
         case RunErrorCode.cancelled:
-            return RunErrorDescription(message: "İptal edildi.")
+            return RunErrorDescription(message: L10n.t("Cancelled."))
         case RunErrorCode.cancelledBeforeLaunch:
-            return RunErrorDescription(message: "\(cli) başlamadan iptal edildi.")
+            return RunErrorDescription(message: L10n.t("Cancelled before \(cli) started."))
         case RunErrorCode.interrupted:
             return RunErrorDescription(
-                message: "Uygulama kapandığı için yarıda kaldı.",
-                suggestion: "Oturum başladıysa Terminalde devam edebilir ya da yeniden çalıştırabilirsin.")
+                message: L10n.t("Stopped part way because the app quit."),
+                suggestion: L10n.t("If the session started, you can continue it in Terminal or run it again."))
         case RunErrorCode.timeout:
             return RunErrorDescription(
-                message: "Zaman aşımı: çalışma süre sınırında durduruldu.",
-                suggestion: "Gerekirse \(settingsTab)'dan zaman aşımını artırıp yeniden çalıştır.")
+                message: L10n.t("Timed out: the run was stopped at its time limit."),
+                suggestion: L10n.t("If needed, raise the timeout in \(settingsTab) and run it again."))
         case RunErrorCode.claudeNotFound:
             return RunErrorDescription(
-                message: "\(cli) bulunamadı.", suggestion: "\(settingsTab)'dan yolu kontrol et.")
+                message: L10n.t("\(cli) was not found."), suggestion: L10n.t("Check its path in \(settingsTab)."))
         case RunErrorCode.claudeLaunchFailed:
-            return RunErrorDescription(message: "\(cli) başlatılamadı.")
+            return RunErrorDescription(message: L10n.t("\(cli) could not be started."))
         case RunErrorCode.claudeNotLoggedIn:
             return RunErrorDescription(
-                message: loginAgain(agent), suggestion: "Terminalde `\(loginCommand(agent))` çalıştırıp giriş yap.")
+                message: loginAgain(agent), suggestion: L10n.t("Run `\(loginCommand(agent))` in Terminal and log in."))
         case RunErrorCode.claudeFailed:
             return RunErrorDescription(
-                message: exitCode.map { "\(cli) hata ile çıktı (kod \($0))." } ?? "\(cli) hata ile çıktı.")
+                message: exitCode.map { L10n.t("\(cli) exited with an error (code \($0)).") } ?? L10n.t("\(cli) exited with an error."))
         case RunErrorCode.claudeError, ClaudeRunResult.successSubtype:
             // `success`: what rows written before `claude_error` existed hold for the same failure; claude's line is
             // then only in the run's result text, which the inspector shows. A line that says the session is lost
@@ -130,55 +130,55 @@ public enum RunErrorText {
             return RunErrorDescription(
                 message: "\(errorLead(agent)).", suggestion: looksLikeAuthFailure(detail) ? loginAgain(agent) : nil)
         case RunErrorCode.noResult:
-            return RunErrorDescription(message: "\(cli) sonuç satırı üretmeden çıktı.")
+            return RunErrorDescription(message: L10n.t("\(cli) exited without a result line."))
         case RunErrorCode.maxTurns:
             return RunErrorDescription(
-                message: numTurns.map { "Tur limiti aşıldı (\($0) tur)." } ?? "Tur limiti aşıldı.",
-                suggestion: "\(settingsTab)'dan tur limitini artırıp yeniden çalıştır.")
+                message: numTurns.map { L10n.t("Turn limit reached (\($0) turns).") } ?? L10n.t("Turn limit reached."),
+                suggestion: L10n.t("Raise the turn limit in \(settingsTab) and run it again."))
         case RunErrorCode.maxBudget:
             return RunErrorDescription(
-                message: "Bütçe limiti aşıldı.",
-                suggestion: "\(settingsTab)'dan bütçe limitini artırıp yeniden çalıştır.")
+                message: L10n.t("Budget limit reached."),
+                suggestion: L10n.t("Raise the budget limit in \(settingsTab) and run it again."))
         case RunErrorCode.executionError:
             return RunErrorDescription(
-                message: "\(agent.displayName) çalışırken bir hatayla durdu.", suggestion: "Logu inceleyip yeniden çalıştır.")
+                message: L10n.t("\(agent.displayName) stopped with an error while running."), suggestion: L10n.t("Check the log and run it again."))
         case RunErrorCode.voiceNotePending:
             return RunErrorDescription(
-                message: "Sesli not henüz yazıya dökülmediği için gönderilmedi.",
-                suggestion: "Transkript bitince yeniden gönder.")
+                message: L10n.t("Not sent: the voice note is not transcribed yet."),
+                suggestion: L10n.t("Send it again once the transcript is done."))
         case RunErrorCode.voiceNoteFailed:
             return RunErrorDescription(
-                message: "Sesli not yazıya dökülemediği için gönderilmedi.",
-                suggestion: "Transkripti elle yaz ya da yeniden çevir, sonra yeniden gönder.")
+                message: L10n.t("Not sent: the voice note could not be transcribed."),
+                suggestion: L10n.t("Type the transcript or transcribe it again, then send it again."))
         case RunErrorCode.voiceNotesUnreadable:
             return RunErrorDescription(
-                message: "Sesli notlar okunamadığı için gönderilmedi.", suggestion: "Yeniden gönder.")
+                message: L10n.t("Not sent: the voice notes could not be read."), suggestion: L10n.t("Send it again."))
         case RunErrorCode.gitBranchFailed:
             return RunErrorDescription(
-                message: "Yeni git branch'i açılamadı; \(cli) başlatılmadı.",
+                message: L10n.t("A new git branch could not be created; \(cli) was not started."),
                 suggestion:
-                    "Projenin git durumunu düzelt ya da proje ayarlarında \"Her çalıştırmayı yeni branch'te başlat\"ı kapat."
+                    L10n.t("Fix the project's git state, or turn off \"Start every run on a new branch\" in the project settings.")
             )
         case RunErrorCode.gitStashFailed:
             return RunErrorDescription(
-                message: "Değişiklikler stash'lenemedi; \(cli) başlatılmadı.",
+                message: L10n.t("The changes could not be stashed; \(cli) was not started."),
                 suggestion:
-                    "Projenin git durumunu düzelt ya da proje ayarlarında \"Çalıştırmadan önce değişiklikleri stash'le\"yi kapat."
+                    L10n.t("Fix the project's git state, or turn off \"Stash changes before every run\" in the project settings.")
             )
         case RunErrorCode.projectMissing:
             return RunErrorDescription(
-                message: "Proje bulunamadı.", suggestion: "Görevi bir projeye atayıp yeniden gönder.")
+                message: L10n.t("Project not found."), suggestion: L10n.t("Assign the task to a project and send it again."))
         case RunErrorCode.projectUnreadable:
-            return RunErrorDescription(message: "Proje okunamadı.", suggestion: "Yeniden gönder.")
+            return RunErrorDescription(message: L10n.t("The project could not be read."), suggestion: L10n.t("Send it again."))
         case RunErrorCode.projectFolderMissing:
             return RunErrorDescription(
-                message: "Proje klasörü bulunamadı.",
-                suggestion: "Kütüphanede projeye sağ tıklayıp \"Proje ayarları…\"ndan yolu düzelt.")
+                message: L10n.t("Project folder not found."),
+                suggestion: L10n.t("Right-click the project in the library and fix its path in \"Project Settings…\"."))
         case RunErrorCode.taskChangedBeforeLaunch:
             return RunErrorDescription(
-                message: "Görev, \(cli) başlatılmadan önce değişti ya da silindi; çalıştırılmadı.")
+                message: L10n.t("The task changed or was deleted before \(cli) started; it was not run."))
         case RunErrorCode.unknownError:
-            return RunErrorDescription(message: "Beklenmeyen bir hata oluştu.")
+            return RunErrorDescription(message: L10n.t("An unexpected error occurred."))
         default:
             return nil
         }

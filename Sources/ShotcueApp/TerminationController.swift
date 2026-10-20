@@ -17,7 +17,7 @@ import ShotcueUI
 final class TerminationController {
     enum Trigger { case user, signal }
     /// Why a quit relaunches: the confirmation for runs in flight says so.
-    enum RelaunchReason { case permissionGrant, update }
+    enum RelaunchReason { case permissionGrant, update, languageChange }
 
     /// How long the runs get to stop: the runner escalates SIGINT to SIGKILL after 10 s.
     static let settleTimeout: Duration = .seconds(12)
@@ -218,24 +218,29 @@ final class TerminationController {
         let alert = NSAlert()
         alert.alertStyle = .warning
         let resumeHint =
-            "Yarıda kalan görevi sonra yeniden çalıştırabilir ya da Terminalde devam ettirebilirsin."
-        if relaunchRequested, relaunchReason == .update {
-            alert.messageText = "Güncellemeyi kurmak için Shotcue yeniden başlatılacak."
+            L10n.t("You can run an interrupted task again later, or continue it in Terminal.")
+        if relaunchRequested, relaunchReason == .languageChange {
+            alert.messageText = L10n.t("Shotcue will restart to switch the language.")
+            alert.informativeText = L10n.t(
+                "\(count) running tasks will be stopped. \(resumeHint) If you cancel, the language changes the next time Shotcue starts."
+            )
+            alert.addButton(withTitle: L10n.t("Stop and Restart"))
+        } else if relaunchRequested, relaunchReason == .update {
+            alert.messageText = L10n.t("Shotcue will restart to install the update.")
             alert.informativeText =
-                "Çalışan \(count) görev durdurulacak. \(resumeHint) Vazgeçersen güncelleme şimdilik kurulmaz."
-            alert.addButton(withTitle: "Durdur ve güncelle")
+                L10n.t("\(count) running tasks will be stopped. \(resumeHint) If you cancel, the update is not installed for now.")
+            alert.addButton(withTitle: L10n.t("Stop and Update"))
         } else if relaunchRequested {
-            alert.messageText = "Ekran Kaydı izninin geçerli olması için Shotcue yeniden başlatılacak."
+            alert.messageText = L10n.t("Shotcue will restart so that the Screen Recording access applies.")
             alert.informativeText =
-                "Çalışan \(count) görev durdurulacak. \(resumeHint) Vazgeçersen izin, Shotcue yeniden başlayınca "
-                + "geçerli olur."
-            alert.addButton(withTitle: "Durdur ve yeniden başlat")
+                L10n.t("\(count) running tasks will be stopped. \(resumeHint) If you cancel, the access applies once Shotcue restarts.")
+            alert.addButton(withTitle: L10n.t("Stop and Restart"))
         } else {
-            alert.messageText = "Çalışan \(count) görev durdurulacak."
-            alert.informativeText = "Çıkarken çalışan ajan oturumları durdurulur. \(resumeHint)"
-            alert.addButton(withTitle: "Durdur ve çık")
+            alert.messageText = L10n.t("\(count) running tasks will be stopped.")
+            alert.informativeText = L10n.t("Quitting stops the running agent sessions. \(resumeHint)")
+            alert.addButton(withTitle: L10n.t("Stop and Quit"))
         }
-        let cancel = alert.addButton(withTitle: "Vazgeç")
+        let cancel = alert.addButton(withTitle: L10n.t("Cancel"))
         cancel.keyEquivalent = "\u{1b}"
         NSApp.activate()
         confirmationShowing = true

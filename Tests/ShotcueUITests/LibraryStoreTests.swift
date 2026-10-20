@@ -458,19 +458,19 @@ struct LibraryStoreTests {
         _ = await waitUntil("loaded") { f.store.projects.count == 2 }
         f.store.selection = .project(f.projectA.id)
         #expect(f.store.sortedTasks.count == 2)
-        #expect(f.store.itemCountText == "2 öğe")
+        #expect(f.store.itemCountText == "2 items")
         #expect(f.store.isStatusFilterActive == false)
 
         f.store.toggleStatusFilter(.done)
         #expect(f.store.statusFilter == [.done])
         #expect(f.store.sortedTasks.map(\.title) == ["Login akışı"])
         #expect(f.store.isStatusFilterActive)
-        #expect(f.store.itemCountText == "1 / 2 öğe")
+        #expect(f.store.itemCountText == "1 / 2 items")
 
         // Several statuses at once.
         f.store.toggleStatusFilter(.ready)
         #expect(Set(f.store.sortedTasks.map(\.title)) == ["Login akışı", "Buton rengi"])
-        #expect(f.store.itemCountText == "2 / 2 öğe")
+        #expect(f.store.itemCountText == "2 / 2 items")
 
         // Toggling one off, then "Tümü".
         f.store.toggleStatusFilter(.done)

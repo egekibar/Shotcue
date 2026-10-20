@@ -56,7 +56,7 @@ struct TaskDetailDailyQueueTests {
         let projectless = await started(.inbox, withProject: false)
         #expect(projectless.store.canAddToDailyQueue == false)
         await projectless.store.addToDailyQueue()
-        #expect(projectless.store.lastError == "Günlük kuyruğa almak için önce bir proje seç.")
+        #expect(projectless.store.lastError == "Pick a project before adding to the daily queue.")
         #expect(try await projectless.bundle.tasks.task(id: projectless.task.id)?.status == .inbox)
         projectless.store.stop()
         projectless.bundle.cleanUp()

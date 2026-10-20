@@ -177,7 +177,7 @@ struct DraftFlushTests {
 
         await f.store.commit(.note)
 
-        #expect(f.store.lastError == "Görev çalışırken not kaydedilemedi.")
+        #expect(f.store.lastError == "The note could not be saved while the task runs.")
         #expect(f.store.noteDraft == "yarım kalan not")
         let saved = try #require(try await f.bundle.tasks.task(id: f.task.id))
         #expect(saved.noteText == "eski not")

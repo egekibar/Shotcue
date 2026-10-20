@@ -88,7 +88,7 @@ struct DeleteSafetyTests {
         store.requestDelete(taskIDs: [ready.id])
         #expect(store.pendingDeleteIDs == [ready.id])
         #expect(store.isDeleteConfirmationPresented)
-        #expect(store.deleteConfirmationTitle == "Görev kalıcı olarak silinsin mi?")
+        #expect(store.deleteConfirmationTitle == "Delete the task permanently?")
         #expect(try await bundle.tasks.task(id: ready.id) != nil)
 
         // Dismissing the dialog deletes nothing.
@@ -97,7 +97,7 @@ struct DeleteSafetyTests {
         #expect(try await bundle.tasks.task(id: ready.id) != nil)
 
         store.requestDelete(taskIDs: [ready.id, other.id])
-        #expect(store.deleteConfirmationTitle == "2 görev kalıcı olarak silinsin mi?")
+        #expect(store.deleteConfirmationTitle == "Delete 2 tasks permanently?")
         await store.confirmDelete(taskIDs: store.pendingDeleteIDs)
         #expect(store.pendingDeleteIDs.isEmpty)
         #expect(try await bundle.tasks.task(id: ready.id) == nil)

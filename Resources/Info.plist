@@ -2,7 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key><string>tr</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <!-- Plan 08: the interface follows the system language among these (English otherwise), or the one picked in
+         Settings > General > Language, which writes the app's AppleLanguages. -->
+    <key>CFBundleLocalizations</key><array><string>en</string><string>tr</string></array>
     <key>CFBundleDisplayName</key><string>__APP_NAME__</string>
     <key>CFBundleExecutable</key><string>__APP_NAME__</string>
     <key>CFBundleIdentifier</key><string>__BUNDLE_ID__</string>

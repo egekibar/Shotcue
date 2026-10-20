@@ -1,0 +1,57 @@
+/* ShotcueApp strings (tr). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Restart for a language change */
+"Shotcue will restart to switch the language." = "Dili değiştirmek için Shotcue yeniden başlatılacak.";
+"%lld running tasks will be stopped. %@ If you cancel, the language changes the next time Shotcue starts." = "Çalışan %lld görev durdurulacak. %@ Vazgeçersen dil, Shotcue bir sonraki açılışında değişir.";
+"Stop and Restart" = "Durdur ve yeniden başlat";
+
+/* App: capture, quit, updates, diagnostics bar, shortcut, login item */
+"not found" = "bulunamadı";
+"unreadable (exit %lld)" = "okunamadı (exit %lld)";
+"unreadable" = "okunamadı";
+"checking…" = "kontrol ediliyor…";
+"searching…" = "aranıyor…";
+"Capture failed" = "Yakalama başarısız";
+"The capture could not be written to disk" = "Yakalama diske yazılamadı";
+"The capture could not be saved" = "Yakalama kaydedilemedi";
+"screencapture exited with code %lld" = "screencapture %lld koduyla çıktı";
+"The image could not be read: %@" = "Görüntü okunamadı: %@";
+"screencapture could not be started: %@" = "screencapture başlatılamadı: %@";
+"The storage folder cannot be used: %@" = "Depolama klasörü kullanılamıyor: %@";
+"%@ was not found. Set its path in Settings > Agents and restart Shotcue." = "%@ bulunamadı — Ayarlar > Ajanlar'dan yolu ayarlayıp Shotcue'yu yeniden başlatın.";
+"Shotcue Setup" = "Shotcue Kurulumu";
+"You can run an interrupted task again later, or continue it in Terminal." = "Yarıda kalan görevi sonra yeniden çalıştırabilir ya da Terminalde devam ettirebilirsin.";
+"Shotcue will restart to install the update." = "Güncellemeyi kurmak için Shotcue yeniden başlatılacak.";
+"%lld running tasks will be stopped. %@ If you cancel, the update is not installed for now." = "Çalışan %lld görev durdurulacak. %@ Vazgeçersen güncelleme şimdilik kurulmaz.";
+"Stop and Update" = "Durdur ve güncelle";
+"Shotcue will restart so that the Screen Recording access applies." = "Ekran Kaydı izninin geçerli olması için Shotcue yeniden başlatılacak.";
+"%lld running tasks will be stopped. %@ If you cancel, the access applies once Shotcue restarts." = "Çalışan %lld görev durdurulacak. %@ Vazgeçersen izin, Shotcue yeniden başlayınca geçerli olur.";
+"%lld running tasks will be stopped." = "Çalışan %lld görev durdurulacak.";
+"Quitting stops the running agent sessions. %@" = "Çıkarken çalışan ajan oturumları durdurulur. %@";
+"Stop and Quit" = "Durdur ve çık";
+"Cancel" = "Vazgeç";
+"Shotcue Update" = "Shotcue Güncellemesi";
+"Open at login: %@" = "Girişte başlat: %@";
+"Login Items" = "Giriş Öğeleri";
+"Run Diagnostics" = "Tanılama çalıştır";
+"Interrupted runs could not be marked: %@" = "Yarım kalan çalışmalar işaretlenemedi: %@";
+"No session to continue was found." = "Devam edilecek oturum bulunamadı.";
+"A session continues from its project folder, and this task has no project." = "Oturum proje klasöründen devam ettirilir; görevin bir projesi yok.";
+"Terminal could not be opened: %@" = "Terminal açılamadı: %@";
+"Could not run it again: %@" = "Yeniden çalıştırılamadı: %@";
+"Restart Shotcue for this setting to apply (model, input device, storage or agent path)." = "Bu ayar için Shotcue'yu yeniden başlatın (model / giriş cihazı / depolama / ajan yolu).";
+"The shortcut %@ could not be registered (%@)." = "Kısayol %@ kaydedilemedi (%@).";
+"%@ %@ stays in use." = "%@ %@ kullanılmaya devam ediyor.";
+"%@ The previous shortcut %@ could not be restored either." = "%@ Önceki kısayol %@ de geri yüklenemedi.";
+"another app uses it" = "başka bir uygulama kullanıyor";
+"error %lld" = "hata %lld";
+"Open at login could not be set: %@" = "Girişte başlat ayarlanamadı: %@";
+"The diagnostics could not be written: %@" = "Tanılama yazılamadı: %@";
+"Shotcue could not start" = "Shotcue başlatılamadı";
+"Quit" = "Çık";
+"off" = "kapalı";
+"on" = "etkin";
+"waiting for approval in System Settings > General > Login Items" = "Sistem Ayarları > Genel > Giriş Öğeleri'nde onay bekliyor";
+"not available: add Shotcue by hand in System Settings > General > Login Items" = "kullanılamıyor — Shotcue'yu Sistem Ayarları > Genel > Giriş Öğeleri'nden elle ekle";
+"unknown" = "bilinmiyor";
+"Library" = "Kütüphane";

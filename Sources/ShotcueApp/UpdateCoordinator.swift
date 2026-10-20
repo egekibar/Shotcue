@@ -120,7 +120,7 @@ final class UpdateCoordinator: NSObject, NSWindowDelegate {
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false)
-        window.title = "Shotcue Güncellemesi"
+        window.title = L10n.t("Shotcue Update")
         window.contentView = hosting
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.canJoinAllSpaces]

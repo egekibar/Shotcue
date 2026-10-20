@@ -23,7 +23,7 @@ public struct DiffSheet: View {
 
     /// "3 dosya · +120 −34".
     var summary: String {
-        "\(document.files.count) dosya · +\(document.additions) −\(document.deletions)"
+        L10n.t("\(document.files.count) files · +\(document.additions) −\(document.deletions)")
     }
 
     private var selectedFile: DiffFile? {
@@ -35,8 +35,8 @@ public struct DiffSheet: View {
         VStack(spacing: 0) {
             if document.files.isEmpty {
                 ContentUnavailableView(
-                    "Değişiklik yok", systemImage: "checkmark.circle",
-                    description: Text("Bu çalıştırmadan sonra çalışma ağacında fark bulunmadı.")
+                    L10n.t("No changes"), systemImage: "checkmark.circle",
+                    description: Text(L10n.t("The working tree shows no difference since this run."))
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -48,7 +48,7 @@ public struct DiffSheet: View {
                             DiffFileView(file: file)
                                 .id(file.id)
                         } else {
-                            ContentUnavailableView("Bir dosya seçin", systemImage: "doc.text")
+                            ContentUnavailableView(L10n.t("Select a file"), systemImage: "doc.text")
                         }
                     }
                     .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity)
@@ -56,7 +56,7 @@ public struct DiffSheet: View {
             }
             if document.isTruncated {
                 Label(
-                    "Çıktı \(DiffText.defaultMaxBytes / 1_000_000) MB sınırında kesildi; son dosya eksik olabilir, sonrakiler listede yok.",
+                    L10n.t("The output was cut at \(DiffText.defaultMaxBytes / 1_000_000) MB; the last file may be incomplete and later ones are not listed."),
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.callout)
@@ -74,15 +74,15 @@ public struct DiffSheet: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Dosyayı kopyala", systemImage: "doc.on.clipboard") {
+                Button(L10n.t("Copy File"), systemImage: "doc.on.clipboard") {
                     if let file = selectedFile { Self.copy(file.patchText, to: .general) }
                 }
                 .disabled(selectedFile == nil)
-                Button("Tümünü kopyala", systemImage: "doc.on.doc") {
+                Button(L10n.t("Copy All"), systemImage: "doc.on.doc") {
                     Self.copy(text, to: .general)
                 }
                 .disabled(text.isEmpty)
-                Button("Kapat") { onClose() }
+                Button(L10n.t("Close")) { onClose() }
                     .keyboardShortcut(.cancelAction)
             }
             .padding(12)
@@ -183,12 +183,12 @@ struct DiffFileView: View {
             Divider()
             if rows.rows.isEmpty {
                 ContentUnavailableView(
-                    file.isBinary ? "İkili dosya" : "Gösterilecek satır yok",
+                    file.isBinary ? L10n.t("Binary file") : L10n.t("No lines to show"),
                     systemImage: file.isBinary ? "doc.zipper" : "doc",
                     description: Text(
                         file.isBinary
-                            ? "İkili dosyaların içeriği karşılaştırılmaz."
-                            : "Dosya boş, yalnızca taşındı ya da izinleri değişti.")
+                            ? L10n.t("The contents of binary files are not compared.")
+                            : L10n.t("The file is empty, was only moved, or only its permissions changed."))
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -226,7 +226,7 @@ struct DiffRowView: View {
                 Text(line.kind.marker)
                     .foregroundStyle(line.kind.markerColor)
                     .frame(width: 20)
-                Text(line.kind == .noNewline ? "Dosya sonunda satır sonu yok" : Self.displayed(line.text))
+                Text(line.kind == .noNewline ? L10n.t("No newline at end of file") : Self.displayed(line.text))
                     .italic(line.kind == .noNewline)
                     .foregroundStyle(line.kind == .noNewline ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                     .textSelection(.enabled)
@@ -296,9 +296,9 @@ extension DiffFile.Status {
 
     var label: String {
         switch self {
-        case .added: "Eklendi"
-        case .modified: "Değiştirildi"
-        case .deleted: "Silindi"
+        case .added: L10n.t("Added")
+        case .modified: L10n.t("Modified")
+        case .deleted: L10n.t("Deleted")
         case .renamed: "Taşındı"
         }
     }

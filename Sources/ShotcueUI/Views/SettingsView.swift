@@ -23,6 +23,8 @@ public struct SettingsView: View {
     public let modelDownloadSize: String?
     /// What the model (or its partial download) takes on disk ("1,5 GB"); nil when nothing is there.
     public let modelDiskUsage: String?
+    /// Whisper's language codes for the voice-note language picker; filled by the App layer from WhisperKit.
+    public let sttLanguages: [String]
     /// Input devices for the "Giriş cihazı" picker; empty → a UID text field is shown instead.
     /// Filled by the App layer from `AudioDeviceCatalog.inputDevices()` (ShotcueNotes).
     public let inputDevices: [(uid: String, name: String)]
@@ -30,6 +32,8 @@ public struct SettingsView: View {
     public let appVersion: String?
     /// "Şimdi denetle"; the button is hidden when nil.
     public let onCheckForUpdates: (() -> Void)?
+    /// "Restart now" after a language change; the button is hidden when nil.
+    public let onRestart: (() -> Void)?
 
     public init(
         settings: SettingsStore,
@@ -44,9 +48,11 @@ public struct SettingsView: View {
         onDeleteModel: @escaping () -> Void = {},
         modelDownloadSize: String? = nil,
         modelDiskUsage: String? = nil,
+        sttLanguages: [String] = SettingsStore.sttLanguageChoices,
         inputDevices: [(uid: String, name: String)] = [],
         appVersion: String? = nil,
-        onCheckForUpdates: (() -> Void)? = nil
+        onCheckForUpdates: (() -> Void)? = nil,
+        onRestart: (() -> Void)? = nil
     ) {
         self.settings = settings
         self.permissions = permissions
@@ -60,19 +66,21 @@ public struct SettingsView: View {
         self.onDeleteModel = onDeleteModel
         self.modelDownloadSize = modelDownloadSize
         self.modelDiskUsage = modelDiskUsage
+        self.sttLanguages = sttLanguages
         self.inputDevices = inputDevices
         self.appVersion = appVersion
         self.onCheckForUpdates = onCheckForUpdates
+        self.onRestart = onRestart
     }
 
     @UIState private var confirmsModelDeletion = false
 
     public var body: some View {
         TabView {
-            Tab("Genel", systemImage: "gearshape") { generalTab }
-            Tab("Ajanlar", systemImage: "terminal") { agentsTab }
-            Tab("Ses", systemImage: "mic") { audioTab }
-            Tab("İzinler", systemImage: "lock.shield") { permissionsTab }
+            Tab(L10n.t("General"), systemImage: "gearshape") { generalTab }
+            Tab(L10n.t("Agents"), systemImage: "terminal") { agentsTab }
+            Tab(L10n.t("Audio"), systemImage: "mic") { audioTab }
+            Tab(L10n.t("Permissions"), systemImage: "lock.shield") { permissionsTab }
         }
         .frame(width: 580, height: 460)
         .task { await permissions.refresh() }
@@ -83,26 +91,45 @@ public struct SettingsView: View {
     private var generalTab: some View {
         @Bindable var store = settings
         return Form {
-            Section("Yakalama") {
+            Section(L10n.t("Language")) {
+                Picker(L10n.t("Language"), selection: $store.appLanguage) {
+                    ForEach(AppLanguage.allCases, id: \.self) { language in
+                        Text(language.nativeName ?? L10n.t("System language")).tag(language)
+                    }
+                }
+                if settings.isRestartNeededForLanguage {
+                    HStack {
+                        Text(L10n.t("Restart Shotcue to switch the language."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if let onRestart {
+                            Button(L10n.t("Restart now"), action: onRestart)
+                        }
+                    }
+                }
+            }
+
+            Section(L10n.t("Capture")) {
                 HotKeyRecorder(settings: settings)
-                Toggle("Yakalamayı panoya da kopyala", isOn: $store.copyToClipboardOnCapture)
+                Toggle(L10n.t("Also copy captures to the clipboard"), isOn: $store.copyToClipboardOnCapture)
             }
 
-            Section("Sistem") {
-                Toggle("Oturum açılışında başlat", isOn: $store.launchAtLogin)
+            Section(L10n.t("System")) {
+                Toggle(L10n.t("Open at login"), isOn: $store.launchAtLogin)
                 // What the switch does: no idle sleep while a run is in progress (final review M5).
-                Toggle("Görev çalışırken Mac'i uyanık tut", isOn: $store.keepAwake)
+                Toggle(L10n.t("Keep the Mac awake while a task runs"), isOn: $store.keepAwake)
             }
 
-            Section("Depolama") {
-                LabeledContent("Konum") {
+            Section(L10n.t("Storage")) {
+                LabeledContent(L10n.t("Location")) {
                     Text(settings.storageRoot.path)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
                 }
                 HStack {
-                    Button("Klasör seç…") { settings.isStoragePickerPresented = true }
+                    Button(L10n.t("Choose Folder…")) { settings.isStoragePickerPresented = true }
                         .fileImporter(
                             isPresented: $store.isStoragePickerPresented,
                             allowedContentTypes: [.folder],
@@ -112,39 +139,39 @@ public struct SettingsView: View {
                                 settings.storageRootPath = url.path
                             }
                         }
-                    Button("Varsayılana dön") { settings.storageRootPath = nil }
+                    Button(L10n.t("Use Default")) { settings.storageRootPath = nil }
                         .disabled(settings.storageRootPath == nil)
                 }
-                Text("Taşıma elle yapılır: mevcut dosyaları yeni klasöre kopyalayıp uygulamayı yeniden başlat.")
+                Text(L10n.t("Moving is manual: copy the existing files to the new folder, then restart the app."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Varsayılan proje") {
+            Section(L10n.t("Default Project")) {
                 Picker(
-                    "Hızlı panelde seçili",
+                    L10n.t("Selected in the quick panel"),
                     selection: Binding<String?>(
                         get: { settings.lastUsedProjectID },
                         set: { settings.lastUsedProjectID = $0 })
                 ) {
-                    Text("Son kullanılan").tag(String?.none)
+                    Text(L10n.t("Last used")).tag(String?.none)
                     ForEach(projects) { project in
                         Text(project.name).tag(Optional(project.id.uuidString))
                     }
                 }
             }
 
-            Section("Güncellemeler") {
-                Toggle("Güncellemeleri otomatik denetle", isOn: $store.autoCheckUpdates)
+            Section(L10n.t("Updates")) {
+                Toggle(L10n.t("Check for updates automatically"), isOn: $store.autoCheckUpdates)
                 if let appVersion {
-                    LabeledContent("Sürüm", value: appVersion)
+                    LabeledContent(L10n.t("Version"), value: appVersion)
                 }
-                LabeledContent("Son denetim") {
-                    Text(settings.lastUpdateCheck?.formatted(date: .abbreviated, time: .shortened) ?? "Henüz yok")
+                LabeledContent(L10n.t("Last check")) {
+                    Text(settings.lastUpdateCheck?.formatted(date: .abbreviated, time: .shortened) ?? L10n.t("Never"))
                         .foregroundStyle(.secondary)
                 }
                 if let onCheckForUpdates {
-                    Button("Şimdi denetle", action: onCheckForUpdates)
+                    Button(L10n.t("Check Now"), action: onCheckForUpdates)
                 }
             }
         }
@@ -156,13 +183,13 @@ public struct SettingsView: View {
     private var agentsTab: some View {
         @Bindable var store = settings
         return Form {
-            Section("Varsayılan ajan") {
-                Picker("Ajan", selection: $store.defaultAgent) {
+            Section(L10n.t("Default Agent")) {
+                Picker(L10n.t("Agent"), selection: $store.defaultAgent) {
                     ForEach(AgentKind.allCases) { agent in
                         Text(agent.displayName).tag(agent)
                     }
                 }
-                Text("Görevler projenin ajanıyla çalışır; ajan seçmemiş projeler bunu kullanır (Proje ayarları).")
+                Text(L10n.t("Tasks run with their project's agent; projects that pick none use this one (Project Settings)."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -171,39 +198,43 @@ public struct SettingsView: View {
                 agentSection(agent)
             }
 
-            Section("Limitler") {
-                Stepper("Maksimum tur: \(settings.maxTurns)", value: $store.maxTurns, in: 1...500, step: 5)
-                LabeledContent("Bütçe (USD)") {
+            Section(L10n.t("Limits")) {
+                Stepper(L10n.t("Max turns: \(settings.maxTurns)"), value: $store.maxTurns, in: 1...500, step: 5)
+                LabeledContent(L10n.t("Budget (USD)")) {
                     TextField("5", value: $store.maxBudgetUSD, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 90)
                 }
                 Stepper(
-                    "Zaman aşımı: \(settings.timeoutMinutes) dk",
+                    L10n.t("Timeout: \(settings.timeoutMinutes) min"),
                     value: $store.timeoutMinutes, in: 1...480, step: 5)
                 Stepper(
-                    "Eş zamanlı çalışma: \(settings.maxConcurrentRuns)",
+                    L10n.t("Concurrent runs: \(settings.maxConcurrentRuns)"),
                     value: $store.maxConcurrentRuns, in: 1...20)
-                Text("Tur ve bütçe limitlerini yalnızca Claude Code uygular; zaman aşımı ve eş zamanlılık her ajan için geçerli.")
+                Text(L10n.t("Only Claude Code enforces the turn and budget limits; the timeout and concurrency apply to every agent."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Yetki modu") {
-                Picker("Mod", selection: $store.permissionMode) {
+            Section(L10n.t("Permission Mode")) {
+                Picker(L10n.t("Mode"), selection: $store.permissionMode) {
                     ForEach(ClaudePermissionMode.allCases, id: \.self) { mode in
                         Text(Self.permissionModeLabel(mode)).tag(mode.rawValue)
                     }
                 }
                 Text(
-                    "Codex'te bypassPermissions sandbox'sız tam erişim, diğerleri proje klasörüyle sınırlı sandbox demek; Antigravity'de bypassPermissions dışındaki modlar terminal sandbox'ını açar."
+                    L10n.t(
+                        "In Codex, bypassPermissions means full access without a sandbox and the other modes a sandbox limited to the project folder; in Antigravity, every mode but bypassPermissions turns on the terminal sandbox."
+                    )
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 if settings.claudePermissionMode == .bypassPermissions {
                     Label(
-                        "Uygula modunda ajan dosya değişikliklerini sormadan yapar. Bu bilinçli bir tercih; güvenli tarafta kalmak için acceptEdits'e düşürebilirsin.",
+                        L10n.t(
+                            "In Implement mode the agent changes files without asking. This is a deliberate choice; lower it to acceptEdits to stay on the safe side."
+                        ),
                         systemImage: "exclamationmark.triangle.fill"
                     )
                     .font(.caption)
@@ -212,11 +243,11 @@ public struct SettingsView: View {
                 }
             }
 
-            Section("Ek sistem talimatı") {
+            Section(L10n.t("Extra System Prompt")) {
                 TextEditor(text: $store.extraSystemPrompt)
                     .font(.callout)
                     .frame(minHeight: 70)
-                Text("Sabit Shotcue talimatından sonra eklenir.")
+                Text(L10n.t("Appended after Shotcue's own instructions."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -227,18 +258,18 @@ public struct SettingsView: View {
     /// One agent CLI: its version (red when missing), its path, its default model and effort.
     private func agentSection(_ agent: AgentKind) -> some View {
         Section(agent.displayName) {
-            LabeledContent("Sürüm") {
+            LabeledContent(L10n.t("Version")) {
                 if let version = version(of: agent) {
                     Label(version, systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                 } else {
-                    Label("bulunamadı", systemImage: "xmark.octagon.fill")
+                    Label(L10n.t("not found"), systemImage: "xmark.octagon.fill")
                         .foregroundStyle(.red)
                 }
             }
-            LabeledContent("Yol") {
+            LabeledContent(L10n.t("Path")) {
                 TextField(
-                    "otomatik bul",
+                    L10n.t("find automatically"),
                     text: Binding(
                         get: { settings.executablePath(for: agent) ?? "" },
                         set: { settings.setExecutablePath($0, for: agent) })
@@ -247,33 +278,36 @@ public struct SettingsView: View {
                 .frame(minWidth: 240)
             }
             Picker(
-                "Model",
+                L10n.t("Model"),
                 selection: Binding(
                     get: { settings.defaultModel(for: agent) ?? "" },
                     set: { settings.setDefaultModel($0, for: agent) })
             ) {
                 ForEach(AgentModelChoices.options(for: agent, including: settings.defaultModel(for: agent)), id: \.self) {
                     model in
-                    Text(model.isEmpty ? "CLI varsayılanı" : model).tag(model)
+                    Text(model.isEmpty ? L10n.t("CLI default") : model).tag(model)
                 }
             }
             Picker(
-                "Effort",
+                L10n.t("Effort"),
                 selection: Binding(
                     get: { settings.defaultEffort(for: agent) ?? "" },
                     set: { settings.setDefaultEffort($0, for: agent) })
             ) {
                 ForEach(effortOptions(for: agent), id: \.self) { effort in
-                    Text(effort.isEmpty ? "belirtilmedi" : effort).tag(effort)
+                    Text(effort.isEmpty ? L10n.t("not set") : effort).tag(effort)
                 }
             }
-            Text(
-                "Boş bırakılırsa sırayla \(agent.defaultCandidates.map { ($0 as NSString).deletingLastPathComponent }.joined(separator: ", ")) ve login shell denenir."
-            )
+            Text(L10n.t("When empty, \(Self.candidateFolders(agent)) and the login shell are tried in that order."))
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// "~/.local/bin, /opt/homebrew/bin, /usr/local/bin": where the agent's CLI is looked for when no path is set.
+    nonisolated static func candidateFolders(_ agent: AgentKind) -> String {
+        agent.defaultCandidates.map { ($0 as NSString).deletingLastPathComponent }.joined(separator: ", ")
     }
 
     private func version(of agent: AgentKind) -> String? {
@@ -296,26 +330,31 @@ public struct SettingsView: View {
     private var audioTab: some View {
         @Bindable var store = settings
         return Form {
-            Section("Transkripsiyon") {
-                Picker("Dil", selection: $store.sttLanguage) {
-                    Text("Türkçe").tag("tr")
-                    Text("İngilizce").tag("en")
+            Section(L10n.t("Transcription")) {
+                Picker(L10n.t("Language"), selection: $store.sttLanguage) {
+                    Text(L10n.t("Detect automatically")).tag(TranscriptionLanguage.automatic)
+                    Divider()
+                    ForEach(Self.languageChoices(sttLanguages, including: settings.sttLanguage), id: \.self) { code in
+                        Text(Self.languageName(code)).tag(code)
+                    }
                 }
-                Picker("Model", selection: $store.sttModel) {
+                Picker(L10n.t("Model"), selection: $store.sttModel) {
                     ForEach(SettingsStore.sttModelChoices, id: \.self) { model in
                         Text(model).tag(model)
                     }
                 }
-                LabeledContent("Durum") {
+                LabeledContent(L10n.t("Status")) {
                     Text(Self.modelStateLabel(transcriberState))
                         .foregroundStyle(Self.modelStateTint(transcriberState))
                 }
                 if let modelDiskUsage, !Self.isDownloading(transcriberState) {
-                    LabeledContent("Diskte", value: modelDiskUsage)
+                    LabeledContent(L10n.t("On disk"), value: modelDiskUsage)
                 }
                 modelControls
                 Text(
-                    "Model hazır olmadan da sesli not alınabilir; transkripsiyon bekler ve model gelince kuyruk işlenir."
+                    L10n.t(
+                        "Voice notes can be recorded before the model is ready; they wait and are transcribed once it arrives."
+                    )
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -324,17 +363,17 @@ public struct SettingsView: View {
                 Self.deleteModelTitle(transcriberState), isPresented: $confirmsModelDeletion,
                 titleVisibility: .visible
             ) {
-                Button("Sil", role: .destructive) { onDeleteModel() }
-                Button("Vazgeç", role: .cancel) {}
+                Button(L10n.t("Delete"), role: .destructive) { onDeleteModel() }
+                Button(L10n.t("Cancel"), role: .cancel) {}
             } message: {
-                Text("Sesli notlar, model yeniden indirilene kadar yazıya dökülmez.")
+                Text(L10n.t("Voice notes are not transcribed until the model is downloaded again."))
             }
 
-            Section("Giriş cihazı") {
+            Section(L10n.t("Input Device")) {
                 if inputDevices.isEmpty {
-                    LabeledContent("Cihaz UID") {
+                    LabeledContent(L10n.t("Device UID")) {
                         TextField(
-                            "sistem varsayılanı",
+                            L10n.t("system default"),
                             text: Binding(
                                 get: { settings.inputDeviceUID ?? "" },
                                 set: { settings.inputDeviceUID = $0.isEmpty ? nil : $0 })
@@ -344,27 +383,29 @@ public struct SettingsView: View {
                     }
                 } else {
                     Picker(
-                        "Cihaz",
+                        L10n.t("Device"),
                         selection: Binding<String>(
                             get: { settings.inputDeviceUID ?? "" },
                             set: { settings.inputDeviceUID = $0.isEmpty ? nil : $0 })
                     ) {
-                        Text("Sistem varsayılanı").tag("")
+                        Text(L10n.t("System default")).tag("")
                         ForEach(inputDevices, id: \.uid) { device in
                             Text(device.name).tag(device.uid)
                         }
                     }
                 }
-                Text("Boş bırakılırsa sistemin varsayılan mikrofonu kullanılır.")
+                Text(L10n.t("When empty, the system's default microphone is used."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Deneysel") {
-                Toggle("Foundation Models ile başlık önerisi (v1.1)", isOn: $store.foundationModelsEnabled)
+            Section(L10n.t("Experimental")) {
+                Toggle(L10n.t("Title suggestions with Foundation Models (v1.1)"), isOn: $store.foundationModelsEnabled)
                     .disabled(true)
                 Text(
-                    "Command Line Tools'ta FoundationModels makroları derlenmediği için bu özellik v1'de kapalı (spec §6.2). Apple Intelligence durumu Tanılama şeridinde görünür."
+                    L10n.t(
+                        "Off in v1: the FoundationModels macros do not build with the Command Line Tools (spec §6.2). Apple Intelligence's state shows in the diagnostics bar."
+                    )
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -377,7 +418,7 @@ public struct SettingsView: View {
 
     private var permissionsTab: some View {
         Form {
-            Section("Durum") {
+            Section(L10n.t("Status")) {
                 ForEach(PermissionKind.allCases, id: \.self) { kind in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
@@ -388,9 +429,9 @@ public struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                             Spacer(minLength: 8)
                             if permissions.state(of: kind) == .notDetermined {
-                                Button("İzin ver") { Task { await permissions.request(kind) } }
+                                Button(L10n.t("Allow")) { Task { await permissions.request(kind) } }
                             }
-                            Button("Sistem Ayarları") { permissions.openSettings(kind) }
+                            Button(L10n.t("System Settings")) { permissions.openSettings(kind) }
                         }
                         Text(permissions.explanation(for: kind))
                             .font(.caption)
@@ -402,10 +443,12 @@ public struct SettingsView: View {
             }
 
             Section {
-                Button("Durumları yenile") { Task { await permissions.refresh() } }
+                Button(L10n.t("Refresh")) { Task { await permissions.refresh() } }
             } footer: {
                 Text(
-                    "macOS, Ekran Kaydı iznini ayda bir yeniden onaylatabilir; bu beklenen davranıştır. İzin verildikten sonra Shotcue'yu yeniden başlat."
+                    L10n.t(
+                        "macOS may ask to confirm Screen Recording again about once a month; that is expected. Restart Shotcue after granting a permission."
+                    )
                 )
                 .font(.caption)
             }
@@ -420,36 +463,50 @@ public struct SettingsView: View {
         case .downloading(let progress):
             HStack {
                 ProgressView(value: progress) {
-                    Text("Model indiriliyor")
+                    Text(L10n.t("Downloading the model"))
                 }
                 .progressViewStyle(.linear)
-                Button("Duraklat", systemImage: "pause.fill") { onPauseDownload() }
+                Button(L10n.t("Pause"), systemImage: "pause.fill") { onPauseDownload() }
             }
         case .paused:
             HStack {
-                Button("Devam et", systemImage: "arrow.down.circle") { onDownloadModel() }
+                Button(L10n.t("Resume"), systemImage: "arrow.down.circle") { onDownloadModel() }
                     .buttonStyle(.glassProminent)
-                Button("İndirileni sil", systemImage: "trash", role: .destructive) { confirmsModelDeletion = true }
+                Button(L10n.t("Delete Download"), systemImage: "trash", role: .destructive) { confirmsModelDeletion = true }
             }
         case .ready:
-            Button("Modeli sil", systemImage: "trash", role: .destructive) { confirmsModelDeletion = true }
+            Button(L10n.t("Delete Model"), systemImage: "trash", role: .destructive) { confirmsModelDeletion = true }
         case .failed:
             HStack {
-                Button("Tekrar dene", systemImage: "arrow.clockwise") { onDownloadModel() }
+                Button(L10n.t("Try Again"), systemImage: "arrow.clockwise") { onDownloadModel() }
                     .buttonStyle(.glassProminent)
                 if modelDiskUsage != nil {
-                    Button("İndirileni sil", systemImage: "trash", role: .destructive) {
+                    Button(L10n.t("Delete Download"), systemImage: "trash", role: .destructive) {
                         confirmsModelDeletion = true
                     }
                 }
             }
         case .notDownloaded:
-            Button(modelDownloadSize.map { "Modeli indir (\($0))" } ?? "Modeli indir") { onDownloadModel() }
+            Button(modelDownloadSize.map { L10n.t("Download Model (\($0))") } ?? L10n.t("Download Model")) { onDownloadModel() }
                 .buttonStyle(.glassProminent)
         }
     }
 
     // MARK: - Pure copy helpers
+
+    /// The codes sorted by their names in the interface language, plus a stored one the list lacks.
+    nonisolated static func languageChoices(
+        _ codes: [String], including stored: String, locale: Locale = .autoupdatingCurrent
+    ) -> [String] {
+        var all = Set(codes)
+        if !TranscriptionLanguage.isAutomatic(stored) { all.insert(stored) }
+        return all.sorted { languageName($0, locale: locale).localizedStandardCompare(languageName($1, locale: locale)) == .orderedAscending }
+    }
+
+    /// "Turkish" / "Türkçe" for "tr", in the interface language; the code itself when the system has no name.
+    nonisolated static func languageName(_ code: String, locale: Locale = .autoupdatingCurrent) -> String {
+        locale.localizedString(forLanguageCode: code).map { $0.capitalized(with: locale) } ?? code
+    }
 
     nonisolated static func isDownloading(_ state: TranscriberModelState) -> Bool {
         if case .downloading = state { return true }
@@ -457,17 +514,17 @@ public struct SettingsView: View {
     }
 
     nonisolated public static func deleteModelTitle(_ state: TranscriberModelState) -> String {
-        state == .ready ? "Model silinsin mi?" : "İndirilen kısım silinsin mi?"
+        state == .ready ? L10n.t("Delete the model?") : L10n.t("Delete the partial download?")
     }
 
     nonisolated public static func modelStateLabel(_ state: TranscriberModelState) -> String {
         switch state {
-        case .notDownloaded: "İndirilmedi"
-        case .downloading(let progress): "İndiriliyor… %\(Int((progress * 100).rounded()))"
-        case .paused(let progress?): "Duraklatıldı %\(Int((progress * 100).rounded()))"
-        case .paused(nil): "Duraklatıldı"
-        case .ready: "Hazır"
-        case .failed(let message): "Hata: \(message)"
+        case .notDownloaded: L10n.t("Not downloaded")
+        case .downloading(let progress): L10n.t("Downloading… \(Int((progress * 100).rounded()))%")
+        case .paused(let progress?): L10n.t("Paused \(Int((progress * 100).rounded()))%")
+        case .paused(nil): L10n.t("Paused")
+        case .ready: L10n.t("Ready")
+        case .failed(let message): L10n.t("Error: \(message)")
         }
     }
 
@@ -483,9 +540,9 @@ public struct SettingsView: View {
 
     nonisolated public static func permissionModeLabel(_ mode: ClaudePermissionMode) -> String {
         switch mode {
-        case .bypassPermissions: "bypassPermissions (sormaz, uygular)"
-        case .acceptEdits: "acceptEdits (düzenlemeleri kabul eder)"
-        case .dontAsk: "dontAsk (yalnızca okuma)"
+        case .bypassPermissions: L10n.t("bypassPermissions (applies without asking)")
+        case .acceptEdits: L10n.t("acceptEdits (accepts edits)")
+        case .dontAsk: L10n.t("dontAsk (read-only)")
         }
     }
 }

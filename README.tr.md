@@ -24,7 +24,7 @@
   <a href="https://github.com/egekibar/Shotcue/releases/latest"><img src="docs/assets/download.tr.svg" width="320" alt="Shotcue'yu macOS için indir"></a>
 </p>
 
-<p align="center"><sub>Yerel menü çubuğu uygulaması · API anahtarı yok: Claude aboneliğinle çalışır · <b>arayüz Türkçe</b></sub></p>
+<p align="center"><sub>Yerel menü çubuğu uygulaması · API anahtarı yok: Claude aboneliğinle çalışır · <b>Türkçe ve İngilizce</b></sub></p>
 
 <p align="center">
   <picture>
@@ -34,7 +34,7 @@
 </p>
 
 > [!NOTE]
-> **Shotcue'nun arayüzü Türkçedir** ve sesli notlar varsayılan olarak Türkçe yazıya dökülür (Ayarlar'dan İngilizce seçilebilir). Bu belgedeki buton ve menü adları uygulamada göründüğü gibidir.
+> **Shotcue Türkçe ve İngilizce konuşur.** Sistem dilini takip eder (başka dillerde İngilizce açılır); Ayarlar → Genel → Dil'den ya da macOS'un uygulama başına dil ayarından biri seçilebilir. Sesli notlar varsayılan olarak arayüz dilinde yazıya dökülür; Whisper'ın bildiği herhangi bir dil ya da otomatik algılama da seçilebilir. Ajanlar özetlerini arayüz dilinde yazar. Bu belgedeki buton ve menü adları uygulamanın Türkçe arayüzünde göründüğü gibidir.
 
 ## Nedir?
 
@@ -325,12 +325,12 @@ Tasarım spec'i (`docs/superpowers/specs/`), uygulama planları (`docs/superpowe
 
 ## Bilinen sınırlamalar
 
-- Arayüz yalnızca Türkçedir.
+- Arayüz yalnızca Türkçe ve İngilizcedir.
 - Yalnızca Apple Silicon ve macOS 26 ya da üstü.
 - Notarize değil ve ad-hoc imzalı: ilk açılışta Gatekeeper uyarısı ve her güncellemeden sonra izin istekleri beklenir. Bu tür derlemelerde *Oturum açılışında başlat* kullanılamıyor görünebilir; durumu Ayarlar'ın en altındaki şerit gösterir, o durumda Shotcue'yu Sistem Ayarları → Genel → Giriş Öğeleri'nden elle ekleyebilirsin.
 - Yalnızca bölge yakalama (macOS'un `screencapture` aracı): pencere seçimi, işaretleme ya da gizleme yok. Panel başına bir yakalama; birden çok görseli birlikte göndermek için görevleri birleştir.
 - Zamanlamalar ve günlük kuyruk yalnızca Shotcue açıkken ve Mac uyanıkken çalışır.
-- Transkripsiyon tek dille çalışır (Türkçe ya da İngilizce); model ilk seferde büyük bir indirmedir.
+- Transkripsiyon her seferinde tek dille çalışır (ya da dili her kayıtta kendisi algılar); model ilk seferde büyük bir indirmedir.
 - Yeni transkripsiyon modeli, mikrofon, depolama klasörü ya da `claude` yolu Shotcue yeniden başlatılınca geçerli olur; depolama klasörünü değiştirmek mevcut verileri taşımaz.
 - Shotcue'nun kullandığı Claude Code CLI bayrakları sürümler arasında değişebilir; Claude Code 2.1.278 ile denendi.
 - *Claude'da baştan başlat* ekran görüntülerini dosya bağlantısı olarak iletir; Claude Desktop'ın onları ekleyip eklemediği Claude Desktop'a bağlıdır.

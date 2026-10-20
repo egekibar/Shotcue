@@ -46,15 +46,15 @@ public struct MenuBarView: View {
             Text("Shotcue").font(.headline)
             Spacer()
             if store.isPaused {
-                Label("Duraklatıldı", systemImage: "pause.circle.fill")
+                Label(L10n.t("Paused"), systemImage: "pause.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
             } else if store.runningCount > 0 {
-                Label("\(store.runningCount) çalışıyor", systemImage: "circle.dotted")
+                Label(L10n.t("\(store.runningCount) running"), systemImage: "circle.dotted")
                     .font(.caption)
                     .foregroundStyle(.blue)
             } else if store.queuedCount > 0 {
-                Label("\(store.queuedCount) kuyrukta", systemImage: "list.bullet.circle")
+                Label(L10n.t("\(store.queuedCount) queued"), systemImage: "list.bullet.circle")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -64,13 +64,13 @@ public struct MenuBarView: View {
     @ViewBuilder
     private var recentSection: some View {
         if store.recentTasks.isEmpty {
-            Text("Henüz yakalama yok. Kısayolla ekrandan bir bölge seç.")
+            Text(L10n.t("No captures yet. Use the shortcut to select a region of the screen."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             VStack(alignment: .leading, spacing: 2) {
-                Text("SON GÖREVLER")
+                Text(L10n.t("RECENT TASKS"))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 ForEach(store.recentTasks) { task in
@@ -103,7 +103,7 @@ public struct MenuBarView: View {
             Button {
                 Task { await store.runQueueNow() }
             } label: {
-                Label("Kuyruğu şimdi çalıştır", systemImage: "play.fill")
+                Label(L10n.t("Run Queue Now"), systemImage: "play.fill")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
             }
@@ -114,7 +114,7 @@ public struct MenuBarView: View {
                 Task { await store.togglePaused() }
             } label: {
                 Label(
-                    store.isPaused ? "Sürdür" : "Duraklat",
+                    store.isPaused ? L10n.t("Resume Queue") : L10n.t("Pause Queue"),
                     systemImage: store.isPaused ? "play.circle" : "pause.circle"
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -129,7 +129,7 @@ public struct MenuBarView: View {
             Button {
                 openLibrary()
             } label: {
-                Label("Kütüphane", systemImage: "square.grid.2x2")
+                Label(L10n.t("Library"), systemImage: "square.grid.2x2")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
             }
@@ -139,7 +139,7 @@ public struct MenuBarView: View {
             Button {
                 openSettings()
             } label: {
-                Label("Ayarlar…", systemImage: "gearshape")
+                Label(L10n.t("Settings…"), systemImage: "gearshape")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
             }
@@ -150,7 +150,7 @@ public struct MenuBarView: View {
                 Button {
                     checkForUpdates()
                 } label: {
-                    Label("Güncellemeleri denetle…", systemImage: "arrow.triangle.2.circlepath")
+                    Label(L10n.t("Check for Updates…"), systemImage: "arrow.triangle.2.circlepath")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }
@@ -160,7 +160,7 @@ public struct MenuBarView: View {
             Button {
                 quit()
             } label: {
-                Label("Çık", systemImage: "power")
+                Label(L10n.t("Quit"), systemImage: "power")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
             }

@@ -53,16 +53,16 @@ public enum UpdateError: Error, Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .network: "GitHub'a ulaşılamadı. İnternet bağlantını kontrol edip yeniden dene."
-        case .rateLimited: "GitHub şu an çok fazla istek aldı. Bir saat sonra yeniden dene."
-        case .unreadableRelease: "Son sürümün bilgisi okunamadı."
-        case .noDownload: "Bu sürümün indirilebilir bir DMG dosyası yok."
-        case .noChecksum: "Bu sürümün SHA-256 dosyası yok; güncelleme doğrulanamaz."
-        case .checksumMismatch: "Güncelleme doğrulanamadı: indirilen dosyanın SHA-256 değeri tutmuyor."
-        case .notInstalled: "Shotcue bir uygulama paketinden çalışmıyor; güncelleme kurulamaz."
-        case .notWritable(let path): "\(path) klasörüne yazılamıyor. Güncellemeyi DMG'den elle kurabilirsin."
-        case .invalidBundle(let reason): "İndirilen paket beklenen uygulama değil (\(reason))."
-        case .installFailed: "Güncelleme hazırlanamadı."
+        case .network: L10n.t("GitHub could not be reached. Check your internet connection and try again.")
+        case .rateLimited: L10n.t("GitHub is getting too many requests right now. Try again in an hour.")
+        case .unreadableRelease: L10n.t("The latest release's details could not be read.")
+        case .noDownload: L10n.t("This release has no DMG to download.")
+        case .noChecksum: L10n.t("This release has no SHA-256 file, so the update cannot be verified.")
+        case .checksumMismatch: L10n.t("The update could not be verified: the downloaded file's SHA-256 does not match.")
+        case .notInstalled: L10n.t("Shotcue is not running from an app bundle, so the update cannot be installed.")
+        case .notWritable(let path): L10n.t("\(path) is not writable. You can install the update from the DMG yourself.")
+        case .invalidBundle(let reason): L10n.t("The downloaded package is not the expected app (\(reason)).")
+        case .installFailed: L10n.t("The update could not be prepared.")
         }
     }
 }

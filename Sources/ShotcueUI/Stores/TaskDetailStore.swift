@@ -378,7 +378,7 @@ public final class TaskDetailStore {
 
     @discardableResult
     private func writeNote(_ text: String) async -> FieldWrite {
-        await writeField(notEditableMessage: "Görev çalışırken not kaydedilemedi.") { task in
+        await writeField(notEditableMessage: L10n.t("The note could not be saved while the task runs.")) { task in
             task.noteText = text
             if !task.titleEditedByUser {
                 task.title = TitleMaker.title(noteText: text, transcript: firstTranscript, createdAt: task.createdAt)
@@ -389,7 +389,7 @@ public final class TaskDetailStore {
     @discardableResult
     private func writeTitle(_ text: String) async -> FieldWrite {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return await writeField(notEditableMessage: "Görev çalışırken başlık kaydedilemedi.") { task in
+        return await writeField(notEditableMessage: L10n.t("The title could not be saved while the task runs.")) { task in
             if trimmed.isEmpty {
                 task.titleEditedByUser = false
                 task.title = TitleMaker.title(
@@ -556,11 +556,12 @@ public final class TaskDetailStore {
         await commitDrafts()
         guard var current = task, current.status != .ready else { return }
         guard current.projectID != nil else {
-            lastError = "Günlük kuyruğa almak için önce bir proje seç."
+            lastError = L10n.t("Pick a project before adding to the daily queue.")
             return
         }
         guard current.status.canTransition(to: .ready) else {
-            lastError = "\(StatusPresentation.label(for: current.status)) durumundaki görev günlük kuyruğa alınamaz."
+            lastError = L10n.t(
+                "A task in \(StatusPresentation.label(for: current.status)) cannot be added to the daily queue.")
             return
         }
         if current.status == .queued {
@@ -598,11 +599,11 @@ public final class TaskDetailStore {
     /// Resumes the session in Terminal from the task's project folder, where the run worked (final review M6).
     public func openInTerminal() async {
         guard let sessionID else {
-            lastError = "Devam ettirilecek bir oturum yok."
+            lastError = L10n.t("There is no session to continue.")
             return
         }
         guard let projectPath = project?.path else {
-            lastError = "Oturum proje klasöründen devam ettirilir; görevin bir projesi yok."
+            lastError = L10n.t("A session continues from its project folder, and this task has no project.")
             return
         }
         do {
@@ -615,7 +616,7 @@ public final class TaskDetailStore {
 
     public func openInDesktop() async {
         guard let sessionID, canOpenInDesktop else {
-            lastError = "Devam ettirilecek bir oturum yok."
+            lastError = L10n.t("There is no session to continue.")
             return
         }
         do { try services.handoff.openInDesktop(sessionID: sessionID) } catch { report(error) }
@@ -682,7 +683,7 @@ public final class TaskDetailStore {
             diffDocument = UnifiedDiffParser.parse(text)
             isDiffPresented = true
         } catch {
-            lastError = "Diff alınamadı: proje bir git deposu değil ya da git komutu başarısız oldu."
+            lastError = L10n.t("No changes to show: the project is not a git repository, or git failed.")
         }
     }
 
@@ -700,7 +701,7 @@ public final class TaskDetailStore {
         guard let capture = captures.first(where: { $0.id == captureID }),
             let image = NSImage(contentsOf: services.fileStore.absoluteURL(for: capture.relPath))
         else {
-            lastError = "Görsel dosyası bulunamadı."
+            lastError = L10n.t("Image file not found.")
             return false
         }
         let pasteboard = NSPasteboard.general

@@ -42,14 +42,14 @@ struct UserNotificationNotifierTests {
                 UserNotificationNotifier.openAction,
                 UserNotificationNotifier.terminalAction,
             ])
-        #expect(done.actions.map(\.title) == ["Aç", "Terminalde devam et"])
+        #expect(done.actions.map(\.title) == ["Open", "Continue in Terminal"])
         let failed = try #require(categories.first { $0.identifier == UserNotificationNotifier.runFailedCategory })
         #expect(
             failed.actions.map(\.identifier) == [
                 UserNotificationNotifier.openAction,
                 UserNotificationNotifier.retryAction,
             ])
-        #expect(failed.actions.map(\.title) == ["Aç", "Yeniden çalıştır"])
+        #expect(failed.actions.map(\.title) == ["Open", "Run Again"])
         #expect(UserNotificationNotifier.runDoneCategory == "RUN_DONE")
         #expect(UserNotificationNotifier.runFailedCategory == "RUN_FAILED")
     }

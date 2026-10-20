@@ -183,7 +183,7 @@ final class AppEnvironment {
         // searched for "aranıyor…" — neither is "bulunamadı" (red) yet.
         for agent in AgentKind.allCases {
             status.agentFound[agent] = locators[agent].current != .missing
-            if locators[agent].current == .searching { status.agentVersions[agent] = "aranıyor…" }
+            if locators[agent].current == .searching { status.agentVersions[agent] = L10n.t("searching…") }
         }
         self.status = status
         self.settingsObserver = SettingsObserver()
@@ -277,7 +277,7 @@ final class AppEnvironment {
                 || previous.agentPaths != snapshot.agentPaths
         {
             status.lastError =
-                "Bu ayar için Shotcue'yu yeniden başlatın (model / giriş cihazı / depolama / ajan yolu)."
+                L10n.t("Restart Shotcue for this setting to apply (model, input device, storage or agent path).")
         }
     }
 
@@ -306,7 +306,7 @@ final class AppEnvironment {
             status.hotKeyError = nil
             AppLog.app.notice("hotkey \(combo.label, privacy: .public) registered")
         } catch {
-            let reason = "Kısayol \(combo.label) kaydedilemedi (\(Self.describe(hotKeyError: error)))."
+            let reason = L10n.t("The shortcut \(combo.label) could not be registered (\(Self.describe(hotKeyError: error))).")
             defer { AppLog.app.error("\(self.status.hotKeyError ?? reason, privacy: .public)") }
             guard let previous else {
                 status.hotKeyError = reason
@@ -314,10 +314,10 @@ final class AppEnvironment {
             }
             do {
                 try hotKeys.register(previous, handler: handler)
-                status.hotKeyError = "\(reason) \(previous.label) kullanılmaya devam ediyor."
+                status.hotKeyError = L10n.t("\(reason) \(previous.label) stays in use.")
                 settings.hotKey = previous
             } catch {
-                status.hotKeyError = "\(reason) Önceki kısayol \(previous.label) de geri yüklenemedi."
+                status.hotKeyError = L10n.t("\(reason) The previous shortcut \(previous.label) could not be restored either.")
             }
         }
     }
@@ -333,7 +333,7 @@ final class AppEnvironment {
     /// -9878 is Carbon's `eventHotKeyExistsErr`: another app owns the combination.
     private static func describe(hotKeyError error: Error) -> String {
         if case HotKeyError.registrationFailed(let status) = error {
-            return status == -9878 ? "başka bir uygulama kullanıyor" : "hata \(status)"
+            return status == -9878 ? L10n.t("another app uses it") : L10n.t("error \(Int(status))")
         }
         return error.localizedDescription
     }
@@ -342,7 +342,7 @@ final class AppEnvironment {
         do {
             try LoginItemManager.setEnabled(desired)
         } catch {
-            status.lastError = "Girişte başlat ayarlanamadı: \(error.localizedDescription)"
+            status.lastError = L10n.t("Open at login could not be set: \(error.localizedDescription)")
         }
         refreshLoginItemStatus()
     }
@@ -418,7 +418,7 @@ final class AppEnvironment {
                     hotKeyLabel: settings.hotKey.label)
                 NSWorkspace.shared.open(url)
             } catch {
-                status.lastError = "Tanılama yazılamadı: \(error.localizedDescription)"
+                status.lastError = L10n.t("The diagnostics could not be written: \(error.localizedDescription)")
             }
         }
     }
@@ -443,9 +443,9 @@ final class AppEnvironment {
     static func presentFatalAndExit(_ error: Error) -> Never {
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "Shotcue başlatılamadı"
+        alert.messageText = L10n.t("Shotcue could not start")
         alert.informativeText = error.localizedDescription
-        alert.addButton(withTitle: "Çık")
+        alert.addButton(withTitle: L10n.t("Quit"))
         alert.runModal()
         exit(1)
     }

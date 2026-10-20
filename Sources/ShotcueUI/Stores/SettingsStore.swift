@@ -32,6 +32,9 @@ public final class SettingsStore {
         static let legacyHotKeyLabel = "hotKeyLabel"
         static let launchAtLogin = "launchAtLogin"
         static let copyToClipboardOnCapture = "copyToClipboardOnCapture"
+        static let appLanguage = "appLanguage"
+        /// macOS's own key: the languages this app tries first, read once at launch.
+        static let appleLanguages = "AppleLanguages"
         static let storageRootPath = "storageRootPath"
         static let defaultAgent = "defaultAgent"
         static let claudePath = "claudePath"
@@ -61,7 +64,10 @@ public final class SettingsStore {
         static let skippedUpdateVersion = "skippedUpdateVersion"
     }
 
-    public static let defaultSTTLanguage = "tr"
+    /// A new install transcribes in the interface's language.
+    nonisolated public static var defaultSTTLanguage: String {
+        TranscriptionLanguage.defaultCode(interfaceLanguage: L10n.bundle.preferredLocalizations.first)
+    }
     public static let defaultSTTModel = "openai_whisper-large-v3-v20240930_turbo"
     public static let defaultPermissionMode = ClaudePermissionMode.bypassPermissions.rawValue
     /// Offered in Ayarlar > Ses; both are in `WhisperKit.recommendedModels().supported` (spec §6.2).
@@ -110,6 +116,29 @@ public final class SettingsStore {
         get { bool(Key.copyToClipboardOnCapture, default: false, keyPath: \.copyToClipboardOnCapture) }
         set { setBool(newValue, Key.copyToClipboardOnCapture, keyPath: \.copyToClipboardOnCapture) }
     }
+
+    /// Settings > General > Language. Written to the app's `AppleLanguages` too; it applies after a restart.
+    public var appLanguage: AppLanguage {
+        get {
+            access(keyPath: \.appLanguage)
+            return AppLanguage(stored: defaults.string(forKey: Key.appLanguage))
+        }
+        set {
+            let previous = appLanguage
+            withMutation(keyPath: \.appLanguage) {
+                defaults.set(newValue.rawValue, forKey: Key.appLanguage)
+                if let languages = newValue.appleLanguages {
+                    defaults.set(languages, forKey: Key.appleLanguages)
+                } else {
+                    defaults.removeObject(forKey: Key.appleLanguages)
+                }
+            }
+            if newValue != previous { isRestartNeededForLanguage = true }
+        }
+    }
+
+    /// The language was changed since launch; Settings offers the restart.
+    public private(set) var isRestartNeededForLanguage = false
 
     /// `nil` means "use `FileStore.defaultRoot()`".
     public var storageRootPath: String? {

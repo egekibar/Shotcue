@@ -89,7 +89,7 @@ struct LibraryViewTests {
 
         let chip = StatusChip(status: .running)
         #expect(chip.status == .running)
-        #expect(StatusPresentation.label(for: chip.status) == "Çalışıyor")
+        #expect(StatusPresentation.label(for: chip.status) == "Running")
         bundle.cleanUp()
     }
 
@@ -166,19 +166,19 @@ struct TaskInspectorViewTests {
         #expect(replay.isLive == false)
 
         // The row text each event maps to is a pure function, so it is asserted directly.
-        #expect(RunLogView.line(for: events[0]) == "başladı · claude-sonnet-5")
+        #expect(RunLogView.line(for: events[0]) == "started · claude-sonnet-5")
         #expect(RunLogView.line(for: events[1]) == "Reading the screenshot first.")
         #expect(RunLogView.line(for: events[2]) == "Read /tmp/a.png")
-        #expect(RunLogView.line(for: events[3]) == "API yeniden deneme (1)")
+        #expect(RunLogView.line(for: events[3]) == "API retry (1)")
         #expect(RunLogView.line(for: events[4]) == "user")
-        #expect(RunLogView.line(for: events[5]) == "bitti · 11 tur · 1 dk 24 sn")
+        #expect(RunLogView.line(for: events[5]) == "finished · 11 turns · 1 min 24 s")
         #expect(RunLogView.symbol(for: events[2]) == "wrench.and.screwdriver")
         #expect(RunLogView.symbol(for: events[5]) == "checkmark.seal.fill")
 
         let failure = ClaudeRunResult(
             subtype: "error_max_turns", isError: true, numTurns: 30,
             permissionDenials: ["Bash"])
-        #expect(RunLogView.line(for: .result(failure)) == "limit aşıldı (error_max_turns) · 30 tur")
+        #expect(RunLogView.line(for: .result(failure)) == "limit reached (error_max_turns) · 30 turns")
         #expect(RunLogView.symbol(for: .result(failure)) == "exclamationmark.triangle.fill")
     }
 }
@@ -258,19 +258,32 @@ struct SettingsViewTests {
         bundle.cleanUp()
     }
 
+    /// Voice-note languages are named in the interface language and sorted by those names.
+    @Test func transcriptionLanguagesAreNamedAndSorted() {
+        let turkish = Locale(identifier: "tr_TR")
+        #expect(SettingsView.languageName("de", locale: turkish) == "Almanca")
+        #expect(SettingsView.languageName("de", locale: Locale(identifier: "en_US")) == "German")
+        #expect(
+            SettingsView.languageChoices(["tr", "en", "de"], including: "tr", locale: Locale(identifier: "en_US"))
+                == ["en", "de", "tr"])
+        // A stored code the list lacks stays selectable; "auto" is its own row.
+        #expect(SettingsView.languageChoices(["en"], including: "xx", locale: turkish).contains("xx"))
+        #expect(!SettingsView.languageChoices(["en"], including: "auto", locale: turkish).contains("auto"))
+    }
+
     @MainActor
     @Test func transcriberStateCopyCoversEveryCase() {
-        #expect(SettingsView.modelStateLabel(.notDownloaded) == "İndirilmedi")
-        #expect(SettingsView.modelStateLabel(.downloading(progress: 0.42)) == "İndiriliyor… %42")
-        #expect(SettingsView.modelStateLabel(.paused(progress: 0.42)) == "Duraklatıldı %42")
-        #expect(SettingsView.modelStateLabel(.paused(progress: nil)) == "Duraklatıldı")
-        #expect(SettingsView.modelStateLabel(.ready) == "Hazır")
-        #expect(SettingsView.deleteModelTitle(.ready) == "Model silinsin mi?")
-        #expect(SettingsView.deleteModelTitle(.paused(progress: nil)) == "İndirilen kısım silinsin mi?")
-        #expect(SettingsView.modelStateLabel(.failed("disk dolu")) == "Hata: disk dolu")
-        #expect(SettingsView.permissionModeLabel(.bypassPermissions) == "bypassPermissions (sormaz, uygular)")
-        #expect(SettingsView.permissionModeLabel(.acceptEdits) == "acceptEdits (düzenlemeleri kabul eder)")
-        #expect(SettingsView.permissionModeLabel(.dontAsk) == "dontAsk (yalnızca okuma)")
+        #expect(SettingsView.modelStateLabel(.notDownloaded) == "Not downloaded")
+        #expect(SettingsView.modelStateLabel(.downloading(progress: 0.42)) == "Downloading… 42%")
+        #expect(SettingsView.modelStateLabel(.paused(progress: 0.42)) == "Paused 42%")
+        #expect(SettingsView.modelStateLabel(.paused(progress: nil)) == "Paused")
+        #expect(SettingsView.modelStateLabel(.ready) == "Ready")
+        #expect(SettingsView.deleteModelTitle(.ready) == "Delete the model?")
+        #expect(SettingsView.deleteModelTitle(.paused(progress: nil)) == "Delete the partial download?")
+        #expect(SettingsView.modelStateLabel(.failed("disk full")) == "Error: disk full")
+        #expect(SettingsView.permissionModeLabel(.bypassPermissions) == "bypassPermissions (applies without asking)")
+        #expect(SettingsView.permissionModeLabel(.acceptEdits) == "acceptEdits (accepts edits)")
+        #expect(SettingsView.permissionModeLabel(.dontAsk) == "dontAsk (read-only)")
     }
 }
 
@@ -294,13 +307,13 @@ struct OnboardingViewTests {
         #expect(permissions.allGranted == false)
         // Screen recording is the gate for finishing onboarding.
         #expect(view.canFinish == false)
-        #expect(view.notice?.hasPrefix("Ekran Kaydı izni olmadan yakalama çalışmaz.") == true)
+        #expect(view.notice?.hasPrefix("Capturing does not work without Screen Recording access.") == true)
 
         await permissions.request(.screenRecording)
         #expect(permissions.state(of: .screenRecording) == .granted)
         #expect(view.canFinish == true)
         #expect(view.notice == nil)
-        #expect(view.finishTitle == "Başla")
+        #expect(view.finishTitle == "Start")
 
         view.onDone()
         #expect(done.current == 1)
@@ -322,9 +335,9 @@ struct OnboardingViewTests {
         #expect(view.canFinish)
         #expect(
             view.notice
-                == "Ekran Kaydı izni, Shotcue yeniden başlayınca geçerli olur. Hazır olduğunda \"Yeniden başlat\"a bas."
+                == "Screen Recording access applies once Shotcue restarts. Press Restart when you are ready."
         )
-        #expect(view.finishTitle == "Yeniden başlat")
+        #expect(view.finishTitle == "Restart")
         view.onDone()
         #expect(done.current == 1)
         bundle.cleanUp()

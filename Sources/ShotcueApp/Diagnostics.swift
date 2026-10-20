@@ -30,13 +30,13 @@ struct Diagnostics {
     /// Shown in Settings > Ajanlar (spec §6.4: the tested versions are claude 2.1.278, codex-cli 0.148, agy 1.2.9).
     /// Waits for the locator's background search when it is still running (Settings shows "aranıyor…" meanwhile).
     func version(of agent: AgentKind) async -> (text: String, found: Bool) {
-        guard let executable = await locators[agent].executable() else { return ("bulunamadı", false) }
+        guard let executable = await locators[agent].executable() else { return (L10n.t("not found"), false) }
         let result = await Self.run(executable, ["--version"])
         guard result.status == 0, !result.timedOut else {
-            return ("okunamadı (exit \(result.status))", false)
+            return (L10n.t("unreadable (exit \(Int(result.status)))"), false)
         }
         let text = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (text.isEmpty ? "okunamadı" : text, !text.isEmpty)
+        return (text.isEmpty ? L10n.t("unreadable") : text, !text.isEmpty)
     }
 
     func writeReport(
@@ -72,39 +72,39 @@ struct Diagnostics {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = .current
         var lines: [String] = []
-        lines.append("Shotcue tanılama — \(formatter.string(from: Date()))")
+        lines.append("Shotcue diagnostics — \(formatter.string(from: Date()))")
         lines.append("app: \(Bundle.main.bundleURL.path)")
         lines.append(
-            "sürüm: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")"
+            "version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")"
                 + " (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
-        lines.append("imza: \(signature)")
-        lines.append("varsayılan ajan: \(settings.defaultAgent.displayName)")
+        lines.append("signature: \(signature)")
+        lines.append("default agent: \(settings.defaultAgent.displayName)")
         for agent in AgentKind.allCases {
             let name = agent.executableName
-            lines.append("\(name) yolu: \(await locators[agent].executable()?.path ?? "bulunamadı")")
-            lines.append("\(name) ayarı: \(settings.executablePath(for: agent) ?? "(otomatik)")")
-            lines.append("\(name) sürümü: \(await version(of: agent).text)")
+            lines.append("\(name) path: \(await locators[agent].executable()?.path ?? "not found")")
+            lines.append("\(name) setting: \(settings.executablePath(for: agent) ?? "(automatic)")")
+            lines.append("\(name) version: \(await version(of: agent).text)")
         }
         lines.append("claude auth: \(auth)")
         lines.append("codex auth: \(codexAuth)")
         lines.append(
-            "izinler: ekran kaydı=\(screenRecording.rawValue)"
-                + " mikrofon=\(microphone.rawValue) bildirimler=\(notifications.rawValue)")
-        lines.append("girişte başlat: \(loginItemStatus)")
-        lines.append("kısayol: \(hotKeyLabel)")
-        lines.append("depolama kökü: \(fileStore.rootURL.path)")
-        lines.append("veritabanı: \(Self.fileSizeText(at: fileStore.databaseURL))")
-        lines.append("boş disk alanı: \(Self.freeSpaceText(at: fileStore.rootURL))")
-        lines.append("transkripsiyon modeli: \(Self.describe(transcriberState)) (\(settings.sttModel))")
+            "permissions: screen recording=\(screenRecording.rawValue)"
+                + " microphone=\(microphone.rawValue) notifications=\(notifications.rawValue)")
+        lines.append("launch at login: \(loginItemStatus)")
+        lines.append("shortcut: \(hotKeyLabel)")
+        lines.append("storage root: \(fileStore.rootURL.path)")
+        lines.append("database: \(Self.fileSizeText(at: fileStore.databaseURL))")
+        lines.append("free disk space: \(Self.freeSpaceText(at: fileStore.rootURL))")
+        lines.append("transcription model: \(Self.describe(transcriberState)) (\(settings.sttModel))")
         lines.append("Foundation Models: \(FoundationModelsStatus.current.localizedDescription)")
         return lines.joined(separator: "\n") + "\n"
     }
 
     private func authSummary() async -> String {
-        guard let claudeExecutable = await locators.claude.executable() else { return "claude yok" }
+        guard let claudeExecutable = await locators.claude.executable() else { return "no claude" }
         let result = await Self.run(claudeExecutable, ["auth", "status"])
         guard result.status == 0, !result.timedOut, let summary = Self.authSummary(json: result.stdout) else {
-            return "okunamadı (exit \(result.status))"
+            return "unreadable (exit \(result.status))"
         }
         return summary
     }
@@ -112,12 +112,12 @@ struct Diagnostics {
     /// `codex login status` prints one line ("Logged in using ChatGPT"); only a line of that form is copied, so an
     /// account detail a future version might print cannot reach the report.
     private func codexAuthSummary() async -> String {
-        guard let codex = await locators.codex.executable() else { return "codex yok" }
+        guard let codex = await locators.codex.executable() else { return "no codex" }
         let result = await Self.run(codex, ["login", "status"])
         let line = (result.stdout + "\n" + result.stderr).components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .first { $0.hasPrefix("Logged in using") || $0.hasPrefix("Not logged in") }
-        return line ?? "okunamadı (exit \(result.status))"
+        return line ?? "unreadable (exit \(result.status))"
     }
 
     /// Whitelist, not blacklist: only these three keys are ever copied out of `claude auth status`, so a
@@ -140,17 +140,17 @@ struct Diagnostics {
         let lines = (result.stderr + result.stdout)
             .components(separatedBy: .newlines)
             .filter { $0.hasPrefix("Authority=") || $0.contains("flags=") }
-        return lines.isEmpty ? "imza okunamadı" : lines.joined(separator: "; ")
+        return lines.isEmpty ? "signature unreadable" : lines.joined(separator: "; ")
     }
 
     private static func describe(_ state: TranscriberModelState) -> String {
         switch state {
-        case .notDownloaded: return "indirilmedi"
-        case .downloading(let progress): return "indiriliyor (%\(Int(progress * 100)))"
-        case .paused(let progress?): return "duraklatıldı (%\(Int(progress * 100)))"
-        case .paused(nil): return "duraklatıldı"
-        case .ready: return "hazır"
-        case .failed(let message): return "hata: \(message)"
+        case .notDownloaded: return "not downloaded"
+        case .downloading(let progress): return "downloading (\(Int(progress * 100))%)"
+        case .paused(let progress?): return "paused (\(Int(progress * 100))%)"
+        case .paused(nil): return "paused"
+        case .ready: return "ready"
+        case .failed(let message): return "error: \(message)"
         }
     }
 
@@ -164,7 +164,7 @@ struct Diagnostics {
         guard
             let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
             let capacity = values.volumeAvailableCapacityForImportantUsage
-        else { return "bilinmiyor" }
+        else { return L10n.t("unknown") }
         return ByteCountFormatter.string(fromByteCount: capacity, countStyle: .file)
     }
 

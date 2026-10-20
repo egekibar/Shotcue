@@ -10,6 +10,9 @@ let serviceSettings: [SwiftSetting] = [.defaultIsolation(nil)] + upcoming
 
 let package = Package(
     name: "Shotcue",
+    // English is the source language; every UI string also has a Turkish entry (`<Module>/Resources/*.lproj`).
+    // Classic `.strings` tables: String Catalogs (`.xcstrings`) need `xcstringstool`, which ships with Xcode only.
+    defaultLocalization: "en",
     platforms: [.macOS(.v26)],
     products: [
         .executable(name: "Shotcue", targets: ["ShotcueApp"]),
@@ -19,7 +22,7 @@ let package = Package(
         .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.1.0"),
     ],
     targets: [
-        .target(name: "ShotcueCore", swiftSettings: serviceSettings),
+        .target(name: "ShotcueCore", resources: [.process("Resources")], swiftSettings: serviceSettings),
         .target(
             name: "ShotcuePersistence",
             dependencies: ["ShotcueCore", .product(name: "GRDB", package: "GRDB.swift")],
@@ -28,11 +31,18 @@ let package = Package(
         .target(
             name: "ShotcueNotes",
             dependencies: ["ShotcueCore", .product(name: "WhisperKit", package: "argmax-oss-swift")],
+            resources: [.process("Resources")],
             swiftSettings: serviceSettings),
-        .target(name: "ShotcueClaudeBridge", dependencies: ["ShotcueCore"], swiftSettings: serviceSettings),
+        .target(
+            name: "ShotcueClaudeBridge", dependencies: ["ShotcueCore"], resources: [.process("Resources")],
+            swiftSettings: serviceSettings),
         // In-app updates from GitHub Releases: release feed, DMG download/verify/stage, post-exit bundle swap.
-        .target(name: "ShotcueUpdater", dependencies: ["ShotcueCore"], swiftSettings: serviceSettings),
-        .target(name: "ShotcueUI", dependencies: ["ShotcueCore"], swiftSettings: uiSettings),
+        .target(
+            name: "ShotcueUpdater", dependencies: ["ShotcueCore"], resources: [.process("Resources")],
+            swiftSettings: serviceSettings),
+        .target(
+            name: "ShotcueUI", dependencies: ["ShotcueCore"], resources: [.process("Resources")],
+            swiftSettings: uiSettings),
         // Fakes of every Core protocol, shared by all test targets (never linked into the app).
         .target(name: "ShotcueTestSupport", dependencies: ["ShotcueCore"], swiftSettings: serviceSettings),
         .executableTarget(
@@ -41,6 +51,7 @@ let package = Package(
                 "ShotcueCore", "ShotcueUI", "ShotcuePersistence", "ShotcueCapture",
                 "ShotcueNotes", "ShotcueClaudeBridge", "ShotcueUpdater",
             ],
+            resources: [.process("Resources")],
             swiftSettings: uiSettings),
         .testTarget(name: "ShotcueCoreTests", dependencies: ["ShotcueCore", "ShotcueTestSupport"], swiftSettings: serviceSettings),
         .testTarget(name: "ShotcuePersistenceTests", dependencies: ["ShotcuePersistence", "ShotcueTestSupport"], swiftSettings: serviceSettings),

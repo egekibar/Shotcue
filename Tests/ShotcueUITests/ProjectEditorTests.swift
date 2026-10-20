@@ -83,11 +83,11 @@ struct ProjectDraftTests {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
         var d = ProjectDraft.new()
-        #expect(d.validationMessage() == "Proje adı gerekli.")
+        #expect(d.validationMessage() == "A project name is needed.")
         d.name = "crm"
-        #expect(d.validationMessage() == "Proje klasörü gerekli.")
+        #expect(d.validationMessage() == "A project folder is needed.")
         d.path = dir.appendingPathComponent("yok").path
-        #expect(d.validationMessage()?.hasPrefix("Klasör bulunamadı") == true)
+        #expect(d.validationMessage()?.hasPrefix("Folder not found") == true)
         d.path = dir.path
         #expect(d.validationMessage() == nil)
     }
@@ -171,7 +171,7 @@ struct LibraryStoreProjectEditorTests {
         let store = LibraryStore(services: f.services)
         store.beginCreateProject()
         #expect(await store.saveProjectDraft() == false)
-        #expect(store.lastError == "Proje adı gerekli.")
+        #expect(store.lastError == "A project name is needed.")
         #expect(store.projectDraft != nil)
     }
 }

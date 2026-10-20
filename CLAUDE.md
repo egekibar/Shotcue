@@ -29,7 +29,11 @@ Spec: docs/superpowers/specs/2026-09-22-shotcue-design.md · Plans: docs/superpo
 - SFSpeechRecognizer; SpeechTranscriber.supportedLocale(equivalentTo:) (lies about Turkish); AVAudioSession (iOS only).
 - NSApp.activate(ignoringOtherApps:) inside the quick panel (kills non-activating behavior).
 - Foundation Timer for scheduling (use DispatchSourceTimer); `claude --bare` (drops subscription auth); ad-hoc codesign (`--sign -`).
-- Naming: the task model is `ShotTask` (never `Task`). Code, identifiers, commits in English; UI strings in Turkish.
+- Naming: the task model is `ShotTask` (never `Task`). Code, identifiers, commits in English.
+- UI strings are localized (English and Turkish): `L10n.t("English text")` in the module, with the key in both
+  `Sources/<Module>/Resources/{en,tr}.lproj/Localizable.strings`; `make test` fails on a missing key or placeholder.
+  Interpolate counts as `Int` (`%lld`), not `Int32`. `.xcstrings` cannot be used (needs Xcode's `xcstringstool`).
+  Tests run in English. Logs and the diagnostics report stay in English.
 
 ## Workflow
 - TDD: failing test → minimal code → green → commit. Swift Testing (`#expect`, `#require`), no XCTest.

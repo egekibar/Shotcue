@@ -1,0 +1,9 @@
+/* ShotcueNotes strings (tr). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Apple Intelligence state */
+"Not in this version of macOS" = "Bu macOS sürümünde yok";
+"Ready" = "Hazır";
+"Apple Intelligence is off" = "Apple Intelligence kapalı";
+"Not supported on this device" = "Bu cihaz desteklemiyor";
+"Model downloading" = "Model indiriliyor";
+"Not available" = "Kullanılamıyor";

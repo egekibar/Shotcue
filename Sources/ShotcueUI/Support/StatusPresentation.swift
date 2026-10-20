@@ -6,14 +6,14 @@ import SwiftUI
 public enum StatusPresentation {
     nonisolated public static func label(for status: TaskStatus) -> String {
         switch status {
-        case .inbox: "Gelen"
-        case .ready: "Hazır"
-        case .queued: "Kuyrukta"
-        case .scheduled: "Zamanlandı"
-        case .running: "Çalışıyor"
-        case .done: "Bitti"
-        case .failed: "Hata"
-        case .cancelled: "İptal"
+        case .inbox: L10n.t("Inbox")
+        case .ready: L10n.t("Ready")
+        case .queued: L10n.t("Queued")
+        case .scheduled: L10n.t("Scheduled")
+        case .running: L10n.t("Running")
+        case .done: L10n.t("Done")
+        case .failed: L10n.t("Failed")
+        case .cancelled: L10n.t("Cancelled")
         }
     }
 
@@ -59,11 +59,11 @@ public enum StatusPresentation {
 
     nonisolated public static func label(for state: RunState) -> String {
         switch state {
-        case .starting: "Başlıyor"
-        case .running: "Çalışıyor"
-        case .succeeded: "Başarılı"
-        case .failed: "Hata"
-        case .cancelled: "İptal"
+        case .starting: L10n.t("Starting")
+        case .running: L10n.t("Running")
+        case .succeeded: L10n.t("Succeeded")
+        case .failed: L10n.t("Failed")
+        case .cancelled: L10n.t("Cancelled")
         }
     }
 

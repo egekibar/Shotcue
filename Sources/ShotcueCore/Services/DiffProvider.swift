@@ -10,11 +10,12 @@ public protocol DiffProvider: Sendable {
 
 public enum DiffText {
     public static let defaultMaxBytes = 1_000_000
-    /// Start of the line `truncated` appends; the parser stops there.
-    public static let truncationMarker = "… (çıktı "
+    /// Start of the line `truncated` appends; the parser stops there. A fixed marker in the patch text, not UI copy:
+    /// the diff sheet says it in the app's language.
+    public static let truncationMarker = "… (output cut after "
 
     public static func truncationNotice(maxBytes: Int) -> String {
-        "\(truncationMarker)\(maxBytes) bayttan sonra kesildi)"
+        "\(truncationMarker)\(maxBytes) bytes)"
     }
 
     /// The tracked diff, then each untracked file's diff, as one patch. Empty when nothing changed.

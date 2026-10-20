@@ -16,37 +16,57 @@ struct FormattingTests {
         return c
     }
 
-    /// The schedule form's summary line under the calendar.
-    @Test func scheduleSummaryNamesTheDayInTurkish() {
+    /// The schedule form's summary line names the day in the locale's language and order.
+    @Test func scheduleSummaryNamesTheDay() {
         // 2026-09-22 is a Tuesday.
-        #expect(Formatting.scheduleSummary(now, calendar: utc) == "22 Eylül Salı, 12:00")
+        #expect(Formatting.scheduleSummary(now, calendar: utc, locale: turkish) == "22 Eylül Salı 12:00")
+        #expect(
+            Formatting.scheduleSummary(now, calendar: utc, locale: american)
+                == "Tuesday, September 22 at 12:00\u{202F}PM")
     }
 
+    let turkish = Locale(identifier: "tr_TR")
+    let american = Locale(identifier: "en_US")
+
     @Test func durationSplitsMinutesAndSeconds() {
-        #expect(Formatting.duration(84.213) == "1 dk 24 sn")
-        #expect(Formatting.duration(59.4) == "59 sn")
-        #expect(Formatting.duration(3600) == "60 dk 0 sn")
+        #expect(Formatting.duration(84.213) == "1 min 24 s")
+        #expect(Formatting.duration(59.4) == "59 s")
+        #expect(Formatting.duration(3600) == "60 min 0 s")
         #expect(Formatting.duration(0) == "—")
         #expect(Formatting.duration(nil) == "—")
     }
 
-    @Test func relativeDateIsTurkishAndCoarse() {
-        #expect(Formatting.relativeDate(now.addingTimeInterval(-30), now: now, calendar: utc) == "az önce")
-        #expect(Formatting.relativeDate(now.addingTimeInterval(30), now: now, calendar: utc) == "az önce")
-        #expect(Formatting.relativeDate(now.addingTimeInterval(-300), now: now, calendar: utc) == "5 dk önce")
-        #expect(Formatting.relativeDate(now.addingTimeInterval(-7200), now: now, calendar: utc) == "2 sa önce")
-        #expect(Formatting.relativeDate(now.addingTimeInterval(-90_000), now: now, calendar: utc) == "dün")
-        #expect(Formatting.relativeDate(now.addingTimeInterval(-5 * 86_400), now: now, calendar: utc) == "17.09")
+    @Test func relativeDateIsCoarse() {
+        func relative(_ offset: TimeInterval, _ locale: Locale = Locale(identifier: "tr_TR")) -> String {
+            Formatting.relativeDate(now.addingTimeInterval(offset), now: now, calendar: utc, locale: locale)
+        }
+        #expect(relative(-30) == "just now")
+        #expect(relative(30) == "just now")
+        #expect(relative(-300) == "5 min ago")
+        #expect(relative(-7200) == "2 h ago")
+        #expect(relative(-90_000) == "yesterday")
+        // Older dates follow the locale's day-month order.
+        #expect(relative(-5 * 86_400) == "17.09")
+        #expect(relative(-5 * 86_400, american) == "09/17")
     }
 
-    @Test func clockTimeFormatsHourMinute() {
-        #expect(Formatting.clockTime(now, calendar: utc) == "12:00")
+    /// The clock follows the locale's 12/24-hour convention.
+    @Test func clockTimeFollowsTheLocale() {
+        #expect(Formatting.clockTime(now, calendar: utc, locale: turkish) == "12:00")
+        // macOS puts a narrow no-break space (U+202F) before AM/PM.
+        #expect(Formatting.clockTime(now, calendar: utc, locale: american) == "12:00\u{202F}PM")
+    }
+
+    @Test func turnsAgreeWithTheCount() {
+        #expect(Formatting.turns(11) == "11 turns")
+        #expect(Formatting.turns(1) == "1 turn")
+        #expect(Formatting.turns(nil) == "—")
     }
 
     @Test func statusLabelsAndRanksCoverEveryCase() {
         #expect(
             TaskStatus.allCases.map(StatusPresentation.label(for:)) == [
-                "Gelen", "Hazır", "Kuyrukta", "Zamanlandı", "Çalışıyor", "Bitti", "Hata", "İptal",
+                "Inbox", "Ready", "Queued", "Scheduled", "Running", "Done", "Failed", "Cancelled",
             ])
         #expect(TaskStatus.allCases.allSatisfy { !StatusPresentation.symbol(for: $0).isEmpty })
         #expect(Set(TaskStatus.allCases.map(StatusPresentation.rank(for:))).count == TaskStatus.allCases.count)
@@ -55,17 +75,17 @@ struct FormattingTests {
         #expect(StatusPresentation.tint(for: TaskStatus.failed) == Color.red)
     }
 
-    @Test func runStateLabelsAreTurkish() {
+    @Test func runStateLabelsCoverEveryCase() {
         #expect(
             RunState.allCases.map(StatusPresentation.label(for:)) == [
-                "Başlıyor", "Çalışıyor", "Başarılı", "Hata", "İptal",
+                "Starting", "Running", "Succeeded", "Failed", "Cancelled",
             ])
         #expect(StatusPresentation.symbol(for: RunState.succeeded) == "checkmark.seal.fill")
     }
 
-    @Test func sortOrderAndViewModeHaveTurkishLabels() {
-        #expect(SortOrder.allCases.map(\.label) == ["En yeni", "En eski", "Manuel", "Duruma göre"])
-        #expect(ViewMode.allCases.map(\.label) == ["Izgara", "Liste"])
+    @Test func sortOrderAndViewModeHaveLabels() {
+        #expect(SortOrder.allCases.map(\.label) == ["Newest", "Oldest", "Manual", "By Status"])
+        #expect(ViewMode.allCases.map(\.label) == ["Grid", "List"])
         #expect(ViewMode.grid.symbol == "square.grid.2x2")
         #expect(ViewMode.list.symbol == "list.bullet")
     }

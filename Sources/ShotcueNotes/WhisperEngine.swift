@@ -1,4 +1,5 @@
 import Foundation
+import ShotcueCore
 import WhisperKit
 
 /// One transcribed span as WhisperKit reports it, converted to Double/seconds.
@@ -150,14 +151,16 @@ public actor WhisperKitEngine: WhisperEngine, WhisperModelSource {
     public func transcribe(url: URL, language: String) async throws -> [WhisperSegment] {
         try await load()
         guard let kit else { throw Failure.modelNotLoaded }
+        // "auto": no language, so Whisper detects it from the recording.
+        let automatic = TranscriptionLanguage.isAutomatic(language)
         let options = DecodingOptions(
             verbose: false,
             task: .transcribe,
-            language: language,
+            language: automatic ? nil : language,
             temperature: 0,
             temperatureFallbackCount: 3,
             usePrefillPrompt: true,
-            detectLanguage: false,
+            detectLanguage: automatic,
             skipSpecialTokens: true,
             withoutTimestamps: false,
             wordTimestamps: false,
@@ -176,6 +179,11 @@ public actor WhisperKitEngine: WhisperEngine, WhisperModelSource {
                 )
             }
         }
+    }
+
+    /// The language codes Whisper transcribes ("af", "ar", … "zh"), for Settings > Audio's language picker.
+    public static func supportedLanguageCodes() -> [String] {
+        Array(Set(Constants.languages.values)).sorted()
     }
 
     /// Names offered in Ayarlar > Ses; both models the spec mentions are in

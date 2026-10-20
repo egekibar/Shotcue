@@ -50,7 +50,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false)
-        window.title = "Shotcue Kurulumu"
+        window.title = L10n.t("Shotcue Setup")
         window.contentView = hosting
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.canJoinAllSpaces]

@@ -20,9 +20,9 @@ struct HotKeyRecorder: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            LabeledContent("Kısayol") {
+            LabeledContent(L10n.t("Shortcut")) {
                 HStack(spacing: 8) {
-                    Text(isRecording ? "Kombinasyona basın…" : settings.hotKeyLabel)
+                    Text(isRecording ? L10n.t("Press a combination…") : settings.hotKeyLabel)
                         .font(.system(.body, design: .rounded).monospaced())
                         .foregroundStyle(isRecording ? .secondary : .primary)
                         .padding(.horizontal, 8)
@@ -31,14 +31,14 @@ struct HotKeyRecorder: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .strokeBorder(isRecording ? Color.accentColor : Color.secondary.opacity(0.4))
                         )
-                    Button(isRecording ? "Vazgeç" : "Kaydet") {
+                    Button(isRecording ? L10n.t("Cancel") : L10n.t("Record")) {
                         isRecording ? stop() : start()
                     }
-                    Button("Varsayılan") { settings.hotKey = KeyCombo.defaultCombo }
+                    Button(L10n.t("Default")) { settings.hotKey = KeyCombo.defaultCombo }
                         .disabled(isRecording || settings.hotKey == KeyCombo.defaultCombo)
                 }
             }
-            Text(hint ?? "⌘, ⌃ veya ⌥ içeren bir kombinasyon ya da tek başına bir F tuşu. İptal için esc.")
+            Text(hint ?? L10n.t("A combination with ⌘, ⌃ or ⌥, or an F key on its own. Esc cancels."))
                 .font(.caption)
                 .foregroundStyle(hint == nil ? Color.secondary : Color.orange)
         }
@@ -76,7 +76,7 @@ struct HotKeyRecorder: View {
         guard
             let combo = KeyCombo.recorded(keyCode: UInt32(event.keyCode), modifiers: modifiers, characters: characters)
         else {
-            hint = "Bu kombinasyon kullanılamaz: ⌘, ⌃ veya ⌥ ile birlikte basın."
+            hint = L10n.t("This combination cannot be used: press it with ⌘, ⌃ or ⌥.")
             return
         }
         hint = nil

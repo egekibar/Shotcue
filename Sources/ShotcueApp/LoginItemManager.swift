@@ -16,15 +16,15 @@ enum LoginItemManager {
     static var statusText: String {
         switch SMAppService.mainApp.status {
         case .notRegistered:
-            return "kapalı"
+            return L10n.t("off")
         case .enabled:
-            return "etkin"
+            return L10n.t("on")
         case .requiresApproval:
-            return "Sistem Ayarları > Genel > Giriş Öğeleri'nde onay bekliyor"
+            return L10n.t("waiting for approval in System Settings > General > Login Items")
         case .notFound:
-            return "kullanılamıyor — Shotcue'yu Sistem Ayarları > Genel > Giriş Öğeleri'nden elle ekle"
+            return L10n.t("not available: add Shotcue by hand in System Settings > General > Login Items")
         @unknown default:
-            return "bilinmiyor"
+            return L10n.t("unknown")
         }
     }
 

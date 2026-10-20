@@ -8,7 +8,7 @@ import ShotcueCore
 final class AppStatusModel {
     /// `<cli> --version` per agent ("kontrol ediliyor…" until it answers) and whether the CLI was found.
     var agentVersions: [AgentKind: String] = Dictionary(
-        uniqueKeysWithValues: AgentKind.allCases.map { ($0, "kontrol ediliyor…") })
+        uniqueKeysWithValues: AgentKind.allCases.map { ($0, L10n.t("checking…")) })
     var agentFound: [AgentKind: Bool] = [:]
 
     /// What Settings shows for an agent: its version, or nil (the red "bulunamadı").
@@ -18,9 +18,9 @@ final class AppStatusModel {
     var projects: [Project] = []
     /// Microphones for Ayarlar > Ses (`AudioDeviceCatalog`), re-read whenever Settings opens.
     var inputDevices: [(uid: String, name: String)] = []
-    var loginItemStatusText: String = "bilinmiyor"
+    var loginItemStatusText: String = L10n.t("unknown")
     /// Apple Intelligence availability (`FoundationModelsStatus`, A19): shown in the Diagnostics strip.
-    var foundationModelsText: String = "bilinmiyor"
+    var foundationModelsText: String = L10n.t("unknown")
     var hotKeyError: String?
     var diagnosticsRunning: Bool = false
     var captureFlash: Bool = false

@@ -1,0 +1,59 @@
+/* ShotcueCore strings (en). Keys are the English source text; see docs/superpowers/plans/2026-10-20-shotcue-08-localization.md. */
+
+/* Run errors */
+"The run ended with an error." = "The run ended with an error.";
+"%@ reported an error" = "%@ reported an error";
+"Log in to %@ again." = "Log in to %@ again.";
+"Settings > Agents" = "Settings > Agents";
+"Cancelled." = "Cancelled.";
+"Cancelled before %@ started." = "Cancelled before %@ started.";
+"Stopped part way because the app quit." = "Stopped part way because the app quit.";
+"If the session started, you can continue it in Terminal or run it again." = "If the session started, you can continue it in Terminal or run it again.";
+"Timed out: the run was stopped at its time limit." = "Timed out: the run was stopped at its time limit.";
+"If needed, raise the timeout in %@ and run it again." = "If needed, raise the timeout in %@ and run it again.";
+"%@ was not found." = "%@ was not found.";
+"Check its path in %@." = "Check its path in %@.";
+"%@ could not be started." = "%@ could not be started.";
+"Run `%@` in Terminal and log in." = "Run `%@` in Terminal and log in.";
+"%@ exited with an error (code %lld)." = "%@ exited with an error (code %lld).";
+"%@ exited with an error." = "%@ exited with an error.";
+"%@ exited without a result line." = "%@ exited without a result line.";
+"Turn limit reached (%lld turns)." = "Turn limit reached (%lld turns).";
+"Turn limit reached." = "Turn limit reached.";
+"Raise the turn limit in %@ and run it again." = "Raise the turn limit in %@ and run it again.";
+"Budget limit reached." = "Budget limit reached.";
+"Raise the budget limit in %@ and run it again." = "Raise the budget limit in %@ and run it again.";
+"%@ stopped with an error while running." = "%@ stopped with an error while running.";
+"Check the log and run it again." = "Check the log and run it again.";
+"Not sent: the voice note is not transcribed yet." = "Not sent: the voice note is not transcribed yet.";
+"Send it again once the transcript is done." = "Send it again once the transcript is done.";
+"Not sent: the voice note could not be transcribed." = "Not sent: the voice note could not be transcribed.";
+"Type the transcript or transcribe it again, then send it again." = "Type the transcript or transcribe it again, then send it again.";
+"Not sent: the voice notes could not be read." = "Not sent: the voice notes could not be read.";
+"Send it again." = "Send it again.";
+"A new git branch could not be created; %@ was not started." = "A new git branch could not be created; %@ was not started.";
+"Fix the project's git state, or turn off \"Start every run on a new branch\" in the project settings." = "Fix the project's git state, or turn off \"Start every run on a new branch\" in the project settings.";
+"The changes could not be stashed; %@ was not started." = "The changes could not be stashed; %@ was not started.";
+"Fix the project's git state, or turn off \"Stash changes before every run\" in the project settings." = "Fix the project's git state, or turn off \"Stash changes before every run\" in the project settings.";
+"Project not found." = "Project not found.";
+"Assign the task to a project and send it again." = "Assign the task to a project and send it again.";
+"The project could not be read." = "The project could not be read.";
+"Project folder not found." = "Project folder not found.";
+"Right-click the project in the library and fix its path in \"Project Settings…\"." = "Right-click the project in the library and fix its path in \"Project Settings…\".";
+"The task changed or was deleted before %@ started; it was not run." = "The task changed or was deleted before %@ started; it was not run.";
+"An unexpected error occurred." = "An unexpected error occurred.";
+
+/* Schedule picks and updates */
+"In 1 hour" = "In 1 hour";
+"This evening at %@" = "This evening at %@";
+"Tomorrow at %@" = "Tomorrow at %@";
+"GitHub could not be reached. Check your internet connection and try again." = "GitHub could not be reached. Check your internet connection and try again.";
+"GitHub is getting too many requests right now. Try again in an hour." = "GitHub is getting too many requests right now. Try again in an hour.";
+"The latest release's details could not be read." = "The latest release's details could not be read.";
+"This release has no DMG to download." = "This release has no DMG to download.";
+"This release has no SHA-256 file, so the update cannot be verified." = "This release has no SHA-256 file, so the update cannot be verified.";
+"The update could not be verified: the downloaded file's SHA-256 does not match." = "The update could not be verified: the downloaded file's SHA-256 does not match.";
+"Shotcue is not running from an app bundle, so the update cannot be installed." = "Shotcue is not running from an app bundle, so the update cannot be installed.";
+"%@ is not writable. You can install the update from the DMG yourself." = "%@ is not writable. You can install the update from the DMG yourself.";
+"The downloaded package is not the expected app (%@)." = "The downloaded package is not the expected app (%@).";
+"The update could not be prepared." = "The update could not be prepared.";

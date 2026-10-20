@@ -266,8 +266,8 @@ struct RunCoordinatorTests {
 
         try await h.coordinator.enqueue(taskID: task.id)
         await waitUntil("run succeeded") { await h.runs(of: task.id).first?.state == .succeeded }
-        #expect(h.notifier.sent.current.first?.body == "Tamamlandı")
-        #expect(RunCoordinator.doneBody(summary: nil) == "Tamamlandı")
+        #expect(h.notifier.sent.current.first?.body == "Done")
+        #expect(RunCoordinator.doneBody(summary: nil) == "Done")
         #expect(RunCoordinator.doneBody(summary: "Bitti.") == "Bitti.")
     }
 
@@ -294,7 +294,7 @@ struct RunCoordinatorTests {
         #expect(notification.kind == .runFailed)
         // Final review I6: the Turkish text comes from the one mapping, with the §8 limit hint.
         #expect(notification.body == RunErrorText.notificationBody(for: RunErrorCode.maxTurns, numTurns: 30))
-        #expect(notification.body.contains("tur limitini artırıp"))
+        #expect(notification.body.contains("Raise the turn limit"))
     }
 
     @Test func cancelledRunnerErrorMapsToCancelledWithoutANotification() async throws {
@@ -323,7 +323,7 @@ struct RunCoordinatorTests {
         let run = try #require(await h.runs(of: task.id).first)
         #expect(run.exitCode == 1)
         #expect(run.error == RunErrorCode.claudeNotLoggedIn)
-        #expect(h.notifier.sent.current.first?.body.contains("claude ile tekrar giriş yapın.") == true)
+        #expect(h.notifier.sent.current.first?.body.contains("Log in to claude again.") == true)
         #expect(h.notifier.sent.current.first?.kind == .runFailed)
     }
 
@@ -383,13 +383,13 @@ struct RunCoordinatorTests {
         // A rejected key is a lost session: spec §8's login hint leads, claude's line follows it.
         #expect(
             notification.body
-                == "claude ile tekrar giriş yapın. claude hata bildirdi: Invalid API key · Please run /login")
+                == "Log in to claude again. claude reported an error: Invalid API key · Please run /login")
         // The inspector reads the same row: claude's line as the result text (primary), the Turkish text and the
         // login hint under it, and no second copy of the line.
         #expect(run.resultText == "Invalid API key · Please run /login")
         let failure = try #require(RunErrorText.describe(run.error, exitCode: run.exitCode, numTurns: run.numTurns))
-        #expect(failure.message == "claude hata bildirdi.")
-        #expect(failure.suggestion == "claude ile tekrar giriş yapın.")
+        #expect(failure.message == "claude reported an error.")
+        #expect(failure.suggestion == "Log in to claude again.")
         #expect(failure.detail == "Invalid API key · Please run /login")
         #expect(failure.detailIsShown(in: run.resultText))
     }
@@ -414,7 +414,7 @@ struct RunCoordinatorTests {
         #expect(run.error == stored)
         let notification = try #require(h.notifier.sent.current.first)
         #expect(notification.body == RunErrorText.notificationBody(for: run.error, numTurns: run.numTurns))
-        #expect(notification.body.hasPrefix("claude hata bildirdi"))
+        #expect(notification.body.hasPrefix("claude reported an error"))
     }
 
     @Test func cancelForwardsToTheRunnerWhileRunningAndUnqueuesOtherwise() async throws {
@@ -759,7 +759,7 @@ struct RunCoordinatorTests {
         #expect(notification.kind == .runFailed)
         #expect(notification.taskID == task.id)
         #expect(notification.runID == run.id)
-        #expect(notification.body.contains("Sesli not"))
+        #expect(notification.body.contains("voice note"))
     }
 
     @Test func aTranscriptThatFinishedLetsTheNextSendRun() async throws {

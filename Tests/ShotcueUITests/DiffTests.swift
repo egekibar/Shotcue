@@ -68,9 +68,9 @@ struct TaskDiffTests {
         defer { f.cleanUp() }
         await store.showDiff(runID: run.id)
         #expect(store.isDiffPresented == false)
-        #expect(store.lastError?.hasPrefix("Diff alınamadı") == true)
+        #expect(store.lastError?.hasPrefix("No changes to show") == true)
         // A fixed Turkish explanation: no raw (English) error text reaches the UI.
-        #expect(store.lastError == "Diff alınamadı: proje bir git deposu değil ya da git komutu başarısız oldu.")
+        #expect(store.lastError == "No changes to show: the project is not a git repository, or git failed.")
     }
 
     @MainActor
@@ -90,7 +90,7 @@ struct TaskDiffTests {
         let sheet = DiffSheet(document: document, text: "raw", onClose: {})
         #expect(sheet.text == "raw")
         #expect(sheet.initialSelection == 0)
-        #expect(sheet.summary == "2 dosya · +2 −1")
+        #expect(sheet.summary == "2 files · +2 −1")
         #expect(DiffSheet(document: DiffDocument(), text: "", onClose: {}).initialSelection == nil)
     }
 

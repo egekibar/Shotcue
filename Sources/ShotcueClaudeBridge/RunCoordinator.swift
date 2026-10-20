@@ -481,7 +481,8 @@ public actor RunCoordinator: TaskDispatcher {
             permissionMode: task.mode == .analyze ? .dontAsk : settings.permissionMode,
             addDirs: [fileStore.rootURL.appendingPathComponent(FileStore.capturesDir, isDirectory: true).path],
             images: screenshots.map(\.absolutePath),
-            systemPromptAppend: PromptBuilder.systemPromptAppend + (extra.isEmpty ? "" : "\n\n" + extra))
+            systemPromptAppend: PromptBuilder.systemPrompt(interfaceLanguage: PromptBuilder.interfaceLanguage)
+                + (extra.isEmpty ? "" : "\n\n" + extra))
     }
 
     /// Every status change goes through `ShotTask.transition` (Plan 00 Task 2) — direct assignment is
@@ -526,7 +527,7 @@ public actor RunCoordinator: TaskDispatcher {
     /// Spec §5.5: the "done" notification carries the one-line summary. The run's cost is recorded but never shown:
     /// on a subscription it is only an API-price estimate, and a dollar figure reads like a bill.
     static func doneBody(summary: String?) -> String {
-        summary ?? "Tamamlandı"
+        summary ?? L10n.t("Done")
     }
 
     /// The first line git printed (its stderr), which says what is wrong; otherwise the error's own description.

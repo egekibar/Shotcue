@@ -13,27 +13,35 @@ public enum ScheduleSuggestions {
         }
     }
 
-    /// "Bu akşam 18:00" is offered only while 18:00 is at least this far away.
+    /// "This evening at 18:00" is offered only while 18:00 is at least this far away.
     static let eveningLeadTime: TimeInterval = 30 * 60
 
-    /// "1 saat sonra" (rounded up to five minutes), "Bu akşam 18:00" while there is time, "Yarın 09:00".
-    public static func suggestions(now: Date, calendar: Calendar) -> [Suggestion] {
+    /// "In 1 hour" (rounded up to five minutes), "This evening at 18:00" while there is time, "Tomorrow at 09:00", the
+    /// times in the locale's clock ("6:00 PM" in US English).
+    public static func suggestions(
+        now: Date, calendar: Calendar, locale: Locale = .autoupdatingCurrent
+    ) -> [Suggestion] {
+        func clock(_ date: Date) -> String {
+            date.formatted(
+                Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar,
+                    timeZone: calendar.timeZone))
+        }
         let inAnHour = roundedUpToFiveMinutes(now.addingTimeInterval(3600), calendar: calendar)
-        var result = [Suggestion(label: "1 saat sonra", date: inAnHour)]
+        var result = [Suggestion(label: L10n.t("In 1 hour"), date: inAnHour)]
         if let evening = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: now),
             evening.timeIntervalSince(now) >= eveningLeadTime
         {
-            result.append(Suggestion(label: "Bu akşam 18:00", date: evening))
+            result.append(Suggestion(label: L10n.t("This evening at \(clock(evening))"), date: evening))
         }
         if let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)),
             let morning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow)
         {
-            result.append(Suggestion(label: "Yarın 09:00", date: morning))
+            result.append(Suggestion(label: L10n.t("Tomorrow at \(clock(morning))"), date: morning))
         }
         return result
     }
 
-    /// A task cannot be scheduled for now or earlier: it would run at once, which is "Şimdi gönder".
+    /// A task cannot be scheduled for now or earlier: it would run at once, which is "Send Now".
     public static func isInPast(_ date: Date, now: Date) -> Bool {
         date <= now
     }

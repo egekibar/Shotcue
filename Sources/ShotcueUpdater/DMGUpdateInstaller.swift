@@ -92,15 +92,15 @@ public final class DMGUpdateInstaller: UpdateInstaller {
 
         let contents = (try? fm.contentsOfDirectory(at: mountPoint, includingPropertiesForKeys: nil)) ?? []
         guard let source = contents.first(where: { $0.pathExtension == "app" }) else {
-            throw UpdateError.invalidBundle("DMG'de uygulama yok")
+            throw UpdateError.invalidBundle(L10n.t("the DMG has no app"))
         }
         let info = NSDictionary(contentsOf: source.appendingPathComponent("Contents/Info.plist"))
         guard info?["CFBundleIdentifier"] as? String == bundleID else {
-            throw UpdateError.invalidBundle("paket kimliği farklı")
+            throw UpdateError.invalidBundle(L10n.t("a different bundle ID"))
         }
         guard let shortVersion = info?["CFBundleShortVersionString"] as? String,
             AppVersion(shortVersion) == version
-        else { throw UpdateError.invalidBundle("sürüm \(version) değil") }
+        else { throw UpdateError.invalidBundle(L10n.t("not version \(version.description)")) }
 
         let staging: URL
         do {
